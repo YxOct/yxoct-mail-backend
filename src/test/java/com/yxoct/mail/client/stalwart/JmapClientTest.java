@@ -3,6 +3,8 @@ package com.yxoct.mail.client.stalwart;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
@@ -10,6 +12,7 @@ import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -59,6 +62,22 @@ class JmapClientTest {
   }
 
   @Test
+  void mapsHttpErrorToMailServiceUnavailable() {
+    server.expect(requestTo("http://localhost/.well-known/jmap")).andRespond(withServerError());
+
+    assertMailServiceUnavailable(client::getSession);
+  }
+
+  @Test
+  void mapsConnectionFailureToMailServiceUnavailable() {
+    server
+        .expect(requestTo("http://localhost/.well-known/jmap"))
+        .andRespond(withException(new IOException("Connection timed out")));
+
+    assertMailServiceUnavailable(client::getSession);
+  }
+
+  @Test
   void rejectsJmapMethodError() {
     server
         .expect(requestTo("http://localhost/jmap"))
@@ -104,6 +123,18 @@ class JmapClientTest {
 
     assertThat(result.ids()).containsExactly("email-1");
     assertThat(result.total()).isEqualTo(1);
+  }
+
+  @Test
+  void mapsInvalidResponsePayloadToMailServiceUnavailable() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/query\",\"invalid\",\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    assertMailServiceUnavailable(() -> client.queryEmails(session(), "inbox", 0, 20));
   }
 
   private void assertMailServiceUnavailable(

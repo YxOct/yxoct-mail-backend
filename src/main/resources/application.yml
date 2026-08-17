@@ -1,6 +1,10 @@
 spring:
   application:
     name: yxoct-mail-backend
+  http:
+    clients:
+      connect-timeout: ${STALWART_CONNECT_TIMEOUT:5s}
+      read-timeout: ${STALWART_READ_TIMEOUT:10s}
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
 server:

@@ -14,8 +14,11 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -38,12 +41,16 @@ public class JmapClient {
   public JmapSession getSession() {
 
     JmapSession session =
-        restClient
-            .get()
-            .uri("/.well-known/jmap")
-            .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
-            .retrieve()
-            .body(JmapSession.class);
+        executeRequest(
+            () ->
+                restClient
+                    .get()
+                    .uri("/.well-known/jmap")
+                    .headers(
+                        headers ->
+                            headers.setBasicAuth(properties.username(), properties.password()))
+                    .retrieve()
+                    .body(JmapSession.class));
 
     validateSession(session);
     return session;
@@ -73,8 +80,7 @@ public class JmapClient {
                         true),
                     "0")));
 
-    return objectMapper.convertValue(
-        invoke(session, request, "Email/query"), EmailQueryResult.class);
+    return convertResponse(invoke(session, request, "Email/query"), EmailQueryResult.class);
   }
 
   public EmailListResult getEmailSummaries(JmapSession session, List<String> ids) {
@@ -96,7 +102,7 @@ public class JmapClient {
                         List.of("id", "subject", "preview", "receivedAt")),
                     "0")));
 
-    return objectMapper.convertValue(invoke(session, request, "Email/get"), EmailListResult.class);
+    return convertResponse(invoke(session, request, "Email/get"), EmailListResult.class);
   }
 
   public EmailDetailResult getEmailDetails(JmapSession session, List<String> ids) {
@@ -131,8 +137,7 @@ public class JmapClient {
                         true),
                     "0")));
 
-    return objectMapper.convertValue(
-        invoke(session, request, "Email/get"), EmailDetailResult.class);
+    return convertResponse(invoke(session, request, "Email/get"), EmailDetailResult.class);
   }
 
   public MailboxGetResult getMailboxes(JmapSession session) {
@@ -144,8 +149,7 @@ public class JmapClient {
             List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
             List.of(new JmapMethodCall("Mailbox/get", Map.of("accountId", accountId), "0")));
 
-    return objectMapper.convertValue(
-        invoke(session, request, "Mailbox/get"), MailboxGetResult.class);
+    return convertResponse(invoke(session, request, "Mailbox/get"), MailboxGetResult.class);
   }
 
   private JsonNode invoke(JmapSession session, JmapRequest request, String expectedMethod) {
@@ -195,14 +199,37 @@ public class JmapClient {
     return new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE);
   }
 
+  private BusinessException mailServiceUnavailable(Throwable cause) {
+    return new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, cause);
+  }
+
+  private <T> T executeRequest(Supplier<T> request) {
+    try {
+      return request.get();
+    } catch (RestClientException exception) {
+      throw mailServiceUnavailable(exception);
+    }
+  }
+
+  private <T> T convertResponse(JsonNode response, Class<T> responseType) {
+    try {
+      return objectMapper.convertValue(response, responseType);
+    } catch (JacksonException | IllegalArgumentException exception) {
+      throw mailServiceUnavailable(exception);
+    }
+  }
+
   private JmapResponse post(JmapSession session, JmapRequest request) {
 
-    return restClient
-        .post()
-        .uri(session.apiUrl())
-        .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
-        .body(request)
-        .retrieve()
-        .body(JmapResponse.class);
+    return executeRequest(
+        () ->
+            restClient
+                .post()
+                .uri(session.apiUrl())
+                .headers(
+                    headers -> headers.setBasicAuth(properties.username(), properties.password()))
+                .body(request)
+                .retrieve()
+                .body(JmapResponse.class));
   }
 }
