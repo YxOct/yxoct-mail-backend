@@ -1,6 +1,7 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.dto.JmapResponse;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.common.response.ApiResponse;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,5 +29,13 @@ public class JmapTestController {
   @GetMapping("/session")
   public ApiResponse<JmapSession> getSession() {
     return ApiResponse.success(jmapClient.getSession(username, password));
+  }
+
+  @GetMapping("/emails")
+  public ApiResponse<JmapResponse> emails() {
+
+    JmapSession session = jmapClient.getSession(username, password);
+
+    return ApiResponse.success(jmapClient.queryEmails(session, username, password));
   }
 }
