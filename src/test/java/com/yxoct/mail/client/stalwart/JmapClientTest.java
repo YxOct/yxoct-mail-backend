@@ -53,7 +53,7 @@ class JmapClientTest {
         .expect(requestTo("http://localhost/.well-known/jmap"))
         .andRespond(
             withSuccess(
-                "{\"primaryAccounts\":{},\"apiUrl\":\"http://localhost/jmap\"}",
+                "{\"primaryAccounts\":{},\"apiUrl\":\"http://localhost/jmap\",\"state\":\"state\"}",
                 MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(client::getSession);
@@ -62,6 +62,17 @@ class JmapClientTest {
   @Test
   void rejectsInvalidSessionBeforeSendingRequest() {
     assertMailServiceUnavailable(() -> client.queryEmails(null, "inbox", 0, 20));
+  }
+
+  @Test
+  void rejectsMalformedMethodResponseTuple() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/query\",{}]]}", MediaType.APPLICATION_JSON));
+
+    assertMailServiceUnavailable(() -> client.queryEmails(session(), "inbox", 0, 20));
   }
 
   @Test
@@ -121,7 +132,7 @@ class JmapClientTest {
         .andExpect(jsonPath("$.methodCalls[0][1].sort[0].isAscending").value(false))
         .andRespond(
             withSuccess(
-                "{\"methodResponses\":[[\"Email/query\",{\"position\":0,\"total\":1,\"ids\":[\"email-1\"]},\"0\"]]}",
+                "{\"methodResponses\":[[\"Email/query\",{\"accountId\":\"account-1\",\"queryState\":\"query-state\",\"position\":0,\"total\":1,\"ids\":[\"email-1\"]},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
     EmailQueryResult result = client.queryEmails(session(), "inbox", 0, 20);
@@ -143,6 +154,18 @@ class JmapClientTest {
   }
 
   @Test
+  void rejectsQueryResponseForAnotherAccount() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/query\",{\"accountId\":\"other-account\",\"queryState\":\"query-state\",\"position\":0,\"total\":0,\"ids\":[]},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    assertMailServiceUnavailable(() -> client.queryEmails(session(), "inbox", 0, 20));
+  }
+
+  @Test
   void deserializesTypedEmailDetailFields() {
     server
         .expect(requestTo("http://localhost/jmap"))
@@ -153,6 +176,8 @@ class JmapClientTest {
                   "methodResponses": [[
                     "Email/get",
                     {
+                      "accountId": "account-1",
+                      "state": "state",
                       "list": [{
                         "id": "email-1",
                         "from": [{"name": "Sender", "email": "sender@example.com"}],

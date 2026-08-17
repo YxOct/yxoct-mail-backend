@@ -12,8 +12,13 @@ import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
+import java.net.URI;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
@@ -82,7 +87,21 @@ public class JmapClient {
                         true),
                     "0")));
 
-    return convertResponse(invoke(session, request, "Email/query"), EmailQueryResult.class);
+    EmailQueryResult result =
+        convertResponse(invoke(session, request, "Email/query"), EmailQueryResult.class);
+
+    if (result == null
+        || !accountId.equals(result.accountId())
+        || result.queryState() == null
+        || result.queryState().isBlank()
+        || result.position() != position
+        || result.total() == null
+        || result.total() < 0
+        || !hasUniqueIds(result.ids())) {
+      throw mailServiceUnavailable();
+    }
+
+    return result;
   }
 
   public EmailListResult getEmailSummaries(JmapSession session, List<String> ids) {
@@ -104,7 +123,17 @@ public class JmapClient {
                         List.of("id", "subject", "preview", "receivedAt")),
                     "0")));
 
-    return convertResponse(invoke(session, request, "Email/get"), EmailListResult.class);
+    EmailListResult result =
+        convertResponse(invoke(session, request, "Email/get"), EmailListResult.class);
+    validateGetResult(
+        accountId,
+        result == null ? null : result.accountId(),
+        result == null ? null : result.state(),
+        result == null ? null : result.list(),
+        result == null ? null : result.notFound(),
+        ids,
+        EmailListResult.EmailInfo::id);
+    return result;
   }
 
   public EmailDetailResult getEmailDetails(JmapSession session, List<String> ids) {
@@ -139,7 +168,17 @@ public class JmapClient {
                         true),
                     "0")));
 
-    return convertResponse(invoke(session, request, "Email/get"), EmailDetailResult.class);
+    EmailDetailResult result =
+        convertResponse(invoke(session, request, "Email/get"), EmailDetailResult.class);
+    validateGetResult(
+        accountId,
+        result == null ? null : result.accountId(),
+        result == null ? null : result.state(),
+        result == null ? null : result.list(),
+        result == null ? null : result.notFound(),
+        ids,
+        EmailDetailResult.EmailInfo::id);
+    return result;
   }
 
   public MailboxGetResult getMailboxes(JmapSession session) {
@@ -151,7 +190,22 @@ public class JmapClient {
             List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
             List.of(new JmapMethodCall("Mailbox/get", Map.of("accountId", accountId), "0")));
 
-    return convertResponse(invoke(session, request, "Mailbox/get"), MailboxGetResult.class);
+    MailboxGetResult result =
+        convertResponse(invoke(session, request, "Mailbox/get"), MailboxGetResult.class);
+
+    if (result == null
+        || !accountId.equals(result.accountId())
+        || result.state() == null
+        || result.state().isBlank()
+        || result.list() == null
+        || result.list().stream().anyMatch(Objects::isNull)
+        || !hasUniqueIds(result.list().stream().map(MailboxGetResult.MailboxInfo::id).toList())
+        || result.notFound() == null
+        || !result.notFound().isEmpty()) {
+      throw mailServiceUnavailable();
+    }
+
+    return result;
   }
 
   private JsonNode invoke(JmapSession session, JmapRequest request, String expectedMethod) {
@@ -181,7 +235,11 @@ public class JmapClient {
 
   private void validateSession(JmapSession session) {
 
-    if (session == null || session.apiUrl() == null || session.primaryAccounts() == null) {
+    if (session == null
+        || !isValidApiUrl(session.apiUrl())
+        || session.primaryAccounts() == null
+        || session.state() == null
+        || session.state().isBlank()) {
       throw mailServiceUnavailable();
     }
 
@@ -195,6 +253,57 @@ public class JmapClient {
   private String getMailAccountId(JmapSession session) {
     validateSession(session);
     return session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+  }
+
+  private boolean isValidApiUrl(URI apiUrl) {
+    return apiUrl != null
+        && apiUrl.isAbsolute()
+        && apiUrl.getHost() != null
+        && ("http".equalsIgnoreCase(apiUrl.getScheme())
+            || "https".equalsIgnoreCase(apiUrl.getScheme()));
+  }
+
+  private boolean hasUniqueIds(List<String> ids) {
+    return ids != null
+        && ids.stream().allMatch(id -> id != null && !id.isBlank())
+        && new HashSet<>(ids).size() == ids.size();
+  }
+
+  private <T> void validateGetResult(
+      String expectedAccountId,
+      String actualAccountId,
+      String state,
+      List<T> list,
+      List<String> notFound,
+      List<String> requestedIds,
+      Function<T, String> idExtractor) {
+
+    if (!expectedAccountId.equals(actualAccountId)
+        || state == null
+        || state.isBlank()
+        || list == null
+        || list.stream().anyMatch(Objects::isNull)
+        || notFound == null
+        || !hasUniqueIds(requestedIds)
+        || !hasUniqueIds(notFound)) {
+      throw mailServiceUnavailable();
+    }
+
+    List<String> foundIds = list.stream().map(idExtractor).toList();
+    if (!hasUniqueIds(foundIds)) {
+      throw mailServiceUnavailable();
+    }
+
+    Set<String> requested = Set.copyOf(requestedIds);
+    Set<String> returned = new HashSet<>(foundIds);
+    if (notFound.stream().anyMatch(returned::contains)) {
+      throw mailServiceUnavailable();
+    }
+
+    returned.addAll(notFound);
+    if (!returned.equals(requested)) {
+      throw mailServiceUnavailable();
+    }
   }
 
   private BusinessException mailServiceUnavailable() {

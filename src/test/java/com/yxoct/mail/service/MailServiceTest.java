@@ -58,7 +58,7 @@ class MailServiceTest {
   @Test
   void returnsEmptyPageWithoutFetchingSummaries() {
     when(jmapClient.queryEmails(session, "inbox", 0, 20))
-        .thenReturn(new EmailQueryResult(0, 0, List.of()));
+        .thenReturn(new EmailQueryResult("account-1", "query-state", 0, 0, List.of()));
 
     MailPage<MailSummary> page = mailService.queryEmails("inbox", 1, 20);
 
@@ -78,13 +78,16 @@ class MailServiceTest {
   @Test
   void mapsEmailSummariesAndDefaultsMissingTotal() {
     when(jmapClient.queryEmails(session, "inbox", 20, 20))
-        .thenReturn(new EmailQueryResult(20, null, List.of("email-1")));
+        .thenReturn(new EmailQueryResult("account-1", "query-state", 20, null, List.of("email-1")));
     when(jmapClient.getEmailSummaries(session, List.of("email-1")))
         .thenReturn(
             new EmailListResult(
+                "account-1",
+                "state",
                 List.of(
                     new EmailListResult.EmailInfo(
-                        "email-1", "Subject", "Preview", "2026-08-18T00:00:00Z"))));
+                        "email-1", "Subject", "Preview", "2026-08-18T00:00:00Z")),
+                List.of()));
 
     MailPage<MailSummary> page = mailService.queryEmails("inbox", 2, 20);
 
@@ -96,7 +99,7 @@ class MailServiceTest {
   @Test
   void rejectsEmailQueryWithoutIds() {
     when(jmapClient.queryEmails(session, "inbox", 0, 20))
-        .thenReturn(new EmailQueryResult(0, 0, null));
+        .thenReturn(new EmailQueryResult("account-1", "query-state", 0, 0, null));
 
     assertBusinessError(
         () -> mailService.queryEmails("inbox", 1, 20), ErrorCode.MAIL_SERVICE_UNAVAILABLE);
@@ -150,7 +153,8 @@ class MailServiceTest {
 
   @Test
   void rejectsMailboxResultWithoutList() {
-    when(jmapClient.getMailboxes(session)).thenReturn(new MailboxGetResult(null));
+    when(jmapClient.getMailboxes(session))
+        .thenReturn(new MailboxGetResult("account-1", "state", null, List.of()));
 
     assertBusinessError(mailService::getMailboxes, ErrorCode.MAIL_SERVICE_UNAVAILABLE);
   }
