@@ -1,0 +1,35 @@
+package com.yxoct.mail.config;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import java.net.URI;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.junit.jupiter.api.Test;
+
+class StalwartPropertiesTest {
+
+  private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+
+  @Test
+  void acceptsCompleteConfiguration() {
+    StalwartProperties properties =
+        new StalwartProperties(URI.create("https://mail.example.com"), "user", "password");
+
+    assertThat(validator.validate(properties)).isEmpty();
+  }
+
+  @Test
+  void rejectsMissingRequiredConfiguration() {
+    StalwartProperties properties = new StalwartProperties(null, " ", "");
+
+    Set<String> invalidProperties =
+        validator.validate(properties).stream()
+            .map(violation -> violation.getPropertyPath().toString())
+            .collect(Collectors.toSet());
+
+    assertThat(invalidProperties).containsExactlyInAnyOrder("baseUrl", "username", "password");
+  }
+}

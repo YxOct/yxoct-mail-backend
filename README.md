@@ -6,6 +6,16 @@ Backend service for YxOct Mail.
 
 Create `.env` based on `.env.example` and configure the required environment variables before running the application.
 
+The default `dev` profile loads `.env` from the project root and requires:
+
+- `STALWART_BASE_URL`: Stalwart server base URL.
+- `STALWART_TEST_USERNAME`: Development mailbox username.
+- `STALWART_TEST_PASSWORD`: Development mailbox password.
+
+The optional `STALWART_CONNECT_TIMEOUT` and `STALWART_READ_TIMEOUT` values use Spring Boot duration syntax and default to `5s` and `10s`.
+
+The `prod` profile does not load `.env`. Supply `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required Stalwart setting is missing.
+
 ## Run
 
 **Windows:**

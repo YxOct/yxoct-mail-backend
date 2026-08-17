@@ -1,2 +1,4 @@
 stalwart:
   base-url: ${STALWART_BASE_URL:http://localhost}
+  username: test-user
+  password: test-password
