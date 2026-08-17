@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.common.exception.BusinessException;
@@ -14,6 +15,7 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
 import java.io.IOException;
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -135,6 +137,45 @@ class JmapClientTest {
                 MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(() -> client.queryEmails(session(), "inbox", 0, 20));
+  }
+
+  @Test
+  void deserializesTypedEmailDetailFields() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                """
+                {
+                  "methodResponses": [[
+                    "Email/get",
+                    {
+                      "list": [{
+                        "id": "email-1",
+                        "from": [{"name": "Sender", "email": "sender@example.com"}],
+                        "bodyValues": {
+                          "part-1": {"value": "Hello", "isTruncated": false}
+                        },
+                        "textBody": [{
+                          "partId": "part-1",
+                          "type": "text/plain",
+                          "size": 5
+                        }]
+                      }],
+                      "notFound": []
+                    },
+                    "0"
+                  ]]
+                }
+                """,
+                MediaType.APPLICATION_JSON));
+
+    EmailDetailResult result = client.getEmailDetails(session(), List.of("email-1"));
+
+    EmailDetailResult.EmailInfo email = result.list().getFirst();
+    assertThat(email.from().getFirst().email()).isEqualTo("sender@example.com");
+    assertThat(email.textBody().getFirst().partId()).isEqualTo("part-1");
+    assertThat(email.bodyValues().get("part-1").value()).isEqualTo("Hello");
   }
 
   private void assertMailServiceUnavailable(

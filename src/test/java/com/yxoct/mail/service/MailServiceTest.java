@@ -7,6 +7,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.dto.EmailAddress;
+import com.yxoct.mail.client.stalwart.dto.EmailBodyPart;
+import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
@@ -105,11 +108,11 @@ class MailServiceTest {
             "Subject",
             "Preview",
             "2026-08-18T00:00:00Z",
-            List.of(Map.of("name", "Sender", "email", "sender@example.com")),
+            List.of(new EmailAddress("Sender", "sender@example.com")),
             null,
-            Map.of("html-part", Map.of("value", "<p>Hello</p>")),
-            List.of(Map.of("type", "text/plain")),
-            List.of(Map.of("partId", "html-part")));
+            Map.of("html-part", new EmailBodyValue("<p>Hello</p>")),
+            List.of(new EmailBodyPart(null)),
+            List.of(new EmailBodyPart("html-part")));
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
 

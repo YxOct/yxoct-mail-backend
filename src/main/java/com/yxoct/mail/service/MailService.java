@@ -1,6 +1,9 @@
 package com.yxoct.mail.service;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.dto.EmailAddress;
+import com.yxoct.mail.client.stalwart.dto.EmailBodyPart;
+import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
@@ -14,7 +17,6 @@ import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
 
@@ -104,18 +106,14 @@ public class MailService {
   }
 
   /** 转换发件人/收件人 */
-  private List<MailAddress> convertAddresses(List<Map<String, Object>> addresses) {
+  private List<MailAddress> convertAddresses(List<EmailAddress> addresses) {
 
     if (addresses == null) {
       return List.of();
     }
 
     return requireList(addresses).stream()
-        .map(
-            address ->
-                new MailAddress(
-                    Objects.toString(address.get("name"), null),
-                    Objects.toString(address.get("email"), null)))
+        .map(address -> new MailAddress(address.name(), address.email()))
         .toList();
   }
 
@@ -136,19 +134,12 @@ public class MailService {
       return null;
     }
 
-    Object body = email.bodyValues().get(partId);
+    EmailBodyValue body = email.bodyValues().get(partId);
 
-    if (body instanceof Map<?, ?> map) {
-
-      Object value = map.get("value");
-
-      return value == null ? null : value.toString();
-    }
-
-    return null;
+    return body == null ? null : body.value();
   }
 
-  private String findPartId(List<Map<String, Object>> bodyParts) {
+  private String findPartId(List<EmailBodyPart> bodyParts) {
 
     if (bodyParts == null) {
       return null;
@@ -156,9 +147,8 @@ public class MailService {
 
     return bodyParts.stream()
         .filter(Objects::nonNull)
-        .map(part -> part.get("partId"))
+        .map(EmailBodyPart::partId)
         .filter(Objects::nonNull)
-        .map(Object::toString)
         .filter(partId -> !partId.isBlank())
         .findFirst()
         .orElse(null);

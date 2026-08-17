@@ -11,9 +11,9 @@ public record EmailDetailResult(
       String subject,
       String preview,
       String receivedAt,
-      List<Map<String, Object>> from,
-      List<Map<String, Object>> to,
-      Map<String, Object> bodyValues,
-      List<Map<String, Object>> textBody,
-      List<Map<String, Object>> htmlBody) {}
+      List<EmailAddress> from,
+      List<EmailAddress> to,
+      Map<String, EmailBodyValue> bodyValues,
+      List<EmailBodyPart> textBody,
+      List<EmailBodyPart> htmlBody) {}
 }
