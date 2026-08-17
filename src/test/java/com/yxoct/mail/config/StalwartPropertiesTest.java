@@ -32,4 +32,16 @@ class StalwartPropertiesTest {
 
     assertThat(invalidProperties).containsExactlyInAnyOrder("baseUrl", "username", "password");
   }
+
+  @Test
+  void rejectsRelativeBaseUrl() {
+    StalwartProperties properties =
+        new StalwartProperties(URI.create("mail.example.com"), "user", "password");
+
+    assertThat(validator.validate(properties))
+        .singleElement()
+        .satisfies(
+            violation ->
+                assertThat(violation.getPropertyPath().toString()).isEqualTo("baseUrlValid"));
+  }
 }
