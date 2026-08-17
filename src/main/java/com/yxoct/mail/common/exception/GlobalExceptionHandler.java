@@ -21,7 +21,11 @@ public class GlobalExceptionHandler {
     ApiResponse<Void> response = ApiResponse.error(errorCode);
 
     log.warn(
-        "Business exception: code={}, message={}", errorCode.getCode(), errorCode.getHttpStatus());
+        "Business exception: code={}, status={}, message={}",
+        errorCode.getCode(),
+        errorCode.getHttpStatus(),
+        errorCode.getMessage(),
+        exception.getCause());
 
     return ResponseEntity.status(errorCode.getHttpStatus()).body(response);
   }
