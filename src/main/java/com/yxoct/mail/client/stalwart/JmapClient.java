@@ -50,8 +50,7 @@ public class JmapClient {
         .body(JmapResponse.class);
   }
 
-  public JmapResponse getEmails(
-      JmapSession session, List<String> ids) {
+  public JmapResponse getEmails(JmapSession session, List<String> ids) {
 
     String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
 
