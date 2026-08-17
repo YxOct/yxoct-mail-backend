@@ -7,6 +7,9 @@ spring:
       read-timeout: ${STALWART_READ_TIMEOUT:10s}
 server:
   port: ${SERVER_PORT:8080}
+logging:
+  pattern:
+    correlation: "[requestId=%X{requestId:-}] "
 management:
   endpoints:
     web:

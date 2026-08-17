@@ -2,6 +2,7 @@ package com.yxoct.mail.client.stalwart;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
@@ -14,6 +15,7 @@ import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -23,6 +25,7 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -46,7 +49,25 @@ class JmapClientTest {
 
   @AfterEach
   void verifyRequests() {
-    server.verify();
+    try {
+      server.verify();
+    } finally {
+      MDC.clear();
+    }
+  }
+
+  @Test
+  void propagatesRequestIdToStalwart() {
+    MDC.put(RequestIdContext.MDC_KEY, "request-123");
+    server
+        .expect(requestTo("http://localhost/.well-known/jmap"))
+        .andExpect(header(RequestIdContext.HEADER_NAME, "request-123"))
+        .andRespond(
+            withSuccess(
+                "{\"primaryAccounts\":{\"urn:ietf:params:jmap:mail\":\"account-1\"},\"apiUrl\":\"http://localhost/jmap\",\"state\":\"state\"}",
+                MediaType.APPLICATION_JSON));
+
+    assertThat(client.getSession()).isNotNull();
   }
 
   @Test

@@ -11,6 +11,7 @@ import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -22,6 +23,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -55,9 +57,7 @@ public class JmapClient {
                 restClient
                     .get()
                     .uri("/.well-known/jmap")
-                    .headers(
-                        headers ->
-                            headers.setBasicAuth(properties.username(), properties.password()))
+                    .headers(this::setRequestHeaders)
                     .retrieve()
                     .body(JmapSession.class));
 
@@ -371,10 +371,17 @@ public class JmapClient {
             restClient
                 .post()
                 .uri(session.apiUrl())
-                .headers(
-                    headers -> headers.setBasicAuth(properties.username(), properties.password()))
+                .headers(this::setRequestHeaders)
                 .body(request)
                 .retrieve()
                 .body(JmapResponse.class));
+  }
+
+  private void setRequestHeaders(HttpHeaders headers) {
+    headers.setBasicAuth(properties.username(), properties.password());
+    String requestId = RequestIdContext.current();
+    if (requestId != null) {
+      headers.set(RequestIdContext.HEADER_NAME, requestId);
+    }
   }
 }
