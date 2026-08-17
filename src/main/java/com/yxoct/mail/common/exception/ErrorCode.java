@@ -14,7 +14,11 @@ public enum ErrorCode {
   // 邮件模块错误
   EMAIL_NOT_FOUND(2000, HttpStatus.NOT_FOUND, "邮件不存在"),
 
-  MAIL_SERVICE_UNAVAILABLE(2004, HttpStatus.BAD_GATEWAY, "邮件服务暂时不可用");
+  MAIL_SERVICE_UNAVAILABLE(2004, HttpStatus.BAD_GATEWAY, "邮件服务暂时不可用"),
+
+  MAIL_SERVICE_TIMEOUT(2005, HttpStatus.GATEWAY_TIMEOUT, "邮件服务响应超时"),
+
+  MAIL_SERVICE_AUTHENTICATION_FAILED(2006, HttpStatus.BAD_GATEWAY, "邮件服务认证失败");
 
   private final int code;
   private final HttpStatus httpStatus;

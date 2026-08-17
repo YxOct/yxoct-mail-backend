@@ -7,6 +7,7 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withUnauthorizedRequest;
 
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
@@ -15,6 +16,7 @@ import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +91,24 @@ class JmapClientTest {
         .andRespond(withException(new IOException("Connection timed out")));
 
     assertMailServiceUnavailable(client::getSession);
+  }
+
+  @Test
+  void mapsTimeoutToGatewayTimeout() {
+    server
+        .expect(requestTo("http://localhost/.well-known/jmap"))
+        .andRespond(withException(new SocketTimeoutException("Read timed out")));
+
+    assertBusinessError(client::getSession, ErrorCode.MAIL_SERVICE_TIMEOUT);
+  }
+
+  @Test
+  void mapsRejectedCredentialsToAuthenticationFailure() {
+    server
+        .expect(requestTo("http://localhost/.well-known/jmap"))
+        .andRespond(withUnauthorizedRequest());
+
+    assertBusinessError(client::getSession, ErrorCode.MAIL_SERVICE_AUTHENTICATION_FAILED);
   }
 
   @Test
@@ -208,10 +228,15 @@ class JmapClientTest {
 
   private void assertMailServiceUnavailable(
       org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
+    assertBusinessError(call, ErrorCode.MAIL_SERVICE_UNAVAILABLE);
+  }
+
+  private void assertBusinessError(
+      org.assertj.core.api.ThrowableAssert.ThrowingCallable call, ErrorCode errorCode) {
     assertThatThrownBy(call)
         .isInstanceOf(BusinessException.class)
         .extracting(exception -> ((BusinessException) exception).getErrorCode())
-        .isEqualTo(ErrorCode.MAIL_SERVICE_UNAVAILABLE);
+        .isEqualTo(errorCode);
   }
 
   private JmapSession session() {

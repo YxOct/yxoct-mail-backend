@@ -12,7 +12,9 @@ import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
+import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.net.http.HttpTimeoutException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -21,8 +23,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -314,11 +318,41 @@ public class JmapClient {
     return new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, cause);
   }
 
+  private BusinessException mapClientException(RestClientException exception) {
+    if (exception instanceof ResourceAccessException
+        && (hasCause(exception, SocketTimeoutException.class)
+            || hasCause(exception, HttpTimeoutException.class))) {
+      return new BusinessException(ErrorCode.MAIL_SERVICE_TIMEOUT, exception);
+    }
+
+    if (exception instanceof RestClientResponseException responseException
+        && (responseException.getStatusCode().value() == 401
+            || responseException.getStatusCode().value() == 403)) {
+      return new BusinessException(ErrorCode.MAIL_SERVICE_AUTHENTICATION_FAILED, exception);
+    }
+
+    return mailServiceUnavailable(exception);
+  }
+
+  private boolean hasCause(Throwable throwable, Class<? extends Throwable> causeType) {
+    Throwable current = throwable;
+    while (current != null) {
+      if (causeType.isInstance(current)) {
+        return true;
+      }
+      if (current == current.getCause()) {
+        return false;
+      }
+      current = current.getCause();
+    }
+    return false;
+  }
+
   private <T> T executeRequest(Supplier<T> request) {
     try {
       return request.get();
     } catch (RestClientException exception) {
-      throw mailServiceUnavailable(exception);
+      throw mapClientException(exception);
     }
   }
 
