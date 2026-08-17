@@ -1,4 +1,4 @@
-package com.yxoct.mail_backend;
+package com.yxoct.mail;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
