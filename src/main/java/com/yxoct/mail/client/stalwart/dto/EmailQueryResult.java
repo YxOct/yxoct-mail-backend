@@ -2,4 +2,4 @@ package com.yxoct.mail.client.stalwart.dto;
 
 import java.util.List;
 
-public record EmailQueryResult(List<String> ids) {}
+public record EmailQueryResult(int position, Integer total, List<String> ids) {}

@@ -6,6 +6,7 @@ import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.domain.mail.MailDetail;
+import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import java.time.Instant;
@@ -22,13 +23,17 @@ public class MailService {
     this.jmapClient = jmapClient;
   }
 
-  public List<MailSummary> queryEmails() {
+  public MailPage<MailSummary> queryEmails(String mailboxId, int page, int size) {
 
     JmapSession session = jmapClient.getSession();
 
-    EmailQueryResult result = jmapClient.queryEmails(session);
+    int position = (page - 1) * size;
 
-    return result.ids().stream().map(MailSummary::new).toList();
+    EmailQueryResult result = jmapClient.queryEmails(session, mailboxId, position, size);
+
+    List<MailSummary> items = result.ids().stream().map(MailSummary::new).toList();
+
+    return new MailPage<>(page, size, result.total() == null ? 0 : result.total(), items);
   }
 
   public MailDetail getEmailDetail(String id) {

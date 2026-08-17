@@ -37,7 +37,8 @@ public class JmapClient {
         .body(JmapSession.class);
   }
 
-  public EmailQueryResult queryEmails(JmapSession session) {
+  public EmailQueryResult queryEmails(
+      JmapSession session, String mailboxId, int position, int limit) {
 
     String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
 
@@ -46,7 +47,19 @@ public class JmapClient {
             List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
             List.of(
                 new JmapMethodCall(
-                    "Email/query", Map.of("accountId", accountId, "limit", 20), "0")));
+                    "Email/query",
+                    Map.of(
+                        "accountId",
+                        accountId,
+                        "filter",
+                        Map.of("inMailbox", mailboxId),
+                        "postion",
+                        position,
+                        "limit",
+                        limit,
+                        "calculateTotal",
+                        true),
+                    "0")));
 
     JmapResponse response =
         restClient
