@@ -1,0 +1,44 @@
+package com.yxoct.mail.common.exception;
+
+import com.yxoct.mail.common.response.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+  @ExceptionHandler(BusinessException.class)
+  public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException exception) {
+
+    ErrorCode errorCode = exception.getErrorCode();
+
+    ApiResponse<Void> response = ApiResponse.error(errorCode);
+
+    log.warn(
+        "Business exception: code={}, message={}", errorCode.getCode(), errorCode.getHttpStatus());
+
+    return ResponseEntity.status(errorCode.getHttpStatus()).body(response);
+  }
+
+  @ExceptionHandler(MethodArgumentNotValidException.class)
+  public ResponseEntity<ApiResponse<Void>> handleValidationException(
+      MethodArgumentNotValidException exception) {
+
+    log.warn("Request validation failed: {}", exception.getMessage());
+
+    return ResponseEntity.status(ErrorCode.BAD_REQUEST.getHttpStatus())
+        .body(ApiResponse.error(ErrorCode.BAD_REQUEST));
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
+
+    log.error("Unhandled exception", exception);
+    return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.getHttpStatus())
+        .body(ApiResponse.error(ErrorCode.INTERNAL_ERROR));
+  }
+}
