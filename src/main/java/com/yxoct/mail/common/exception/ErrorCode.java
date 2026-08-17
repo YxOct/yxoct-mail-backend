@@ -18,7 +18,9 @@ public enum ErrorCode {
 
   ATTACHMENT_NOT_FOUND(2002, HttpStatus.NOT_FOUND, "附件不存在"),
 
-  SEND_EMAIL_FAILED(2003, HttpStatus.INTERNAL_SERVER_ERROR, "邮件发送失败");
+  SEND_EMAIL_FAILED(2003, HttpStatus.INTERNAL_SERVER_ERROR, "邮件发送失败"),
+
+  MAIL_SERVICE_UNAVAILABLE(2004, HttpStatus.BAD_GATEWAY, "邮件服务暂时不可用");
 
   private final int code;
   private final HttpStatus httpStatus;

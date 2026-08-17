@@ -4,15 +4,19 @@ import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.JmapMethodCall;
+import com.yxoct.mail.client.stalwart.dto.JmapMethodResponse;
 import com.yxoct.mail.client.stalwart.dto.JmapRequest;
 import com.yxoct.mail.client.stalwart.dto.JmapResponse;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
+import com.yxoct.mail.common.exception.BusinessException;
+import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.StalwartProperties;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Component
@@ -33,18 +37,22 @@ public class JmapClient {
 
   public JmapSession getSession() {
 
-    return restClient
-        .get()
-        .uri("/.well-known/jmap")
-        .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
-        .retrieve()
-        .body(JmapSession.class);
+    JmapSession session =
+        restClient
+            .get()
+            .uri("/.well-known/jmap")
+            .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
+            .retrieve()
+            .body(JmapSession.class);
+
+    validateSession(session);
+    return session;
   }
 
   public EmailQueryResult queryEmails(
       JmapSession session, String mailboxId, int position, int limit) {
 
-    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+    String accountId = getMailAccountId(session);
 
     JmapRequest request =
         new JmapRequest(
@@ -65,15 +73,13 @@ public class JmapClient {
                         true),
                     "0")));
 
-    JmapResponse response = post(session, request);
-
     return objectMapper.convertValue(
-        response.methodResponses().get(0).response(), EmailQueryResult.class);
+        invoke(session, request, "Email/query"), EmailQueryResult.class);
   }
 
   public EmailListResult getEmailSummaries(JmapSession session, List<String> ids) {
 
-    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+    String accountId = getMailAccountId(session);
 
     JmapRequest request =
         new JmapRequest(
@@ -90,15 +96,12 @@ public class JmapClient {
                         List.of("id", "subject", "preview", "receivedAt")),
                     "0")));
 
-    JmapResponse response = post(session, request);
-
-    return objectMapper.convertValue(
-        response.methodResponses().get(0).response(), EmailListResult.class);
+    return objectMapper.convertValue(invoke(session, request, "Email/get"), EmailListResult.class);
   }
 
   public EmailDetailResult getEmailDetails(JmapSession session, List<String> ids) {
 
-    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+    String accountId = getMailAccountId(session);
 
     JmapRequest request =
         new JmapRequest(
@@ -128,25 +131,68 @@ public class JmapClient {
                         true),
                     "0")));
 
-    JmapResponse response = post(session, request);
-
     return objectMapper.convertValue(
-        response.methodResponses().get(0).response(), EmailDetailResult.class);
+        invoke(session, request, "Email/get"), EmailDetailResult.class);
   }
 
   public MailboxGetResult getMailboxes(JmapSession session) {
 
-    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+    String accountId = getMailAccountId(session);
 
     JmapRequest request =
         new JmapRequest(
             List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
             List.of(new JmapMethodCall("Mailbox/get", Map.of("accountId", accountId), "0")));
 
+    return objectMapper.convertValue(
+        invoke(session, request, "Mailbox/get"), MailboxGetResult.class);
+  }
+
+  private JsonNode invoke(JmapSession session, JmapRequest request, String expectedMethod) {
+
+    validateSession(session);
+
     JmapResponse response = post(session, request);
 
-    return objectMapper.convertValue(
-        response.methodResponses().get(0).response(), MailboxGetResult.class);
+    if (response == null
+        || response.methodResponses() == null
+        || response.methodResponses().size() != 1) {
+      throw mailServiceUnavailable();
+    }
+
+    JmapMethodResponse methodResponse = response.methodResponses().getFirst();
+
+    if (methodResponse == null
+        || "error".equals(methodResponse.method())
+        || !expectedMethod.equals(methodResponse.method())
+        || !"0".equals(methodResponse.callId())
+        || methodResponse.response() == null) {
+      throw mailServiceUnavailable();
+    }
+
+    return methodResponse.response();
+  }
+
+  private void validateSession(JmapSession session) {
+
+    if (session == null || session.apiUrl() == null || session.primaryAccounts() == null) {
+      throw mailServiceUnavailable();
+    }
+
+    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+
+    if (accountId == null || accountId.isBlank()) {
+      throw mailServiceUnavailable();
+    }
+  }
+
+  private String getMailAccountId(JmapSession session) {
+    validateSession(session);
+    return session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+  }
+
+  private BusinessException mailServiceUnavailable() {
+    return new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE);
   }
 
   private JmapResponse post(JmapSession session, JmapRequest request) {
