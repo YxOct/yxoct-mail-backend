@@ -23,6 +23,14 @@ public class MailController {
     this.mailService = mailService;
   }
 
+  /** 获取邮箱列表 */
+  @GetMapping("/mailboxes")
+  public ApiResponse<List<Mailbox>> mailboxes() {
+
+    return ApiResponse.success(mailService.getMailboxes());
+  }
+
+  /** 分页查询指定邮箱邮件 */
   @GetMapping("/mailboxes/{mailboxId}/emails")
   public ApiResponse<MailPage<MailSummary>> emails(
       @PathVariable String mailboxId,
@@ -32,15 +40,10 @@ public class MailController {
     return ApiResponse.success(mailService.queryEmails(mailboxId, page, size));
   }
 
+  /** 获取邮件详情 */
   @GetMapping("/emails/{id}")
   public ApiResponse<MailDetail> detail(@PathVariable String id) {
 
     return ApiResponse.success(mailService.getEmailDetail(id));
-  }
-
-  @GetMapping("/mailboxes")
-  public ApiResponse<List<Mailbox>> mailboxes() {
-
-    return ApiResponse.success(mailService.getMailboxes());
   }
 }

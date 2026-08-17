@@ -104,7 +104,29 @@ public class JmapClient {
         new JmapRequest(
             List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
             List.of(
-                new JmapMethodCall("Email/get", Map.of("accountId", accountId, "ids", ids), "0")));
+                new JmapMethodCall(
+                    "Email/get",
+                    Map.of(
+                        "accountId",
+                        accountId,
+                        "ids",
+                        ids,
+                        "properties",
+                        List.of(
+                            "id",
+                            "subject",
+                            "preview",
+                            "receivedAt",
+                            "from",
+                            "to",
+                            "bodyValues",
+                            "textBody",
+                            "htmlBody"),
+                        "fetchTextBodyValues",
+                        true,
+                        "fetchHTMLBodyValues",
+                        true),
+                    "0")));
 
     JmapResponse response = post(session, request);
 
