@@ -6,6 +6,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 @Slf4j
 @RestControllerAdvice
@@ -29,6 +31,18 @@ public class GlobalExceptionHandler {
       MethodArgumentNotValidException exception) {
 
     log.warn("Request validation failed: {}", exception.getMessage());
+
+    return ResponseEntity.status(ErrorCode.BAD_REQUEST.getHttpStatus())
+        .body(ApiResponse.error(ErrorCode.BAD_REQUEST));
+  }
+
+  @ExceptionHandler({
+    HandlerMethodValidationException.class,
+    MethodArgumentTypeMismatchException.class
+  })
+  public ResponseEntity<ApiResponse<Void>> handleRequestParameterException(Exception exception) {
+
+    log.warn("Request parameter validation failed: {}", exception.getMessage());
 
     return ResponseEntity.status(ErrorCode.BAD_REQUEST.getHttpStatus())
         .body(ApiResponse.error(ErrorCode.BAD_REQUEST));

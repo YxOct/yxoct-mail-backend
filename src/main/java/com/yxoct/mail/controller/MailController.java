@@ -6,6 +6,8 @@ import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import com.yxoct.mail.service.MailService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,8 +36,8 @@ public class MailController {
   @GetMapping("/mailboxes/{mailboxId}/emails")
   public ApiResponse<MailPage<MailSummary>> emails(
       @PathVariable String mailboxId,
-      @RequestParam(defaultValue = "1") int page,
-      @RequestParam(defaultValue = "20") int size) {
+      @RequestParam(defaultValue = "1") @Min(1) int page,
+      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
 
     return ApiResponse.success(mailService.queryEmails(mailboxId, page, size));
   }
