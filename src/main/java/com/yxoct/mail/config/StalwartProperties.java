@@ -7,4 +7,4 @@ import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "stalwart")
-public record StalwartProperties(@NotNull URI baseUrl) {}
+public record StalwartProperties(@NotNull URI baseUrl, String username, String password) {}

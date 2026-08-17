@@ -14,21 +14,23 @@ import org.springframework.web.client.RestClient;
 public class JmapClient {
 
   private final RestClient restClient;
+  private final StalwartProperties properties;
 
   public JmapClient(RestClient.Builder builder, StalwartProperties properties) {
+    this.properties = properties;
     this.restClient = builder.baseUrl(properties.baseUrl().toString()).build();
   }
 
-  public JmapSession getSession(String username, String password) {
+  public JmapSession getSession() {
     return restClient
         .get()
         .uri("/.well-known/jmap")
-        .headers(headers -> headers.setBasicAuth(username, password))
+        .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
         .retrieve()
         .body(JmapSession.class);
   }
 
-  public JmapResponse queryEmails(JmapSession session, String username, String password) {
+  public JmapResponse queryEmails(JmapSession session) {
 
     String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
 
@@ -42,7 +44,27 @@ public class JmapClient {
     return RestClient.create()
         .post()
         .uri(session.apiUrl())
-        .headers(headers -> headers.setBasicAuth(username, password))
+        .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
+        .body(request)
+        .retrieve()
+        .body(JmapResponse.class);
+  }
+
+  public JmapResponse getEmails(
+      JmapSession session, List<String> ids) {
+
+    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+
+    JmapRequest request =
+        new JmapRequest(
+            List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
+            List.of(
+                new JmapMethodCall("Email/get", Map.of("accountId", accountId, "ids", ids), "0")));
+
+    return RestClient.create()
+        .post()
+        .uri(session.apiUrl())
+        .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
         .body(request)
         .retrieve()
         .body(JmapResponse.class);
