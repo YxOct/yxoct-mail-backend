@@ -2,6 +2,7 @@ package com.yxoct.mail.client.stalwart;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
@@ -116,6 +117,8 @@ class JmapClientTest {
   void returnsValidatedQueryResponse() {
     server
         .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][1].sort[0].property").value("receivedAt"))
+        .andExpect(jsonPath("$.methodCalls[0][1].sort[0].isAscending").value(false))
         .andRespond(
             withSuccess(
                 "{\"methodResponses\":[[\"Email/query\",{\"position\":0,\"total\":1,\"ids\":[\"email-1\"]},\"0\"]]}",

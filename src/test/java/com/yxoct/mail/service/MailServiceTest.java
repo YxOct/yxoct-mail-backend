@@ -2,8 +2,10 @@ package com.yxoct.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
@@ -50,7 +52,7 @@ class MailServiceTest {
             null,
             null,
             "state");
-    when(jmapClient.getSession()).thenReturn(session);
+    lenient().when(jmapClient.getSession()).thenReturn(session);
   }
 
   @Test
@@ -63,6 +65,14 @@ class MailServiceTest {
     assertThat(page.total()).isZero();
     assertThat(page.items()).isEmpty();
     verify(jmapClient, never()).getEmailSummaries(session, List.of());
+  }
+
+  @Test
+  void rejectsPaginationPositionAboveIntegerRange() {
+    assertBusinessError(
+        () -> mailService.queryEmails("inbox", Integer.MAX_VALUE, 100), ErrorCode.BAD_REQUEST);
+
+    verifyNoInteractions(jmapClient);
   }
 
   @Test

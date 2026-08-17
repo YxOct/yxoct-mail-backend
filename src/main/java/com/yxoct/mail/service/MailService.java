@@ -32,9 +32,13 @@ public class MailService {
   /** 分页查询邮件列表 */
   public MailPage<MailSummary> queryEmails(String mailboxId, int page, int size) {
 
-    JmapSession session = jmapClient.getSession();
+    long calculatedPosition = (long) (page - 1) * size;
+    if (calculatedPosition > Integer.MAX_VALUE) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
 
-    int position = (page - 1) * size;
+    int position = (int) calculatedPosition;
+    JmapSession session = jmapClient.getSession();
 
     EmailQueryResult queryResult = jmapClient.queryEmails(session, mailboxId, position, size);
     if (queryResult == null) {

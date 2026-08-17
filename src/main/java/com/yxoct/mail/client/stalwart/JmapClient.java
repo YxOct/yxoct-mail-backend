@@ -72,6 +72,8 @@ public class JmapClient {
                         accountId,
                         "filter",
                         Map.of("inMailbox", mailboxId),
+                        "sort",
+                        List.of(Map.of("property", "receivedAt", "isAscending", false)),
                         "position",
                         position,
                         "limit",
