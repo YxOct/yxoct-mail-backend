@@ -4,8 +4,10 @@ import com.yxoct.mail.client.stalwart.JmapClient;
 import com.yxoct.mail.client.stalwart.dto.EmailGetResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
+import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailSummary;
+import com.yxoct.mail.domain.mail.Mailbox;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -49,5 +51,16 @@ public class MailService {
         (String) mail.get("subject"),
         (String) mail.get("preview"),
         Instant.parse((String) mail.get("receivedAt")));
+  }
+
+  public List<Mailbox> getMailboxes() {
+
+    JmapSession session = jmapClient.getSession();
+
+    MailboxGetResult result = jmapClient.getMailboxes(session);
+
+    return result.list().stream()
+        .map(mailbox -> new Mailbox(mailbox.id(), mailbox.name(), mailbox.role()))
+        .toList();
   }
 }

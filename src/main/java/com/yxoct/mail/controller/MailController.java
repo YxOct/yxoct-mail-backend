@@ -3,6 +3,7 @@ package com.yxoct.mail.controller;
 import com.yxoct.mail.common.response.ApiResponse;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailSummary;
+import com.yxoct.mail.domain.mail.Mailbox;
 import com.yxoct.mail.service.MailService;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,5 +31,11 @@ public class MailController {
   public ApiResponse<MailDetail> detail(@PathVariable String id) {
 
     return ApiResponse.success(mailService.getEmailDetail(id));
+  }
+
+  @GetMapping("/mailboxes")
+  public ApiResponse<List<Mailbox>> mailboxes() {
+
+    return ApiResponse.success(mailService.getMailboxes());
   }
 }

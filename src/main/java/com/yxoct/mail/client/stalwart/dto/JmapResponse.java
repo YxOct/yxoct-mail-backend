@@ -4,4 +4,4 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record JmapResponse(List<Object[]> methodResponses) {}
+public record JmapResponse(List<JmapMethodResponse> methodResponses) {}

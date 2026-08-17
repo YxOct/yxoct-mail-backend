@@ -6,20 +6,25 @@ import com.yxoct.mail.client.stalwart.dto.JmapMethodCall;
 import com.yxoct.mail.client.stalwart.dto.JmapRequest;
 import com.yxoct.mail.client.stalwart.dto.JmapResponse;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
+import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.config.StalwartProperties;
 import java.util.List;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import tools.jackson.databind.ObjectMapper;
 
 @Component
 public class JmapClient {
 
   private final RestClient restClient;
   private final StalwartProperties properties;
+  private final ObjectMapper objectMapper;
 
-  public JmapClient(RestClient.Builder builder, StalwartProperties properties) {
+  public JmapClient(
+      RestClient.Builder builder, StalwartProperties properties, ObjectMapper objectMapper) {
     this.properties = properties;
+    this.objectMapper = objectMapper;
     this.restClient = builder.baseUrl(properties.baseUrl().toString()).build();
   }
 
@@ -32,7 +37,6 @@ public class JmapClient {
         .body(JmapSession.class);
   }
 
-  @SuppressWarnings("unchecked")
   public EmailQueryResult queryEmails(JmapSession session) {
 
     String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
@@ -53,14 +57,10 @@ public class JmapClient {
             .retrieve()
             .body(JmapResponse.class);
 
-    Object[] methodResponse = response.methodResponses().get(0);
-
-    Map<String, Object> result = (Map<String, Object>) methodResponse[1];
-
-    return new EmailQueryResult((List<String>) result.get("ids"));
+    return objectMapper.convertValue(
+        response.methodResponses().get(0).response(), EmailQueryResult.class);
   }
 
-  @SuppressWarnings("unchecked")
   public EmailGetResult getEmails(JmapSession session, List<String> ids) {
 
     String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
@@ -80,10 +80,29 @@ public class JmapClient {
             .retrieve()
             .body(JmapResponse.class);
 
-    Object[] methodResponse = response.methodResponses().get(0);
+    return objectMapper.convertValue(
+        response.methodResponses().get(0).response(), EmailGetResult.class);
+  }
 
-    Map<String, Object> result = (Map<String, Object>) methodResponse[1];
+  public MailboxGetResult getMailboxes(JmapSession session) {
 
-    return new EmailGetResult((List<Map<String, Object>>) result.get("list"));
+    String accountId = session.primaryAccounts().get("urn:ietf:params:jmap:mail");
+
+    JmapRequest request =
+        new JmapRequest(
+            List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
+            List.of(new JmapMethodCall("Mailbox/get", Map.of("accountId", accountId), "0")));
+
+    JmapResponse response =
+        restClient
+            .post()
+            .uri(session.apiUrl())
+            .headers(headers -> headers.setBasicAuth(properties.username(), properties.password()))
+            .body(request)
+            .retrieve()
+            .body(JmapResponse.class);
+
+    return objectMapper.convertValue(
+        response.methodResponses().get(0).response(), MailboxGetResult.class);
   }
 }
