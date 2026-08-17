@@ -15,6 +15,7 @@ import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -34,11 +35,23 @@ public class MailService {
     int position = (page - 1) * size;
 
     EmailQueryResult queryResult = jmapClient.queryEmails(session, mailboxId, position, size);
+    if (queryResult == null) {
+      throw mailServiceUnavailable();
+    }
 
-    EmailListResult listResult = jmapClient.getEmailSummaries(session, queryResult.ids());
+    List<String> ids = requireList(queryResult.ids());
+    if (ids.isEmpty()) {
+      return new MailPage<>(
+          page, size, queryResult.total() == null ? 0 : queryResult.total(), List.of());
+    }
+
+    EmailListResult listResult = jmapClient.getEmailSummaries(session, ids);
+    if (listResult == null) {
+      throw mailServiceUnavailable();
+    }
 
     List<MailSummary> items =
-        listResult.list().stream()
+        requireList(listResult.list()).stream()
             .map(
                 email ->
                     new MailSummary(
@@ -55,11 +68,15 @@ public class MailService {
 
     EmailDetailResult result = jmapClient.getEmailDetails(session, List.of(id));
 
-    if (result.list().isEmpty()) {
+    if (result == null || result.list() == null) {
+      throw mailServiceUnavailable();
+    }
+
+    if ((result.notFound() != null && result.notFound().contains(id)) || result.list().isEmpty()) {
       throw new BusinessException(ErrorCode.EMAIL_NOT_FOUND);
     }
 
-    EmailDetailResult.EmailInfo email = result.list().get(0);
+    EmailDetailResult.EmailInfo email = requireList(result.list()).getFirst();
 
     return new MailDetail(
         email.id(),
@@ -77,8 +94,11 @@ public class MailService {
     JmapSession session = jmapClient.getSession();
 
     MailboxGetResult result = jmapClient.getMailboxes(session);
+    if (result == null) {
+      throw mailServiceUnavailable();
+    }
 
-    return result.list().stream()
+    return requireList(result.list()).stream()
         .map(mailbox -> new Mailbox(mailbox.id(), mailbox.name(), mailbox.role()))
         .toList();
   }
@@ -90,9 +110,12 @@ public class MailService {
       return List.of();
     }
 
-    return addresses.stream()
+    return requireList(addresses).stream()
         .map(
-            address -> new MailAddress((String) address.get("name"), (String) address.get("email")))
+            address ->
+                new MailAddress(
+                    Objects.toString(address.get("name"), null),
+                    Objects.toString(address.get("email"), null)))
         .toList();
   }
 
@@ -103,16 +126,10 @@ public class MailService {
       return null;
     }
 
-    String partId = null;
+    String partId = findPartId(email.textBody());
 
-    if (email.textBody() != null && !email.textBody().isEmpty()) {
-
-      partId = String.valueOf(email.textBody().get(0).get("partId"));
-    }
-
-    if (partId == null && email.htmlBody() != null && !email.htmlBody().isEmpty()) {
-
-      partId = String.valueOf(email.htmlBody().get(0).get("partId"));
+    if (partId == null) {
+      partId = findPartId(email.htmlBody());
     }
 
     if (partId == null) {
@@ -129,5 +146,34 @@ public class MailService {
     }
 
     return null;
+  }
+
+  private String findPartId(List<Map<String, Object>> bodyParts) {
+
+    if (bodyParts == null) {
+      return null;
+    }
+
+    return bodyParts.stream()
+        .filter(Objects::nonNull)
+        .map(part -> part.get("partId"))
+        .filter(Objects::nonNull)
+        .map(Object::toString)
+        .filter(partId -> !partId.isBlank())
+        .findFirst()
+        .orElse(null);
+  }
+
+  private <T> List<T> requireList(List<T> values) {
+
+    if (values == null || values.stream().anyMatch(Objects::isNull)) {
+      throw mailServiceUnavailable();
+    }
+
+    return values;
+  }
+
+  private BusinessException mailServiceUnavailable() {
+    return new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE);
   }
 }
