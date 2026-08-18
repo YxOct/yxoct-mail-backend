@@ -1,0 +1,10 @@
+{
+  "java.format.settings.google.style": "google",
+  "java.format.settings.google.version": "1.36.0",
+  "java.format.settings.google.mode": "jar-file",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.compile.nullAnalysis.mode": "disabled",
+  "java.debug.settings.enableRunDebugCodeLens": true,
+  "java.debug.settings.console": "internalConsole",
+  "java.debug.settings.vmArgs": "-Dspring.profiles.active=dev -Dspring.devtools.restart.enabled=false"
+}

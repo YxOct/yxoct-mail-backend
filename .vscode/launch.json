@@ -1,0 +1,17 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "java",
+      "name": "Run Mail Backend (dev)",
+      "request": "launch",
+      "mainClass": "com.yxoct.mail.MailBackendApplication",
+      "projectName": "yxoct-mail-backend",
+      "cwd": "${workspaceFolder}",
+      "vmArgs": "-Dspring.profiles.active=dev -Dspring.devtools.restart.enabled=false",
+      "console": "internalConsole",
+      "encoding": "UTF-8",
+      "shortenCommandLine": "auto"
+    }
+  ]
+}
