@@ -24,6 +24,8 @@ docker compose ps
 
 `DB_ROOT_PASSWORD` and `DB_NAME` are used by Docker Compose when initializing MySQL. The optional database pool settings in `.env.example` use milliseconds for timeouts.
 
+Flyway applies versioned migrations from `src/main/resources/db/migration` when the application starts. Migration `V1` creates the records required to restore a deleted email to all of its original mailboxes. Applied migrations are tracked in `flyway_schema_history`; never edit a migration after it has been applied. Add a new version instead.
+
 The optional `STALWART_CONNECT_TIMEOUT`, `STALWART_READ_TIMEOUT`, and `STALWART_SESSION_CACHE_TTL` values use Spring Boot duration syntax and default to `5s`, `10s`, and `1m`.
 
 The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required setting is missing.

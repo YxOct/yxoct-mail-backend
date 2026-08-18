@@ -11,6 +11,10 @@ spring:
       maximum-pool-size: ${DB_POOL_MAX_SIZE:10}
       connection-timeout: ${DB_POOL_CONNECTION_TIMEOUT:5000}
       validation-timeout: ${DB_POOL_VALIDATION_TIMEOUT:3000}
+  flyway:
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
   http:
     clients:
       connect-timeout: ${STALWART_CONNECT_TIMEOUT:5s}
