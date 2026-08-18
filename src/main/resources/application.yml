@@ -47,6 +47,10 @@ app:
       - security
       - support
       - webmaster
+  authentication:
+    issuer: ${JWT_ISSUER:yxoct-mail-backend}
+    jwt-secret: ${JWT_SECRET:}
+    access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

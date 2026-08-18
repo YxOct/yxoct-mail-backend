@@ -11,6 +11,7 @@ The `dev` profile loads `.env` from the project root and requires:
 - `DB_URL`: MySQL JDBC URL.
 - `DB_USERNAME`: application database user.
 - `DB_PASSWORD`: application database password.
+- `JWT_SECRET`: unpadded Base64URL-encoded 256-bit key used to sign access tokens.
 - `MAIL_DOMAIN`: domain appended to the local part selected during registration.
 - `STALWART_BASE_URL`: Stalwart server base URL.
 - `STALWART_TEST_USERNAME`: Development mailbox username.

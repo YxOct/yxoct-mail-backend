@@ -39,7 +39,14 @@ public enum ErrorCode {
 
   INVITATION_REVOKED(3003, HttpStatus.GONE, "邀请码已被撤销"),
 
-  EMAIL_ADDRESS_NOT_AVAILABLE(3004, HttpStatus.CONFLICT, "邮箱地址不可用");
+  EMAIL_ADDRESS_NOT_AVAILABLE(3004, HttpStatus.CONFLICT, "邮箱地址不可用"),
+
+  // 身份认证错误
+  AUTHENTICATION_FAILED(4000, HttpStatus.UNAUTHORIZED, "邮箱地址或密码错误"),
+
+  ACCOUNT_DISABLED(4001, HttpStatus.FORBIDDEN, "用户账号已被禁用"),
+
+  ACCESS_DENIED(4002, HttpStatus.FORBIDDEN, "无权访问该资源");
 
   private final int code;
   private final HttpStatus httpStatus;

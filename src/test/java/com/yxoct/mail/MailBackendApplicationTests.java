@@ -68,8 +68,8 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2', '3', '4', '5') AND success = TRUE"))
-        .isEqualTo(5);
+                    + "WHERE version IN ('1', '2', '3', '4', '5', '6') AND success = TRUE"))
+        .isEqualTo(6);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();
@@ -107,6 +107,14 @@ class MailBackendApplicationTests {
   }
 
   @Test
+  void rejectsUnauthenticatedMailRequestsWithApiError() throws Exception {
+    mockMvc
+        .perform(get("/api/mail/mailboxes"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value(4000));
+  }
+
+  @Test
   void openApiDocumentationDescribesMailEndpoints() throws Exception {
     mockMvc
         .perform(get("/v3/api-docs"))
@@ -118,6 +126,7 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/mail/emails/read-status'].patch").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
         .andExpect(
             jsonPath("$.paths['/api/auth/register'].post.responses['409'].['$ref']")
                 .value("#/components/responses/RegistrationConflict"))

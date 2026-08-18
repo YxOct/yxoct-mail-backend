@@ -1,8 +1,11 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import com.yxoct.mail.domain.user.AccessTokenResponse;
+import com.yxoct.mail.domain.user.LoginRequest;
 import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
+import com.yxoct.mail.service.LoginService;
 import com.yxoct.mail.service.RegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -21,9 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
   private final RegistrationService registrationService;
+  private final LoginService loginService;
 
-  public AuthController(RegistrationService registrationService) {
+  public AuthController(RegistrationService registrationService, LoginService loginService) {
     this.registrationService = registrationService;
+    this.loginService = loginService;
   }
 
   @PostMapping("/register")
@@ -48,5 +53,11 @@ public class AuthController {
       @Valid @RequestBody RegisterRequest request) {
     return ResponseEntity.status(HttpStatus.CREATED)
         .body(ApiResponse.success(registrationService.register(request)));
+  }
+
+  @PostMapping("/login")
+  @Operation(summary = "Log in with the primary email address")
+  public ApiResponse<AccessTokenResponse> login(@Valid @RequestBody LoginRequest request) {
+    return ApiResponse.success(loginService.login(request));
   }
 }

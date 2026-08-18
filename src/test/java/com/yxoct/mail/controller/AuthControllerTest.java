@@ -8,9 +8,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.user.AccessTokenResponse;
+import com.yxoct.mail.domain.user.LoginRequest;
 import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
+import com.yxoct.mail.service.LoginService;
 import com.yxoct.mail.service.RegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +32,7 @@ class AuthControllerTest {
 
   @Autowired private MockMvc mockMvc;
   @MockitoBean private RegistrationService registrationService;
+  @MockitoBean private LoginService loginService;
 
   @Test
   void registersAnInvitedUser() throws Exception {
@@ -76,6 +80,33 @@ class AuthControllerTest {
                 .content(registerJson("alice", PASSWORD)))
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value(3004));
+  }
+
+  @Test
+  void logsInWithPrimaryEmailAddress() throws Exception {
+    LoginRequest request = new LoginRequest("alice@yxoct.com", PASSWORD);
+    when(loginService.login(request))
+        .thenReturn(new AccessTokenResponse("signed-access-token", "Bearer", 900));
+
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "emailAddress": "alice@yxoct.com",
+                      "password": "%s"
+                    }
+                    """
+                        .formatted(PASSWORD)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.data.accessToken").value("signed-access-token"))
+        .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+        .andExpect(jsonPath("$.data.expiresIn").value(900));
+
+    verify(loginService).login(request);
   }
 
   private String registerJson(String localPart, String password) {
