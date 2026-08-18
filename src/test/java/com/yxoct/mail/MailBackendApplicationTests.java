@@ -55,12 +55,17 @@ class MailBackendApplicationTests {
   @Value("${spring.http.clients.read-timeout}")
   private Duration readTimeout;
 
+  @Value(
+      "${logging.level.org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver}")
+  private String exceptionResolverLogLevel;
+
   @Test
   void contextLoads() {
     assertThat(connectTimeout).isEqualTo(Duration.ofSeconds(5));
     assertThat(readTimeout).isEqualTo(Duration.ofSeconds(10));
     assertThat(sessionCache).isNotNull();
     assertThat(sqlSessionFactory).isNotNull();
+    assertThat(exceptionResolverLogLevel).isEqualTo("ERROR");
   }
 
   @Test

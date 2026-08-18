@@ -58,6 +58,8 @@ mybatis-plus:
 server:
   port: ${SERVER_PORT:8080}
 logging:
+  level:
+    org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver: ERROR
   pattern:
     correlation: "[requestId=%X{requestId:-}] "
 management:
