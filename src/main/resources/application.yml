@@ -44,3 +44,8 @@ management:
           include: livenessState
         readiness:
           include: readinessState,db,stalwart
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

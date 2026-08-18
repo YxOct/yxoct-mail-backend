@@ -15,6 +15,11 @@ import com.yxoct.mail.domain.mail.MoveEmailsRequest;
 import com.yxoct.mail.service.MailMoveService;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -38,6 +43,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 
 @RestController
 @RequestMapping("/api/mail")
+@Tag(name = "Mail", description = "Receive and manage mail through Stalwart JMAP")
 public class MailController {
 
   private final MailService mailService;
@@ -53,6 +59,7 @@ public class MailController {
 
   /** 获取邮箱列表 */
   @GetMapping("/mailboxes")
+  @Operation(summary = "List mailboxes")
   public ApiResponse<List<Mailbox>> mailboxes() {
 
     return ApiResponse.success(mailService.getMailboxes());
@@ -60,15 +67,36 @@ public class MailController {
 
   /** 分页查询指定邮箱邮件 */
   @GetMapping("/mailboxes/{mailboxId}/emails")
+  @Operation(
+      summary = "List emails in a mailbox",
+      description = "Supports search, status filters, sorting, and pagination.")
   public ApiResponse<MailPage<MailSummary>> emails(
-      @PathVariable String mailboxId,
-      @RequestParam(defaultValue = "1") @Min(1) int page,
-      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
-      @RequestParam(required = false) @Size(max = 200) String keyword,
-      @RequestParam(required = false) Boolean read,
-      @RequestParam(required = false) Boolean starred,
-      @RequestParam(defaultValue = "receivedAt") String sortBy,
-      @RequestParam(defaultValue = "desc") String direction) {
+      @Parameter(description = "JMAP mailbox ID", required = true) @PathVariable String mailboxId,
+      @Parameter(description = "One-based page number", example = "1")
+          @RequestParam(defaultValue = "1")
+          @Min(1)
+          int page,
+      @Parameter(description = "Page size between 1 and 100", example = "20")
+          @RequestParam(defaultValue = "20")
+          @Min(1)
+          @Max(100)
+          int size,
+      @Parameter(description = "Full-text search keyword, up to 200 characters")
+          @RequestParam(required = false)
+          @Size(max = 200)
+          String keyword,
+      @Parameter(description = "Filter by read status") @RequestParam(required = false)
+          Boolean read,
+      @Parameter(description = "Filter by starred status") @RequestParam(required = false)
+          Boolean starred,
+      @Parameter(
+              description = "Sort field: receivedAt, sentAt, subject, from, to, or size",
+              example = "receivedAt")
+          @RequestParam(defaultValue = "receivedAt")
+          String sortBy,
+      @Parameter(description = "Sort direction: asc or desc", example = "desc")
+          @RequestParam(defaultValue = "desc")
+          String direction) {
 
     return ApiResponse.success(
         mailService.queryEmails(
@@ -81,6 +109,7 @@ public class MailController {
 
   /** 获取邮件详情 */
   @GetMapping("/emails/{id}")
+  @Operation(summary = "Get an email detail")
   public ApiResponse<MailDetail> detail(@PathVariable String id) {
 
     return ApiResponse.success(mailService.getEmailDetail(id));
@@ -88,6 +117,14 @@ public class MailController {
 
   /** 下载邮件附件 */
   @GetMapping("/emails/{emailId}/attachments/{blobId}")
+  @Operation(summary = "Download an email attachment")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description = "Attachment binary stream",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_OCTET_STREAM_VALUE,
+              schema = @Schema(type = "string", format = "binary")))
   public ResponseEntity<StreamingResponseBody> downloadAttachment(
       @PathVariable String emailId, @PathVariable String blobId) {
     var attachment = mailService.getAttachment(emailId, blobId);
@@ -109,6 +146,7 @@ public class MailController {
 
   /** 批量更新邮件已读状态 */
   @PatchMapping("/emails/read-status")
+  @Operation(summary = "Update read status for up to 100 emails")
   public ApiResponse<MailBatchUpdateResult> updateReadStatuses(
       @Valid @RequestBody BatchUpdateReadStatusRequest request) {
 
@@ -117,6 +155,7 @@ public class MailController {
 
   /** 批量更新邮件星标状态 */
   @PatchMapping("/emails/star-status")
+  @Operation(summary = "Update starred status for up to 100 emails")
   public ApiResponse<MailBatchUpdateResult> updateStarStatuses(
       @Valid @RequestBody BatchUpdateStarStatusRequest request) {
 
@@ -125,6 +164,7 @@ public class MailController {
 
   /** 批量移动邮件到指定邮箱 */
   @PostMapping("/emails/move")
+  @Operation(summary = "Move up to 100 emails to a mailbox")
   public ApiResponse<MailBatchUpdateResult> move(@Valid @RequestBody MoveEmailsRequest request) {
     return ApiResponse.success(
         mailMoveService.moveEmails(request.ids(), request.targetMailboxId()));
@@ -132,6 +172,7 @@ public class MailController {
 
   /** 批量将邮件移入垃圾箱 */
   @PostMapping("/emails/trash")
+  @Operation(summary = "Move up to 100 emails to Trash")
   public ApiResponse<MailBatchUpdateResult> moveToTrash(
       @Valid @RequestBody BatchEmailIdsRequest request) {
     return ApiResponse.success(mailTrashService.moveEmailsToTrash(request.ids()));
@@ -139,6 +180,7 @@ public class MailController {
 
   /** 批量将邮件恢复到删除前的邮箱 */
   @PostMapping("/emails/restore")
+  @Operation(summary = "Restore up to 100 emails from Trash")
   public ApiResponse<MailBatchUpdateResult> restore(
       @Valid @RequestBody BatchEmailIdsRequest request) {
     return ApiResponse.success(mailTrashService.restoreEmails(request.ids()));
@@ -146,6 +188,7 @@ public class MailController {
 
   /** 批量永久删除回收站中的邮件 */
   @DeleteMapping("/emails")
+  @Operation(summary = "Permanently delete up to 100 emails from Trash")
   public ApiResponse<MailBatchUpdateResult> permanentlyDelete(
       @Valid @RequestBody BatchEmailIdsRequest request) {
     return ApiResponse.success(mailTrashService.permanentlyDeleteEmails(request.ids()));

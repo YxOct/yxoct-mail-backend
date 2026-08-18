@@ -5,6 +5,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
@@ -98,5 +99,29 @@ class MailBackendApplicationTests {
         .perform(get("/actuator/health/readiness"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("UP"));
+  }
+
+  @Test
+  void openApiDocumentationDescribesMailEndpoints() throws Exception {
+    mockMvc
+        .perform(get("/v3/api-docs"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.info.title").value("YxOct Mail API"))
+        .andExpect(jsonPath("$.info.version").value("v1"))
+        .andExpect(jsonPath("$.paths['/api/mail/mailboxes'].get").exists())
+        .andExpect(jsonPath("$.paths['/api/mail/emails/read-status'].patch").exists())
+        .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/{emailId}/attachments/{blobId}'].get.responses['200'].content['application/octet-stream'].schema.format")
+                .value("binary"));
+  }
+
+  @Test
+  void swaggerUiIsAvailableInTestProfile() throws Exception {
+    mockMvc
+        .perform(get("/swagger-ui.html"))
+        .andExpect(status().is3xxRedirection())
+        .andExpect(redirectedUrl("/swagger-ui/index.html"));
   }
 }

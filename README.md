@@ -48,6 +48,16 @@ Select a profile explicitly when starting the application.
 
 For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Stalwart variables through the deployment environment.
 
+## API Documentation
+
+The `dev` profile exposes interactive OpenAPI documentation after the application starts:
+
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- OpenAPI YAML: `http://localhost:8080/v3/api-docs.yaml`
+
+OpenAPI and Swagger UI are disabled by default, including under the `prod` profile. Enable them explicitly only when production API documentation should be publicly reachable.
+
 ## API
 
 - `GET /api/mail/mailboxes`: list mailboxes.

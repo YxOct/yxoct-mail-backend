@@ -9,3 +9,12 @@ stalwart:
   base-url: ${STALWART_BASE_URL:http://localhost}
   username: test-user
   password: test-password
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
