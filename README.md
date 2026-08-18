@@ -58,6 +58,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `POST /api/mail/emails/move`: move up to 100 emails with `{ "ids": ["email-1"], "targetMailboxId": "archive" }`.
 - `POST /api/mail/emails/trash`: move up to 100 emails to Trash with `{ "ids": ["email-1"] }`.
 - `POST /api/mail/emails/restore`: restore up to 100 emails with `{ "ids": ["email-1"] }`.
+- `DELETE /api/mail/emails`: permanently delete up to 100 emails whose only mailbox is Trash with `{ "ids": ["email-1"] }`.
 - `GET /actuator/health`: check application and Stalwart availability.
 - `GET /actuator/health/liveness`: check only whether the application is alive.
 - `GET /actuator/health/readiness`: check whether the application, database, and Stalwart are ready to serve traffic.
@@ -79,6 +80,7 @@ All mail endpoints return the common response shape `{ "code", "message", "data"
 - `2000`: email not found (`404`).
 - `2001`: email restore record not found (`404`).
 - `2002`: mailbox not found (`404`).
+- `2003`: email is not exclusively in Trash (`409`).
 - `2004`: Stalwart connection or protocol failure (`502`).
 - `2005`: Stalwart timeout (`504`).
 - `2006`: Stalwart authentication failure (`502`).

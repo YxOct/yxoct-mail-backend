@@ -20,6 +20,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -114,5 +115,12 @@ public class MailController {
   public ApiResponse<MailBatchUpdateResult> restore(
       @Valid @RequestBody BatchEmailIdsRequest request) {
     return ApiResponse.success(mailTrashService.restoreEmails(request.ids()));
+  }
+
+  /** 批量永久删除回收站中的邮件 */
+  @DeleteMapping("/emails")
+  public ApiResponse<MailBatchUpdateResult> permanentlyDelete(
+      @Valid @RequestBody BatchEmailIdsRequest request) {
+    return ApiResponse.success(mailTrashService.permanentlyDeleteEmails(request.ids()));
   }
 }

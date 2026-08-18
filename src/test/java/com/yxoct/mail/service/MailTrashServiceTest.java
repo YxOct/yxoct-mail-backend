@@ -184,6 +184,80 @@ class MailTrashServiceTest {
   }
 
   @Test
+  void permanentlyDeletesOnlyEmailsExclusivelyInTrash() {
+    when(jmapClient.getMailboxes(session)).thenReturn(mailboxes("archive"));
+    when(jmapClient.getEmailMailboxes(session, List.of("email-1", "email-2", "email-3", "missing")))
+        .thenReturn(
+            new EmailMailboxResult(
+                "account-1",
+                "state",
+                List.of(
+                    new EmailMailboxResult.EmailInfo("email-1", Map.of("trash", true)),
+                    new EmailMailboxResult.EmailInfo("email-2", Map.of("inbox", true)),
+                    new EmailMailboxResult.EmailInfo(
+                        "email-3", Map.of("trash", true, "archive", true))),
+                List.of("missing")));
+    when(jmapClient.destroyEmails(session, List.of("email-1")))
+        .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
+
+    MailBatchUpdateResult result =
+        service.permanentlyDeleteEmails(List.of("email-1", "email-2", "email-3", "missing"));
+
+    assertThat(result.updatedIds()).containsExactly("email-1");
+    assertThat(result.failed())
+        .containsExactly(
+            new MailBatchUpdateResult.Failure("email-2", 2003, "邮件并非仅位于回收站"),
+            new MailBatchUpdateResult.Failure("email-3", 2003, "邮件并非仅位于回收站"),
+            new MailBatchUpdateResult.Failure("missing", 2000, "邮件不存在"));
+    verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
+  }
+
+  @Test
+  void cleansOnlyRestoreRecordsForSuccessfullyDestroyedEmails() {
+    when(jmapClient.getMailboxes(session)).thenReturn(mailboxes());
+    when(jmapClient.getEmailMailboxes(session, List.of("email-1", "email-2")))
+        .thenReturn(
+            new EmailMailboxResult(
+                "account-1",
+                "state",
+                List.of(
+                    new EmailMailboxResult.EmailInfo("email-1", Map.of("trash", true)),
+                    new EmailMailboxResult.EmailInfo("email-2", Map.of("trash", true))),
+                List.of()));
+    when(jmapClient.destroyEmails(session, List.of("email-1", "email-2")))
+        .thenReturn(
+            new EmailUpdateResult(
+                List.of("email-1"),
+                List.of(new EmailUpdateResult.Failure("email-2", "forbidden"))));
+
+    MailBatchUpdateResult result = service.permanentlyDeleteEmails(List.of("email-1", "email-2"));
+
+    assertThat(result.updatedIds()).containsExactly("email-1");
+    assertThat(result.failed())
+        .containsExactly(new MailBatchUpdateResult.Failure("email-2", 2004, "邮件服务暂时不可用"));
+    verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
+  }
+
+  @Test
+  void preservesRestoreRecordsWhenDestroyOutcomeIsUnknown() {
+    when(jmapClient.getMailboxes(session)).thenReturn(mailboxes());
+    when(jmapClient.getEmailMailboxes(session, List.of("email-1")))
+        .thenReturn(
+            new EmailMailboxResult(
+                "account-1",
+                "state",
+                List.of(new EmailMailboxResult.EmailInfo("email-1", Map.of("trash", true))),
+                List.of()));
+    when(jmapClient.destroyEmails(session, List.of("email-1")))
+        .thenThrow(new BusinessException(ErrorCode.MAIL_SERVICE_TIMEOUT));
+
+    assertBusinessError(
+        () -> service.permanentlyDeleteEmails(List.of("email-1")), ErrorCode.MAIL_SERVICE_TIMEOUT);
+
+    verifyNoInteractions(restoreRepository);
+  }
+
+  @Test
   void rejectsDuplicateIdsBeforeCallingDependencies() {
     assertBusinessError(
         () -> service.moveEmailsToTrash(List.of("email-1", "email-1")), ErrorCode.BAD_REQUEST);

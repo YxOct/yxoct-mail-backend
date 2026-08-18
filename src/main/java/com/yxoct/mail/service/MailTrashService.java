@@ -135,6 +135,44 @@ public class MailTrashService {
     return batchResult(requestedIds, updateResult.updatedIds(), failures);
   }
 
+  public MailBatchUpdateResult permanentlyDeleteEmails(List<String> ids) {
+    validateIds(ids);
+    List<String> requestedIds = List.copyOf(ids);
+    JmapSession session = sessionCache.getSession();
+    String accountId = requireMailAccountId(session);
+    String trashId = getMailboxContext(session).requireRole("trash");
+    EmailMailboxResult locations = jmapClient.getEmailMailboxes(session, requestedIds);
+    Map<String, EmailMailboxResult.EmailInfo> locationsById =
+        locations.list().stream()
+            .collect(Collectors.toMap(EmailMailboxResult.EmailInfo::id, email -> email));
+    Map<String, ErrorCode> failures = new LinkedHashMap<>();
+    locations.notFound().forEach(id -> failures.put(id, ErrorCode.EMAIL_NOT_FOUND));
+
+    List<String> deletableIds = new ArrayList<>();
+    for (String id : requestedIds) {
+      EmailMailboxResult.EmailInfo location = locationsById.get(id);
+      if (location == null) {
+        continue;
+      }
+      if (location.mailboxIds().size() == 1 && location.mailboxIds().containsKey(trashId)) {
+        deletableIds.add(id);
+      } else {
+        failures.put(id, ErrorCode.EMAIL_NOT_EXCLUSIVELY_IN_TRASH);
+      }
+    }
+
+    if (deletableIds.isEmpty()) {
+      return batchResult(requestedIds, List.of(), failures);
+    }
+
+    EmailUpdateResult deleteResult = jmapClient.destroyEmails(session, deletableIds);
+    deleteResult
+        .failures()
+        .forEach(failure -> failures.put(failure.id(), updateErrorCode(failure.type())));
+    restoreRepository.deleteAll(accountId, deleteResult.updatedIds());
+    return batchResult(requestedIds, deleteResult.updatedIds(), failures);
+  }
+
   private void validateIds(List<String> ids) {
     if (ids == null
         || ids.isEmpty()

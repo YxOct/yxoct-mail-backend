@@ -491,6 +491,38 @@ class JmapClientTest {
     assertThat(result.updatedIds()).containsExactly("email-1", "email-2");
   }
 
+  @Test
+  void destroysEmailsAndReturnsPartialFailures() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("Email/set"))
+        .andExpect(jsonPath("$.methodCalls[0][1].destroy[0]").value("email-1"))
+        .andExpect(jsonPath("$.methodCalls[0][1].destroy[1]").value("email-2"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"destroyed\":[\"email-1\"],\"notDestroyed\":{\"email-2\":{\"type\":\"forbidden\"}}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    EmailUpdateResult result = client.destroyEmails(session(), List.of("email-1", "email-2"));
+
+    assertThat(result.updatedIds()).containsExactly("email-1");
+    assertThat(result.failures())
+        .containsExactly(new EmailUpdateResult.Failure("email-2", "forbidden"));
+  }
+
+  @Test
+  void rejectsIncompleteDestroyResponse() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"destroyed\":[\"email-1\"]},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    assertMailServiceUnavailable(
+        () -> client.destroyEmails(session(), List.of("email-1", "email-2")));
+  }
+
   private void assertMailServiceUnavailable(
       org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {
     assertBusinessError(call, ErrorCode.MAIL_SERVICE_UNAVAILABLE);

@@ -1,6 +1,7 @@
 package com.yxoct.mail.controller;
 
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -199,6 +200,31 @@ class MailControllerTest {
     mockMvc
         .perform(
             post("/api/mail/emails/restore")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[]}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
+  }
+
+  @Test
+  void permanentlyDeletesEmails() throws Exception {
+    when(mailTrashService.permanentlyDeleteEmails(List.of("email-1", "email-2")))
+        .thenReturn(new MailBatchUpdateResult(List.of("email-1", "email-2"), List.of()));
+
+    mockMvc
+        .perform(
+            delete("/api/mail/emails")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"email-1\",\"email-2\"]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.updatedIds.length()").value(2));
+  }
+
+  @Test
+  void rejectsEmptyPermanentDeleteRequest() throws Exception {
+    mockMvc
+        .perform(
+            delete("/api/mail/emails")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"ids\":[]}"))
         .andExpect(status().isBadRequest())

@@ -264,6 +264,27 @@ public class JmapClient {
         "email.star-status", () -> updateEmailKeyword(session, emailIds, "$flagged", starred));
   }
 
+  public EmailUpdateResult destroyEmails(JmapSession session, List<String> emailIds) {
+    return metrics.record("email.destroy", () -> destroyEmailsInternal(session, emailIds));
+  }
+
+  private EmailUpdateResult destroyEmailsInternal(JmapSession session, List<String> emailIds) {
+    String accountId = getMailAccountId(session);
+    if (emailIds == null || emailIds.isEmpty() || !hasUniqueIds(emailIds)) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+
+    JmapRequest request =
+        new JmapRequest(
+            List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
+            List.of(
+                new JmapMethodCall(
+                    "Email/set", Map.of("accountId", accountId, "destroy", emailIds), "0")));
+    EmailSetResult result =
+        convertResponse(invoke(session, request, "Email/set"), EmailSetResult.class);
+    return validateEmailDestroyResult(accountId, emailIds, result);
+  }
+
   public EmailMailboxResult getEmailMailboxes(JmapSession session, List<String> emailIds) {
     return metrics.record("email.mailboxes", () -> getEmailMailboxesInternal(session, emailIds));
   }
@@ -403,6 +424,44 @@ public class JmapClient {
         emailIds.stream()
             .filter(notUpdated::containsKey)
             .map(emailId -> new EmailUpdateResult.Failure(emailId, notUpdated.get(emailId).type()))
+            .toList());
+  }
+
+  private EmailUpdateResult validateEmailDestroyResult(
+      String accountId, List<String> emailIds, EmailSetResult result) {
+    if (result == null
+        || !accountId.equals(result.accountId())
+        || result.oldState() == null
+        || result.oldState().isBlank()
+        || result.newState() == null
+        || result.newState().isBlank()) {
+      throw mailServiceUnavailable();
+    }
+
+    List<String> destroyed = result.destroyed() == null ? List.of() : result.destroyed();
+    Map<String, EmailSetResult.SetError> notDestroyed =
+        result.notDestroyed() == null ? Map.of() : result.notDestroyed();
+    if (!hasUniqueIds(destroyed)
+        || destroyed.stream().anyMatch(notDestroyed::containsKey)
+        || notDestroyed.values().stream()
+            .anyMatch(error -> error == null || error.type() == null || error.type().isBlank())) {
+      throw mailServiceUnavailable();
+    }
+
+    Set<String> requestedIds = Set.copyOf(emailIds);
+    Set<String> returnedIds = new HashSet<>(destroyed);
+    returnedIds.addAll(notDestroyed.keySet());
+    if (!returnedIds.equals(requestedIds)) {
+      throw mailServiceUnavailable();
+    }
+
+    Set<String> destroyedIds = Set.copyOf(destroyed);
+    return new EmailUpdateResult(
+        emailIds.stream().filter(destroyedIds::contains).toList(),
+        emailIds.stream()
+            .filter(notDestroyed::containsKey)
+            .map(
+                emailId -> new EmailUpdateResult.Failure(emailId, notDestroyed.get(emailId).type()))
             .toList());
   }
 
