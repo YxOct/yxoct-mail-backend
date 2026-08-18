@@ -179,8 +179,9 @@ class MailServiceTest {
     when(jmapClient.setEmailsRead(session, List.of("email-1"), true))
         .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
 
-    mailService.updateReadStatus("email-1", true);
+    MailBatchUpdateResult result = mailService.updateReadStatuses(List.of("email-1"), true);
 
+    assertThat(result.updatedIds()).containsExactly("email-1");
     verify(jmapClient).setEmailsRead(session, List.of("email-1"), true);
   }
 
@@ -189,8 +190,9 @@ class MailServiceTest {
     when(jmapClient.setEmailsStarred(session, List.of("email-1"), true))
         .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
 
-    mailService.updateStarStatus("email-1", true);
+    MailBatchUpdateResult result = mailService.updateStarStatuses(List.of("email-1"), true);
 
+    assertThat(result.updatedIds()).containsExactly("email-1");
     verify(jmapClient).setEmailsStarred(session, List.of("email-1"), true);
   }
 
@@ -207,17 +209,6 @@ class MailServiceTest {
     assertThat(result.updatedIds()).containsExactly("email-1");
     assertThat(result.failed())
         .containsExactly(new MailBatchUpdateResult.Failure("missing", 2000, "邮件不存在"));
-  }
-
-  @Test
-  void preservesNotFoundErrorForSingleUpdate() {
-    when(jmapClient.setEmailsRead(session, List.of("missing"), true))
-        .thenReturn(
-            new EmailUpdateResult(
-                List.of(), List.of(new EmailUpdateResult.Failure("missing", "notFound"))));
-
-    assertBusinessError(
-        () -> mailService.updateReadStatus("missing", true), ErrorCode.EMAIL_NOT_FOUND);
   }
 
   @Test

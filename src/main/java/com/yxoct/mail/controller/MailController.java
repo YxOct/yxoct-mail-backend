@@ -9,8 +9,6 @@ import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
-import com.yxoct.mail.domain.mail.UpdateReadStatusRequest;
-import com.yxoct.mail.domain.mail.UpdateStarStatusRequest;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
 import jakarta.validation.Valid;
@@ -62,30 +60,12 @@ public class MailController {
     return ApiResponse.success(mailService.getEmailDetail(id));
   }
 
-  /** 更新邮件已读状态 */
-  @PatchMapping("/emails/{id}/read-status")
-  public ApiResponse<Void> updateReadStatus(
-      @PathVariable String id, @Valid @RequestBody UpdateReadStatusRequest request) {
-
-    mailService.updateReadStatus(id, request.read());
-    return ApiResponse.success();
-  }
-
   /** 批量更新邮件已读状态 */
   @PatchMapping("/emails/read-status")
   public ApiResponse<MailBatchUpdateResult> updateReadStatuses(
       @Valid @RequestBody BatchUpdateReadStatusRequest request) {
 
     return ApiResponse.success(mailService.updateReadStatuses(request.ids(), request.read()));
-  }
-
-  /** 更新邮件星标状态 */
-  @PatchMapping("/emails/{id}/star-status")
-  public ApiResponse<Void> updateStarStatus(
-      @PathVariable String id, @Valid @RequestBody UpdateStarStatusRequest request) {
-
-    mailService.updateStarStatus(id, request.starred());
-    return ApiResponse.success();
   }
 
   /** 批量更新邮件星标状态 */
@@ -96,25 +76,11 @@ public class MailController {
     return ApiResponse.success(mailService.updateStarStatuses(request.ids(), request.starred()));
   }
 
-  /** 将邮件移入垃圾箱 */
-  @PostMapping("/emails/{id}/trash")
-  public ApiResponse<Void> moveToTrash(@PathVariable String id) {
-    mailTrashService.moveEmailToTrash(id);
-    return ApiResponse.success();
-  }
-
   /** 批量将邮件移入垃圾箱 */
   @PostMapping("/emails/trash")
   public ApiResponse<MailBatchUpdateResult> moveToTrash(
       @Valid @RequestBody BatchEmailIdsRequest request) {
     return ApiResponse.success(mailTrashService.moveEmailsToTrash(request.ids()));
-  }
-
-  /** 将邮件恢复到删除前的邮箱 */
-  @PostMapping("/emails/{id}/restore")
-  public ApiResponse<Void> restore(@PathVariable String id) {
-    mailTrashService.restoreEmail(id);
-    return ApiResponse.success();
   }
 
   /** 批量将邮件恢复到删除前的邮箱 */

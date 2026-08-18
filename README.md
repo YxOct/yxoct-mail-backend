@@ -53,17 +53,15 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /api/mail/mailboxes`: list mailboxes.
 - `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20`: list emails, ordered by newest first. `size` must be between 1 and 100.
 - `GET /api/mail/emails/{id}`: get an email detail.
-- `PATCH /api/mail/emails/{id}/read-status`: update read status with `{ "read": true }`.
-- `PATCH /api/mail/emails/{id}/star-status`: update star status with `{ "starred": true }`.
 - `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
-- `POST /api/mail/emails/{id}/trash`: move an email to Trash and remember all original mailboxes.
 - `POST /api/mail/emails/trash`: move up to 100 emails to Trash with `{ "ids": ["email-1"] }`.
-- `POST /api/mail/emails/{id}/restore`: restore an email to its original mailboxes.
 - `POST /api/mail/emails/restore`: restore up to 100 emails with `{ "ids": ["email-1"] }`.
 - `GET /actuator/health`: check application and Stalwart availability.
 - `GET /actuator/health/liveness`: check only whether the application is alive.
 - `GET /actuator/health/readiness`: check whether the application, database, and Stalwart are ready to serve traffic.
+
+All email update endpoints accept between 1 and 100 IDs. Use a single-element `ids` array for a single-email operation.
 
 The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, which reports JMAP operation counts, durations, and classified outcomes. Production continues to expose only health information unless a metrics exporter is configured.
 

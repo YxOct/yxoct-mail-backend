@@ -1,6 +1,5 @@
 package com.yxoct.mail.controller;
 
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -66,54 +65,6 @@ class MailControllerTest {
   }
 
   @Test
-  void updatesEmailReadStatus() throws Exception {
-    mockMvc
-        .perform(
-            patch("/api/mail/emails/email-1/read-status")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"read\":true}"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0));
-
-    verify(mailService).updateReadStatus("email-1", true);
-  }
-
-  @Test
-  void rejectsMissingReadStatus() throws Exception {
-    mockMvc
-        .perform(
-            patch("/api/mail/emails/email-1/read-status")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value(1000));
-  }
-
-  @Test
-  void updatesEmailStarStatus() throws Exception {
-    mockMvc
-        .perform(
-            patch("/api/mail/emails/email-1/star-status")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"starred\":true}"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0));
-
-    verify(mailService).updateStarStatus("email-1", true);
-  }
-
-  @Test
-  void rejectsMissingStarStatus() throws Exception {
-    mockMvc
-        .perform(
-            patch("/api/mail/emails/email-1/star-status")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{}"))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value(1000));
-  }
-
-  @Test
   void batchUpdatesEmailReadStatus() throws Exception {
     when(mailService.updateReadStatuses(List.of("email-1", "missing"), true))
         .thenReturn(
@@ -159,16 +110,6 @@ class MailControllerTest {
   }
 
   @Test
-  void movesEmailToTrash() throws Exception {
-    mockMvc
-        .perform(post("/api/mail/emails/email-1/trash"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0));
-
-    verify(mailTrashService).moveEmailToTrash("email-1");
-  }
-
-  @Test
   void batchMovesEmailsToTrash() throws Exception {
     when(mailTrashService.moveEmailsToTrash(List.of("email-1", "email-2")))
         .thenReturn(new MailBatchUpdateResult(List.of("email-1", "email-2"), List.of()));
@@ -180,16 +121,6 @@ class MailControllerTest {
                 .content("{\"ids\":[\"email-1\",\"email-2\"]}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.updatedIds.length()").value(2));
-  }
-
-  @Test
-  void restoresEmail() throws Exception {
-    mockMvc
-        .perform(post("/api/mail/emails/email-1/restore"))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.code").value(0));
-
-    verify(mailTrashService).restoreEmail("email-1");
   }
 
   @Test

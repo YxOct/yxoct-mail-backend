@@ -107,21 +107,11 @@ public class MailService {
         hasKeyword(email.keywords(), "$flagged"));
   }
 
-  /** 更新邮件已读状态 */
-  public void updateReadStatus(String id, boolean read) {
-    requireSingleUpdate(updateReadStatuses(List.of(id), read));
-  }
-
   /** 批量更新邮件已读状态 */
   public MailBatchUpdateResult updateReadStatuses(List<String> ids, boolean read) {
     validateUpdateIds(ids);
     return toBatchUpdateResult(
         jmapClient.setEmailsRead(sessionCache.getSession(), List.copyOf(ids), read));
-  }
-
-  /** 更新邮件星标状态 */
-  public void updateStarStatus(String id, boolean starred) {
-    requireSingleUpdate(updateStarStatuses(List.of(id), starred));
   }
 
   /** 批量更新邮件星标状态 */
@@ -224,17 +214,6 @@ public class MailService {
                       failure.id(), errorCode.getCode(), errorCode.getMessage());
                 })
             .toList());
-  }
-
-  private void requireSingleUpdate(MailBatchUpdateResult result) {
-    if (!result.failed().isEmpty()) {
-      int code = result.failed().getFirst().code();
-      ErrorCode errorCode =
-          code == ErrorCode.EMAIL_NOT_FOUND.getCode()
-              ? ErrorCode.EMAIL_NOT_FOUND
-              : ErrorCode.MAIL_SERVICE_UNAVAILABLE;
-      throw new BusinessException(errorCode);
-    }
   }
 
   private ErrorCode updateErrorCode(String type) {

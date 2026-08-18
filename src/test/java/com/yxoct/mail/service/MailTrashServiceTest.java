@@ -75,8 +75,9 @@ class MailTrashServiceTest {
     when(jmapClient.setEmailMailboxes(session, Map.of("email-1", List.of("trash"))))
         .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
 
-    service.moveEmailToTrash("email-1");
+    MailBatchUpdateResult result = service.moveEmailsToTrash(List.of("email-1"));
 
+    assertThat(result.updatedIds()).containsExactly("email-1");
     verify(restoreRepository).saveIfAbsent("account-1", "email-1", List.of("inbox", "archive"));
     verify(jmapClient).setEmailMailboxes(session, Map.of("email-1", List.of("trash")));
   }
@@ -96,7 +97,7 @@ class MailTrashServiceTest {
     when(jmapClient.setEmailMailboxes(session, Map.of("email-1", List.of("trash"))))
         .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
 
-    service.moveEmailToTrash("email-1");
+    service.moveEmailsToTrash(List.of("email-1"));
 
     verify(restoreRepository, never()).saveIfAbsent("account-1", "email-1", List.of("inbox"));
   }
@@ -149,7 +150,8 @@ class MailTrashServiceTest {
     when(jmapClient.setEmailMailboxes(session, Map.of("email-1", List.of("trash"))))
         .thenThrow(new BusinessException(ErrorCode.MAIL_SERVICE_TIMEOUT));
 
-    assertBusinessError(() -> service.moveEmailToTrash("email-1"), ErrorCode.MAIL_SERVICE_TIMEOUT);
+    assertBusinessError(
+        () -> service.moveEmailsToTrash(List.of("email-1")), ErrorCode.MAIL_SERVICE_TIMEOUT);
 
     verify(restoreRepository, never()).deleteAll("account-1", List.of("email-1"));
   }
@@ -162,8 +164,9 @@ class MailTrashServiceTest {
     when(jmapClient.setEmailMailboxes(session, Map.of("email-1", List.of("inbox"))))
         .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
 
-    service.restoreEmail("email-1");
+    MailBatchUpdateResult result = service.restoreEmails(List.of("email-1"));
 
+    assertThat(result.updatedIds()).containsExactly("email-1");
     verify(jmapClient).setEmailMailboxes(session, Map.of("email-1", List.of("inbox")));
     verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
   }

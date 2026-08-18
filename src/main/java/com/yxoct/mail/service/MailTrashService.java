@@ -37,10 +37,6 @@ public class MailTrashService {
     this.restoreRepository = restoreRepository;
   }
 
-  public void moveEmailToTrash(String id) {
-    requireSingleUpdate(moveEmailsToTrash(List.of(id)));
-  }
-
   public MailBatchUpdateResult moveEmailsToTrash(List<String> ids) {
     validateIds(ids);
     List<String> requestedIds = List.copyOf(ids);
@@ -99,10 +95,6 @@ public class MailTrashService {
     return batchResult(requestedIds, updateResult.updatedIds(), failures);
   }
 
-  public void restoreEmail(String id) {
-    requireSingleUpdate(restoreEmails(List.of(id)));
-  }
-
   public MailBatchUpdateResult restoreEmails(List<String> ids) {
     validateIds(ids);
     List<String> requestedIds = List.copyOf(ids);
@@ -151,21 +143,6 @@ public class MailTrashService {
         || new HashSet<>(ids).size() != ids.size()) {
       throw new BusinessException(ErrorCode.BAD_REQUEST);
     }
-  }
-
-  private void requireSingleUpdate(MailBatchUpdateResult result) {
-    if (result.failed().isEmpty()) {
-      return;
-    }
-
-    int code = result.failed().getFirst().code();
-    ErrorCode errorCode =
-        code == ErrorCode.EMAIL_NOT_FOUND.getCode()
-            ? ErrorCode.EMAIL_NOT_FOUND
-            : code == ErrorCode.EMAIL_RESTORE_RECORD_NOT_FOUND.getCode()
-                ? ErrorCode.EMAIL_RESTORE_RECORD_NOT_FOUND
-                : ErrorCode.MAIL_SERVICE_UNAVAILABLE;
-    throw new BusinessException(errorCode);
   }
 
   private ErrorCode updateErrorCode(String type) {
