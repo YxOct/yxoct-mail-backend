@@ -20,6 +20,7 @@ import com.yxoct.mail.config.StalwartProperties;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -43,7 +44,8 @@ class JmapClientTest {
     client =
         new JmapClient(
             builder,
-            new StalwartProperties(URI.create("http://localhost"), "user", "password"),
+            new StalwartProperties(
+                URI.create("http://localhost"), "user", "password", Duration.ofMinutes(1)),
             JsonMapper.builder().build());
   }
 

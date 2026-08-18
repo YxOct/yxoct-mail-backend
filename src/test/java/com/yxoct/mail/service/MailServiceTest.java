@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.EmailAddress;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyPart;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
@@ -35,13 +36,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class MailServiceTest {
 
   @Mock private JmapClient jmapClient;
+  @Mock private JmapSessionCache sessionCache;
 
   private MailService mailService;
   private JmapSession session;
 
   @BeforeEach
   void setUp() {
-    mailService = new MailService(jmapClient);
+    mailService = new MailService(jmapClient, sessionCache);
     session =
         new JmapSession(
             Map.of(),
@@ -52,7 +54,7 @@ class MailServiceTest {
             null,
             null,
             "state");
-    lenient().when(jmapClient.getSession()).thenReturn(session);
+    lenient().when(sessionCache.getSession()).thenReturn(session);
   }
 
   @Test
@@ -72,7 +74,7 @@ class MailServiceTest {
     assertBusinessError(
         () -> mailService.queryEmails("inbox", Integer.MAX_VALUE, 100), ErrorCode.BAD_REQUEST);
 
-    verifyNoInteractions(jmapClient);
+    verifyNoInteractions(jmapClient, sessionCache);
   }
 
   @Test

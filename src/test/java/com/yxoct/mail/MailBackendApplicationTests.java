@@ -7,7 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,7 @@ class MailBackendApplicationTests {
 
   @Autowired private MockMvc mockMvc;
 
-  @MockitoBean private JmapClient jmapClient;
+  @MockitoBean private JmapSessionCache sessionCache;
 
   @Value("${spring.http.clients.connect-timeout}")
   private Duration connectTimeout;
@@ -47,12 +47,12 @@ class MailBackendApplicationTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("UP"));
 
-    verifyNoInteractions(jmapClient);
+    verifyNoInteractions(sessionCache);
   }
 
   @Test
   void readinessIncludesStalwart() throws Exception {
-    when(jmapClient.getSession()).thenReturn(org.mockito.Mockito.mock(JmapSession.class));
+    when(sessionCache.getSession()).thenReturn(org.mockito.Mockito.mock(JmapSession.class));
 
     mockMvc
         .perform(get("/actuator/health/readiness"))

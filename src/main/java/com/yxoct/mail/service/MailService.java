@@ -1,6 +1,7 @@
 package com.yxoct.mail.service;
 
 import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.EmailAddress;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyPart;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
@@ -24,9 +25,11 @@ import org.springframework.stereotype.Service;
 public class MailService {
 
   private final JmapClient jmapClient;
+  private final JmapSessionCache sessionCache;
 
-  public MailService(JmapClient jmapClient) {
+  public MailService(JmapClient jmapClient, JmapSessionCache sessionCache) {
     this.jmapClient = jmapClient;
+    this.sessionCache = sessionCache;
   }
 
   /** 分页查询邮件列表 */
@@ -38,7 +41,7 @@ public class MailService {
     }
 
     int position = (int) calculatedPosition;
-    JmapSession session = jmapClient.getSession();
+    JmapSession session = sessionCache.getSession();
 
     EmailQueryResult queryResult = jmapClient.queryEmails(session, mailboxId, position, size);
     if (queryResult == null) {
@@ -70,7 +73,7 @@ public class MailService {
   /** 获取邮件详情 */
   public MailDetail getEmailDetail(String id) {
 
-    JmapSession session = jmapClient.getSession();
+    JmapSession session = sessionCache.getSession();
 
     EmailDetailResult result = jmapClient.getEmailDetails(session, List.of(id));
 
@@ -97,7 +100,7 @@ public class MailService {
   /** 获取邮箱列表 */
   public List<Mailbox> getMailboxes() {
 
-    JmapSession session = jmapClient.getSession();
+    JmapSession session = sessionCache.getSession();
 
     MailboxGetResult result = jmapClient.getMailboxes(session);
     if (result == null) {

@@ -12,7 +12,7 @@ The `dev` profile loads `.env` from the project root and requires:
 - `STALWART_TEST_USERNAME`: Development mailbox username.
 - `STALWART_TEST_PASSWORD`: Development mailbox password.
 
-The optional `STALWART_CONNECT_TIMEOUT` and `STALWART_READ_TIMEOUT` values use Spring Boot duration syntax and default to `5s` and `10s`.
+The optional `STALWART_CONNECT_TIMEOUT`, `STALWART_READ_TIMEOUT`, and `STALWART_SESSION_CACHE_TTL` values use Spring Boot duration syntax and default to `5s`, `10s`, and `1m`.
 
 The `prod` profile does not load `.env`. Supply `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required Stalwart setting is missing.
 

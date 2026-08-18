@@ -5,6 +5,8 @@ spring:
     clients:
       connect-timeout: ${STALWART_CONNECT_TIMEOUT:5s}
       read-timeout: ${STALWART_READ_TIMEOUT:10s}
+stalwart:
+  session-cache-ttl: ${STALWART_SESSION_CACHE_TTL:1m}
 server:
   port: ${SERVER_PORT:8080}
 logging:

@@ -1,6 +1,6 @@
 package com.yxoct.mail.monitoring;
 
-import com.yxoct.mail.client.stalwart.JmapClient;
+import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.common.exception.BusinessException;
 import org.springframework.boot.health.contributor.Health;
 import org.springframework.boot.health.contributor.HealthIndicator;
@@ -9,16 +9,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class StalwartHealthIndicator implements HealthIndicator {
 
-  private final JmapClient jmapClient;
+  private final JmapSessionCache sessionCache;
 
-  public StalwartHealthIndicator(JmapClient jmapClient) {
-    this.jmapClient = jmapClient;
+  public StalwartHealthIndicator(JmapSessionCache sessionCache) {
+    this.sessionCache = sessionCache;
   }
 
   @Override
   public Health health() {
     try {
-      jmapClient.getSession();
+      sessionCache.getSession();
       return Health.up().build();
     } catch (BusinessException exception) {
       return Health.down().withDetail("errorCode", exception.getErrorCode().getCode()).build();

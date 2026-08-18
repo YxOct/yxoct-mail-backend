@@ -4,13 +4,17 @@ import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.net.URI;
+import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
 @Validated
 @ConfigurationProperties(prefix = "stalwart")
 public record StalwartProperties(
-    @NotNull URI baseUrl, @NotBlank String username, @NotBlank String password) {
+    @NotNull URI baseUrl,
+    @NotBlank String username,
+    @NotBlank String password,
+    @NotNull Duration sessionCacheTtl) {
 
   @AssertTrue(message = "must be an absolute HTTP(S) URL")
   public boolean isBaseUrlValid() {
@@ -19,5 +23,10 @@ public record StalwartProperties(
             && baseUrl.getHost() != null
             && ("http".equalsIgnoreCase(baseUrl.getScheme())
                 || "https".equalsIgnoreCase(baseUrl.getScheme())));
+  }
+
+  @AssertTrue(message = "must be greater than zero")
+  public boolean isSessionCacheTtlValid() {
+    return sessionCacheTtl == null || (!sessionCacheTtl.isZero() && !sessionCacheTtl.isNegative());
   }
 }
