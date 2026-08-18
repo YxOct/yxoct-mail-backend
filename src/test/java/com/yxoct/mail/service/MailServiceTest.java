@@ -165,6 +165,23 @@ class MailServiceTest {
             Map.of("html-part", new EmailBodyValue("<p>Hello</p>")),
             List.of(new EmailBodyPart(null)),
             List.of(new EmailBodyPart("html-part")),
+            List.of(
+                new EmailBodyPart(
+                    "attachment-part",
+                    "blob-1",
+                    2048L,
+                    "report.pdf",
+                    "application/pdf",
+                    "attachment",
+                    null),
+                new EmailBodyPart(
+                    "image-part",
+                    "blob-2",
+                    1024L,
+                    "logo.png",
+                    "image/png",
+                    "inline",
+                    "logo@example")),
             Map.of("$seen", true, "$flagged", true));
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
@@ -176,6 +193,11 @@ class MailServiceTest {
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isTrue();
     assertThat(detail.starred()).isTrue();
+    assertThat(detail.attachments()).hasSize(2);
+    assertThat(detail.attachments().getFirst().blobId()).isEqualTo("blob-1");
+    assertThat(detail.attachments().getFirst().inline()).isFalse();
+    assertThat(detail.attachments().get(1).inline()).isTrue();
+    assertThat(detail.attachments().get(1).cid()).isEqualTo("logo@example");
   }
 
   @Test
@@ -191,6 +213,7 @@ class MailServiceTest {
             null,
             null,
             null,
+            List.of(),
             null);
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
@@ -202,6 +225,29 @@ class MailServiceTest {
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isFalse();
     assertThat(detail.starred()).isFalse();
+    assertThat(detail.attachments()).isEmpty();
+  }
+
+  @Test
+  void rejectsInvalidAttachmentMetadata() {
+    EmailDetailResult.EmailInfo email =
+        new EmailDetailResult.EmailInfo(
+            "email-1",
+            "Subject",
+            "Preview",
+            "2026-08-18T00:00:00Z",
+            null,
+            null,
+            null,
+            null,
+            null,
+            List.of(new EmailBodyPart("part-1", null, 10L, "file.txt", "text/plain", null, null)),
+            null);
+    when(jmapClient.getEmailDetails(session, List.of("email-1")))
+        .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
+
+    assertBusinessError(
+        () -> mailService.getEmailDetail("email-1"), ErrorCode.MAIL_SERVICE_UNAVAILABLE);
   }
 
   @Test

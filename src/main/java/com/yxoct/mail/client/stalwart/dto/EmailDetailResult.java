@@ -16,5 +16,6 @@ public record EmailDetailResult(
       Map<String, EmailBodyValue> bodyValues,
       List<EmailBodyPart> textBody,
       List<EmailBodyPart> htmlBody,
+      List<EmailBodyPart> attachments,
       Map<String, Boolean> keywords) {}
 }

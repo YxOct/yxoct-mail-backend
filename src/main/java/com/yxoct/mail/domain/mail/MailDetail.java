@@ -11,4 +11,5 @@ public record MailDetail(
     List<MailAddress> to,
     String body,
     boolean read,
-    boolean starred) {}
+    boolean starred,
+    List<MailAttachment> attachments) {}

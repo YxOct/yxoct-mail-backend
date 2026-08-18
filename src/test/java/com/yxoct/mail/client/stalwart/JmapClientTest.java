@@ -274,6 +274,8 @@ class JmapClientTest {
   void deserializesTypedEmailDetailFields() {
     server
         .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][1].properties[9]").value("attachments"))
+        .andExpect(jsonPath("$.methodCalls[0][1].bodyProperties[1]").value("blobId"))
         .andRespond(
             withSuccess(
                 """
@@ -294,6 +296,14 @@ class JmapClientTest {
                           "partId": "part-1",
                           "type": "text/plain",
                           "size": 5
+                        }],
+                        "attachments": [{
+                          "partId": "part-2",
+                          "blobId": "blob-1",
+                          "name": "report.pdf",
+                          "type": "application/pdf",
+                          "size": 2048,
+                          "disposition": "attachment"
                         }]
                       }],
                       "notFound": []
@@ -310,6 +320,8 @@ class JmapClientTest {
     assertThat(email.from().getFirst().email()).isEqualTo("sender@example.com");
     assertThat(email.textBody().getFirst().partId()).isEqualTo("part-1");
     assertThat(email.bodyValues().get("part-1").value()).isEqualTo("Hello");
+    assertThat(email.attachments().getFirst().blobId()).isEqualTo("blob-1");
+    assertThat(email.attachments().getFirst().name()).isEqualTo("report.pdf");
     assertThat(email.keywords()).containsEntry("$seen", true);
     assertThat(email.keywords()).containsEntry("$flagged", true);
   }

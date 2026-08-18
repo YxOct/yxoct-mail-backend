@@ -52,7 +52,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 
 - `GET /api/mail/mailboxes`: list mailboxes.
 - `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20&keyword=invoice&read=false&starred=true&sortBy=receivedAt&direction=desc`: list emails with optional search, status filters, and sorting. `sortBy` supports `receivedAt`, `sentAt`, `subject`, `from`, `to`, and `size`; `direction` supports `asc` and `desc`. The default is newest first. `keyword` is limited to 200 characters and `size` must be between 1 and 100.
-- `GET /api/mail/emails/{id}`: get an email detail.
+- `GET /api/mail/emails/{id}`: get an email detail, including received attachment metadata.
 - `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
 - `POST /api/mail/emails/move`: move up to 100 emails with `{ "ids": ["email-1"], "targetMailboxId": "archive" }`.
@@ -71,6 +71,7 @@ The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, whi
 Every HTTP response includes an `X-Request-Id`. A valid incoming value is preserved; otherwise the application generates one. The same value is included in logs and forwarded to Stalwart for request correlation. Health details are not exposed over HTTP.
 
 Email summaries and details expose `read` and `starred` boolean fields derived from the JMAP `$seen` and `$flagged` keywords.
+Email details expose attachment metadata from Stalwart; attachment binary data is not stored in MySQL.
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 

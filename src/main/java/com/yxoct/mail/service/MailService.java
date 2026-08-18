@@ -14,6 +14,7 @@ import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailAddress;
+import com.yxoct.mail.domain.mail.MailAttachment;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
@@ -112,7 +113,8 @@ public class MailService {
         convertAddresses(email.to()),
         extractBody(email),
         hasKeyword(email.keywords(), "$seen"),
-        hasKeyword(email.keywords(), "$flagged"));
+        hasKeyword(email.keywords(), "$flagged"),
+        convertAttachments(email.attachments()));
   }
 
   /** 批量更新邮件已读状态 */
@@ -191,6 +193,37 @@ public class MailService {
         .filter(partId -> !partId.isBlank())
         .findFirst()
         .orElse(null);
+  }
+
+  private List<MailAttachment> convertAttachments(List<EmailBodyPart> attachments) {
+    if (attachments == null
+        || attachments.stream()
+            .anyMatch(
+                attachment ->
+                    attachment == null
+                        || attachment.partId() == null
+                        || attachment.partId().isBlank()
+                        || attachment.blobId() == null
+                        || attachment.blobId().isBlank()
+                        || attachment.size() == null
+                        || attachment.size() < 0
+                        || attachment.type() == null
+                        || attachment.type().isBlank())) {
+      throw mailServiceUnavailable();
+    }
+
+    return attachments.stream()
+        .map(
+            attachment ->
+                new MailAttachment(
+                    attachment.partId(),
+                    attachment.blobId(),
+                    attachment.name(),
+                    attachment.type(),
+                    attachment.size(),
+                    "inline".equalsIgnoreCase(attachment.disposition()),
+                    attachment.cid()))
+        .toList();
   }
 
   private boolean hasKeyword(java.util.Map<String, Boolean> keywords, String keyword) {

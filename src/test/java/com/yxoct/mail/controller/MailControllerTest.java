@@ -10,7 +10,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.mail.MailAttachment;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
+import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
@@ -109,6 +111,33 @@ class MailControllerTest {
         .andExpect(jsonPath("$.code").value(2005))
         .andExpect(jsonPath("$.message").value("邮件服务响应超时"))
         .andExpect(jsonPath("$.data").doesNotExist());
+  }
+
+  @Test
+  void returnsEmailAttachmentMetadata() throws Exception {
+    when(mailService.getEmailDetail("email-1"))
+        .thenReturn(
+            new MailDetail(
+                "email-1",
+                "Subject",
+                "Preview",
+                "2026-08-18T00:00:00Z",
+                List.of(),
+                List.of(),
+                "Hello",
+                false,
+                false,
+                List.of(
+                    new MailAttachment(
+                        "part-1", "blob-1", "report.pdf", "application/pdf", 2048, false, null))));
+
+    mockMvc
+        .perform(get("/api/mail/emails/email-1"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.attachments[0].blobId").value("blob-1"))
+        .andExpect(jsonPath("$.data.attachments[0].name").value("report.pdf"))
+        .andExpect(jsonPath("$.data.attachments[0].size").value(2048))
+        .andExpect(jsonPath("$.data.attachments[0].inline").value(false));
   }
 
   @Test
