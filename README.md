@@ -8,13 +8,25 @@ Create `.env` based on `.env.example` and configure the required environment var
 
 The `dev` profile loads `.env` from the project root and requires:
 
+- `DB_URL`: MySQL JDBC URL.
+- `DB_USERNAME`: application database user.
+- `DB_PASSWORD`: application database password.
 - `STALWART_BASE_URL`: Stalwart server base URL.
 - `STALWART_TEST_USERNAME`: Development mailbox username.
 - `STALWART_TEST_PASSWORD`: Development mailbox password.
 
+For local development, start MySQL and wait for it to become healthy before starting the application:
+
+```powershell
+docker compose up -d
+docker compose ps
+```
+
+`DB_ROOT_PASSWORD` and `DB_NAME` are used by Docker Compose when initializing MySQL. The optional database pool settings in `.env.example` use milliseconds for timeouts.
+
 The optional `STALWART_CONNECT_TIMEOUT`, `STALWART_READ_TIMEOUT`, and `STALWART_SESSION_CACHE_TTL` values use Spring Boot duration syntax and default to `5s`, `10s`, and `1m`.
 
-The `prod` profile does not load `.env`. Supply `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required Stalwart setting is missing.
+The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required setting is missing.
 
 ## Run
 
@@ -45,7 +57,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
 - `GET /actuator/health`: check application and Stalwart availability.
 - `GET /actuator/health/liveness`: check only whether the application is alive.
-- `GET /actuator/health/readiness`: check whether the application and Stalwart are ready to serve traffic.
+- `GET /actuator/health/readiness`: check whether the application, database, and Stalwart are ready to serve traffic.
 
 The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, which reports JMAP operation counts, durations, and classified outcomes. Production continues to expose only health information unless a metrics exporter is configured.
 

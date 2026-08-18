@@ -10,7 +10,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yxoct.mail.client.stalwart.JmapClient;
 import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.time.Duration;
+import javax.sql.DataSource;
+import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,6 +36,10 @@ class MailBackendApplicationTests {
 
   @Autowired private JmapSessionCache sessionCache;
 
+  @Autowired private DataSource dataSource;
+
+  @Autowired private SqlSessionFactory sqlSessionFactory;
+
   @Value("${spring.http.clients.connect-timeout}")
   private Duration connectTimeout;
 
@@ -42,6 +51,17 @@ class MailBackendApplicationTests {
     assertThat(connectTimeout).isEqualTo(Duration.ofSeconds(5));
     assertThat(readTimeout).isEqualTo(Duration.ofSeconds(10));
     assertThat(sessionCache).isNotNull();
+    assertThat(sqlSessionFactory).isNotNull();
+  }
+
+  @Test
+  void databaseConnectionIsAvailable() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet = statement.executeQuery("SELECT 1")) {
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
   }
 
   @Test
