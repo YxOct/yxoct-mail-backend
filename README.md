@@ -77,18 +77,19 @@ An attachment is marked as inline only when its MIME disposition is `inline`; a 
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
-All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important error codes are:
+All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
 
 - `1000`: invalid request (`400`).
+- `1001`: unexpected server error (`500`).
 - `1002`: request resource not found (`404`).
 - `2000`: email not found (`404`).
-- `2001`: email restore record not found (`404`).
 - `2002`: mailbox not found (`404`).
-- `2003`: email is not exclusively in Trash (`409`).
 - `2004`: Stalwart connection or protocol failure (`502`).
 - `2005`: Stalwart timeout (`504`).
 - `2006`: Stalwart authentication failure (`502`).
 - `2007`: attachment not found on the email (`404`).
+
+A batch operation can partially succeed. In that case the HTTP response remains successful, while `data.failed` contains a result for each failed email. Common per-email codes are `2000` (email not found), `2001` (restore record not found), `2003` (email is not exclusively in Trash), and `2004` (mail service failure).
 
 ## Code Style
 

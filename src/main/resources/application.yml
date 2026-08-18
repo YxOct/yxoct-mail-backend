@@ -47,5 +47,6 @@ management:
 springdoc:
   api-docs:
     enabled: false
+    version: openapi_3_0
   swagger-ui:
     enabled: false

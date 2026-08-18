@@ -106,11 +106,34 @@ class MailBackendApplicationTests {
     mockMvc
         .perform(get("/v3/api-docs"))
         .andExpect(status().isOk())
+        .andExpect(jsonPath("$.openapi").value("3.0.1"))
         .andExpect(jsonPath("$.info.title").value("YxOct Mail API"))
         .andExpect(jsonPath("$.info.version").value("v1"))
         .andExpect(jsonPath("$.paths['/api/mail/mailboxes'].get").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/read-status'].patch").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
+        .andExpect(
+            jsonPath("$.components.schemas.ApiErrorResponse.properties.code.type").value("integer"))
+        .andExpect(
+            jsonPath(
+                    "$.components.responses.BadRequest.content['application/json'].examples['code-1000'].value.code")
+                .value(1000))
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/mailboxes/{mailboxId}/emails'].get.responses['400'].['$ref']")
+                .value("#/components/responses/BadRequest"))
+        .andExpect(
+            jsonPath("$.paths['/api/mail/emails/{id}'].get.responses['404'].['$ref']")
+                .value("#/components/responses/EmailNotFound"))
+        .andExpect(
+            jsonPath("$.paths['/api/mail/emails/{id}'].get.responses['502'].['$ref']")
+                .value("#/components/responses/MailServiceUnavailable"))
+        .andExpect(
+            jsonPath("$.paths['/api/mail/emails/move'].post.responses['404'].['$ref']")
+                .value("#/components/responses/MailboxNotFound"))
+        .andExpect(
+            jsonPath("$.paths['/api/mail/mailboxes'].get.responses['502'].['$ref']")
+                .value("#/components/responses/MailServiceUnavailable"))
         .andExpect(
             jsonPath(
                     "$.paths['/api/mail/emails/{emailId}/attachments/{blobId}'].get.responses['200'].content['application/octet-stream'].schema.format")
