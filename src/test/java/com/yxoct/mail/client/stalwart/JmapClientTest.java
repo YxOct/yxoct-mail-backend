@@ -58,6 +58,7 @@ class JmapClientTest {
             builder,
             new StalwartProperties(
                 URI.create("http://localhost"), "user", "password", Duration.ofMinutes(1)),
+            () -> new StalwartCredentials("test", "user", "password"),
             JsonMapper.builder().build(),
             new StalwartClientMetrics(new SimpleMeterRegistry()));
   }

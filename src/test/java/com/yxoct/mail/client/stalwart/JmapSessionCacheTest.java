@@ -22,6 +22,7 @@ class JmapSessionCacheTest {
   @Mock private JmapClient jmapClient;
   @Mock private JmapSession firstSession;
   @Mock private JmapSession secondSession;
+  @Mock private StalwartCredentialsProvider credentialsProvider;
 
   private MutableClock clock;
   private JmapSessionCache cache;
@@ -29,7 +30,9 @@ class JmapSessionCacheTest {
   @BeforeEach
   void setUp() {
     clock = new MutableClock(Instant.parse("2026-08-18T00:00:00Z"));
-    cache = new JmapSessionCache(jmapClient, Duration.ofMinutes(1), clock);
+    when(credentialsProvider.getCredentials())
+        .thenReturn(new StalwartCredentials("account-1", "user", "password"));
+    cache = new JmapSessionCache(jmapClient, Duration.ofMinutes(1), clock, credentialsProvider);
   }
 
   @Test
@@ -60,6 +63,20 @@ class JmapSessionCacheTest {
     assertThat(cache.getSession()).isSameAs(firstSession);
     cache.invalidate();
     assertThat(cache.getSession()).isSameAs(secondSession);
+  }
+
+  @Test
+  void separatesSessionsByCredential() {
+    when(jmapClient.getSession()).thenReturn(firstSession, secondSession);
+    when(credentialsProvider.getCredentials())
+        .thenReturn(
+            new StalwartCredentials("account-1", "user-1", "password"),
+            new StalwartCredentials("account-2", "user-2", "password"),
+            new StalwartCredentials("account-1", "user-1", "password"));
+
+    assertThat(cache.getSession()).isSameAs(firstSession);
+    assertThat(cache.getSession()).isSameAs(secondSession);
+    assertThat(cache.getSession()).isSameAs(firstSession);
   }
 
   private static final class MutableClock extends Clock {

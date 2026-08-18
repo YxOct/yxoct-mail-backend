@@ -50,16 +50,19 @@ public class JmapClient {
 
   private final RestClient restClient;
   private final StalwartProperties properties;
+  private final StalwartCredentialsProvider credentialsProvider;
   private final ObjectMapper objectMapper;
   private final StalwartClientMetrics metrics;
 
   public JmapClient(
       RestClient.Builder builder,
       StalwartProperties properties,
+      StalwartCredentialsProvider credentialsProvider,
       ObjectMapper objectMapper,
       StalwartClientMetrics metrics) {
 
     this.properties = properties;
+    this.credentialsProvider = credentialsProvider;
     this.objectMapper = objectMapper;
     this.metrics = metrics;
 
@@ -801,7 +804,8 @@ public class JmapClient {
   }
 
   private void setRequestHeaders(HttpHeaders headers) {
-    headers.setBasicAuth(properties.username(), properties.password());
+    StalwartCredentials credentials = credentialsProvider.getCredentials();
+    headers.setBasicAuth(credentials.username(), credentials.password());
     String requestId = RequestIdContext.current();
     if (requestId != null) {
       headers.set(RequestIdContext.HEADER_NAME, requestId);

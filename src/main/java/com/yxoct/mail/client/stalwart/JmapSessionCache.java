@@ -5,6 +5,8 @@ import com.yxoct.mail.config.StalwartProperties;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -14,44 +16,49 @@ public class JmapSessionCache {
   private final JmapClient jmapClient;
   private final Duration timeToLive;
   private final Clock clock;
+  private final StalwartCredentialsProvider credentialsProvider;
   private final Object refreshLock = new Object();
-
-  private volatile CachedSession cachedSession;
+  private final Map<String, CachedSession> cachedSessions = new HashMap<>();
 
   @Autowired
-  public JmapSessionCache(JmapClient jmapClient, StalwartProperties properties, Clock clock) {
-    this(jmapClient, properties.sessionCacheTtl(), clock);
+  public JmapSessionCache(
+      JmapClient jmapClient,
+      StalwartProperties properties,
+      Clock clock,
+      StalwartCredentialsProvider credentialsProvider) {
+    this(jmapClient, properties.sessionCacheTtl(), clock, credentialsProvider);
   }
 
-  JmapSessionCache(JmapClient jmapClient, Duration timeToLive, Clock clock) {
+  JmapSessionCache(
+      JmapClient jmapClient,
+      Duration timeToLive,
+      Clock clock,
+      StalwartCredentialsProvider credentialsProvider) {
     this.jmapClient = jmapClient;
     this.timeToLive = timeToLive;
     this.clock = clock;
+    this.credentialsProvider = credentialsProvider;
   }
 
   public JmapSession getSession() {
+    String cacheKey = credentialsProvider.getCredentials().cacheKey();
     Instant now = clock.instant();
-    CachedSession current = cachedSession;
-    if (isValid(current, now)) {
-      return current.session();
-    }
-
     synchronized (refreshLock) {
-      current = cachedSession;
-      now = clock.instant();
+      CachedSession current = cachedSessions.get(cacheKey);
       if (isValid(current, now)) {
         return current.session();
       }
 
       JmapSession session = jmapClient.getSession();
-      cachedSession = new CachedSession(session, now.plus(timeToLive));
+      cachedSessions.put(cacheKey, new CachedSession(session, now.plus(timeToLive)));
       return session;
     }
   }
 
   public void invalidate() {
+    String cacheKey = credentialsProvider.getCredentials().cacheKey();
     synchronized (refreshLock) {
-      cachedSession = null;
+      cachedSessions.remove(cacheKey);
     }
   }
 

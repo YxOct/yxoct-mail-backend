@@ -48,7 +48,9 @@ public enum ErrorCode {
 
   ACCESS_DENIED(4002, HttpStatus.FORBIDDEN, "无权访问该资源"),
 
-  REFRESH_TOKEN_INVALID(4003, HttpStatus.UNAUTHORIZED, "刷新令牌无效或已过期");
+  REFRESH_TOKEN_INVALID(4003, HttpStatus.UNAUTHORIZED, "刷新令牌无效或已过期"),
+
+  MAIL_ACCOUNT_NOT_READY(4004, HttpStatus.CONFLICT, "邮箱账户尚未就绪");
 
   private final int code;
   private final HttpStatus httpStatus;
