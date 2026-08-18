@@ -8,7 +8,6 @@ import com.yxoct.mail.persistence.RegistrationInvitationRepository;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -49,7 +48,7 @@ public class RegistrationService {
             .findByTokenHash(invitationTokenHash)
             .orElseThrow(() -> new BusinessException(ErrorCode.INVITATION_INVALID)),
         RegistrationInvitationPurpose.REGISTRATION,
-        LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        LocalDateTime.ofInstant(clock.instant(), clock.getZone()));
     String passwordHash = passwordEncoder.encode(request.password());
     return registrationTransaction.register(invitationTokenHash, normalizedAddress, passwordHash);
   }

@@ -1,7 +1,6 @@
 package com.yxoct.mail.config;
 
 import java.security.SecureRandom;
-import java.time.Clock;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,10 +22,5 @@ public class RegistrationSecurityConfig {
   @Bean
   SecureRandom registrationSecureRandom() {
     return new SecureRandom();
-  }
-
-  @Bean
-  Clock applicationClock() {
-    return Clock.systemUTC();
   }
 }

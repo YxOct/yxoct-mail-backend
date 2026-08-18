@@ -9,7 +9,6 @@ import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +39,7 @@ public class LocalRegistrationTransaction {
         invitationRepository
             .findByTokenHashForUpdate(invitationTokenHash)
             .orElseThrow(() -> new BusinessException(ErrorCode.INVITATION_INVALID));
-    LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+    LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
     invitationValidator.validate(invitation, RegistrationInvitationPurpose.REGISTRATION, now);
 
     if (userRegistrationRepository.emailAddressExists(normalizedAddress)) {

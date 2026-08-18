@@ -11,7 +11,6 @@ import com.yxoct.mail.persistence.entity.RegistrationInvitationStatus;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -48,7 +47,7 @@ public class RegistrationInvitationService {
     invitation.setTokenHash(tokenCodec.hash(token));
     invitation.setStatus(RegistrationInvitationStatus.PENDING);
     invitation.setPurpose(purpose);
-    invitation.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));
+    invitation.setExpiresAt(LocalDateTime.ofInstant(expiresAt, clock.getZone()));
     repository.save(invitation);
 
     return new CreatedRegistrationInvitation(invitation.getId(), token, expiresAt);

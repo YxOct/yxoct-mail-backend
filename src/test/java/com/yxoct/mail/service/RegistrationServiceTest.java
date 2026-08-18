@@ -21,7 +21,6 @@ import com.yxoct.mail.persistence.mapper.MailAccountMapper;
 import com.yxoct.mail.persistence.mapper.RegistrationInvitationMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,13 +58,13 @@ class RegistrationServiceTest {
   @Test
   void registersNormalizedPrimaryAddressAndConsumesInvitation() {
     CreatedRegistrationInvitation invitation = invitationService.create();
-    LocalDateTime beforeRegistration = utcNow();
+    LocalDateTime beforeRegistration = applicationNow();
 
     assertThat(invitation.token()).matches("^yxi[A-Za-z0-9_-]{22}$");
 
     RegistrationResult result =
         registrationService.register(new RegisterRequest(invitation.token(), "Alice", PASSWORD));
-    LocalDateTime afterRegistration = utcNow();
+    LocalDateTime afterRegistration = applicationNow();
 
     assertThat(result.emailAddress()).isEqualTo("alice@yxoct.com");
     assertThat(result.status().name()).isEqualTo("PROVISIONING");
@@ -161,7 +160,7 @@ class RegistrationServiceTest {
     expired.setTokenHash(invitationTokenCodec.hash(expiredToken));
     expired.setStatus(RegistrationInvitationStatus.PENDING);
     expired.setPurpose(RegistrationInvitationPurpose.REGISTRATION);
-    expired.setExpiresAt(LocalDateTime.ofInstant(clock.instant().minusSeconds(1), ZoneOffset.UTC));
+    expired.setExpiresAt(LocalDateTime.ofInstant(clock.instant().minusSeconds(1), clock.getZone()));
     invitationMapper.insert(expired);
 
     assertRegistrationError(expiredToken, "alice", ErrorCode.INVITATION_EXPIRED);
@@ -182,7 +181,7 @@ class RegistrationServiceTest {
             exception -> assertThat(exception.getErrorCode()).isEqualTo(expectedError));
   }
 
-  private LocalDateTime utcNow() {
-    return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+  private LocalDateTime applicationNow() {
+    return LocalDateTime.ofInstant(clock.instant(), clock.getZone());
   }
 }

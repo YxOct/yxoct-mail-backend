@@ -13,7 +13,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,7 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class MailAccountProvisioningServiceTest {
 
   private static final Instant NOW = Instant.parse("2026-08-18T12:00:00Z");
-  private static final LocalDateTime NOW_UTC = LocalDateTime.ofInstant(NOW, ZoneOffset.UTC);
+  private static final ZoneId APPLICATION_ZONE = ZoneId.of("Asia/Shanghai");
+  private static final LocalDateTime NOW_LOCAL = LocalDateTime.ofInstant(NOW, APPLICATION_ZONE);
 
   @Mock private MailAccountProvisioningRepository repository;
   @Mock private StalwartManagementClient managementClient;
@@ -42,30 +43,30 @@ class MailAccountProvisioningServiceTest {
             credentialGenerator,
             credentialCipher,
             properties(true),
-            Clock.fixed(NOW, ZoneOffset.UTC));
+            Clock.fixed(NOW, APPLICATION_ZONE));
   }
 
   @Test
   void claimsGeneratesCredentialAndActivatesAccount() {
-    when(repository.claim(42, NOW_UTC, NOW_UTC.plusMinutes(1))).thenReturn(true);
+    when(repository.claim(42, NOW_LOCAL, NOW_LOCAL.plusMinutes(1))).thenReturn(true);
     when(repository.findTask(42))
         .thenReturn(new MailAccountProvisioningTask(42, "alice@yxoct.com", null, null, 1));
     when(credentialGenerator.generate()).thenReturn("internal-secret");
     when(credentialCipher.encrypt("internal-secret")).thenReturn("v1:ciphertext");
-    when(repository.saveCredential(42, "v1:ciphertext", NOW_UTC)).thenReturn(true);
+    when(repository.saveCredential(42, "v1:ciphertext", NOW_LOCAL)).thenReturn(true);
     when(credentialCipher.decrypt("v1:ciphertext")).thenReturn("internal-secret");
     when(managementClient.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
         .thenReturn("stalwart-1");
-    when(repository.markSucceeded(42, "stalwart-1", NOW_UTC)).thenReturn(true);
+    when(repository.markSucceeded(42, "stalwart-1", NOW_LOCAL)).thenReturn(true);
 
     service.provision(42);
 
-    verify(repository).markSucceeded(42, "stalwart-1", NOW_UTC);
+    verify(repository).markSucceeded(42, "stalwart-1", NOW_LOCAL);
   }
 
   @Test
   void recordsFailureWithExponentialRetryDelay() {
-    when(repository.claim(42, NOW_UTC, NOW_UTC.plusMinutes(1))).thenReturn(true);
+    when(repository.claim(42, NOW_LOCAL, NOW_LOCAL.plusMinutes(1))).thenReturn(true);
     when(repository.findTask(42))
         .thenReturn(
             new MailAccountProvisioningTask(42, "alice@yxoct.com", null, "v1:ciphertext", 3));
@@ -76,17 +77,19 @@ class MailAccountProvisioningServiceTest {
     service.provision(42);
 
     verify(repository)
-        .markFailed(42, "MANAGEMENT_REQUEST_FAILED", NOW_UTC.plus(Duration.ofMinutes(2)), NOW_UTC);
+        .markFailed(
+            42, "MANAGEMENT_REQUEST_FAILED", NOW_LOCAL.plus(Duration.ofMinutes(2)), NOW_LOCAL);
   }
 
   @Test
   void recordsFailureWhenClaimedAccountNoLongerExists() {
-    when(repository.claim(42, NOW_UTC, NOW_UTC.plusMinutes(1))).thenReturn(true);
+    when(repository.claim(42, NOW_LOCAL, NOW_LOCAL.plusMinutes(1))).thenReturn(true);
     when(repository.findTask(42)).thenReturn(null);
 
     service.provision(42);
 
-    verify(repository).markFailed(42, "LOCAL_ACCOUNT_NOT_FOUND", NOW_UTC.plusSeconds(30), NOW_UTC);
+    verify(repository)
+        .markFailed(42, "LOCAL_ACCOUNT_NOT_FOUND", NOW_LOCAL.plusSeconds(30), NOW_LOCAL);
   }
 
   @Test
@@ -98,7 +101,7 @@ class MailAccountProvisioningServiceTest {
             credentialGenerator,
             credentialCipher,
             properties(false),
-            Clock.fixed(NOW, ZoneOffset.UTC));
+            Clock.fixed(NOW, APPLICATION_ZONE));
 
     service.provision(42);
     service.provisionPendingAccounts();

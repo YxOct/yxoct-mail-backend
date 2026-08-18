@@ -19,8 +19,8 @@ public class JmapSessionCache {
   private volatile CachedSession cachedSession;
 
   @Autowired
-  public JmapSessionCache(JmapClient jmapClient, StalwartProperties properties) {
-    this(jmapClient, properties.sessionCacheTtl(), Clock.systemUTC());
+  public JmapSessionCache(JmapClient jmapClient, StalwartProperties properties, Clock clock) {
+    this(jmapClient, properties.sessionCacheTtl(), clock);
   }
 
   JmapSessionCache(JmapClient jmapClient, Duration timeToLive, Clock clock) {

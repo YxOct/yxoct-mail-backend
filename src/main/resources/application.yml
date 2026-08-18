@@ -31,6 +31,7 @@ stalwart:
     max-retry-delay: ${STALWART_PROVISIONING_MAX_RETRY_DELAY:1h}
     batch-size: ${STALWART_PROVISIONING_BATCH_SIZE:20}
 app:
+  time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
   registration:
     mail-domain: ${MAIL_DOMAIN:yxoct.com}
     invitation-ttl: ${REGISTRATION_INVITATION_TTL:7d}

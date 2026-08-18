@@ -8,7 +8,6 @@ import com.yxoct.mail.persistence.MailAccountProvisioningTask;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -128,7 +127,7 @@ public class MailAccountProvisioningService {
   }
 
   private LocalDateTime now() {
-    return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+    return LocalDateTime.ofInstant(clock.instant(), clock.getZone());
   }
 
   private void requireUpdated(boolean updated) {

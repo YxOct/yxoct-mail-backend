@@ -32,7 +32,7 @@ docker compose ps
 
 Flyway applies versioned migrations from `src/main/resources/db/migration` when the application starts. The migrations cover deleted-email restoration, users and mail accounts, and registration invitations. Applied migrations are tracked in `flyway_schema_history`; never edit a migration after it has been applied. Add a new version instead.
 
-The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key with `openssl rand -base64 32` or an equivalent cryptographically secure generator, and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
+`APP_TIME_ZONE` defaults to `Asia/Shanghai` and should match the MySQL session time zone. The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key with `openssl rand -base64 32` or an equivalent cryptographically secure generator, and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
 
 The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, `STALWART_PASSWORD`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a provisioning secret is missing or invalid.
 
