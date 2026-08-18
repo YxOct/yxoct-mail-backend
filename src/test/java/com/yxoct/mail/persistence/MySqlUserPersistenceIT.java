@@ -82,7 +82,7 @@ class MySqlUserPersistenceIT {
       assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("MySQL");
     }
 
-    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '3'"))
+    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '4'"))
         .isEqualTo(1);
     assertThat(
             queryForInt(
@@ -100,6 +100,12 @@ class MySqlUserPersistenceIT {
                     + "AND index_name = 'uk_email_address_normalized_address' "
                     + "AND non_unique = 0"))
         .isEqualTo(1);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                    + "WHERE table_schema = DATABASE() "
+                    + "AND column_name IN ('mail_account_limit', 'email_address_limit')"))
+        .isZero();
   }
 
   @Test

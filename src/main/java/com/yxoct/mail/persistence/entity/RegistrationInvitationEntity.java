@@ -19,8 +19,7 @@ public class RegistrationInvitationEntity {
 
   private String tokenHash;
   private RegistrationInvitationStatus status;
-  private Integer mailAccountLimit;
-  private Integer emailAddressLimit;
+  private RegistrationInvitationPurpose purpose;
   private LocalDateTime expiresAt;
   private Long usedByUserId;
   private LocalDateTime usedAt;

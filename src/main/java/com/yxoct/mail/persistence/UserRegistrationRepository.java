@@ -42,17 +42,14 @@ public class UserRegistrationRepository {
         > 0;
   }
 
-  public RegistrationResult create(
-      String normalizedAddress, String passwordHash, int mailAccountLimit, int emailAddressLimit) {
+  public RegistrationResult create(String normalizedAddress, String passwordHash) {
     AppUserEntity user = new AppUserEntity();
     user.setPasswordHash(passwordHash);
     user.setStatus(UserStatus.ACTIVE);
-    user.setMailAccountLimit(mailAccountLimit);
     appUserMapper.insert(user);
 
     MailAccountEntity mailAccount = new MailAccountEntity();
     mailAccount.setStatus(MailAccountStatus.PROVISIONING);
-    mailAccount.setEmailAddressLimit(emailAddressLimit);
     mailAccountMapper.insert(mailAccount);
 
     EmailAddressEntity emailAddress = new EmailAddressEntity();

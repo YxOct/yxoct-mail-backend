@@ -6,6 +6,7 @@ import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.persistence.RegistrationInvitationRepository;
 import com.yxoct.mail.persistence.UserRegistrationRepository;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
+import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -40,7 +41,7 @@ public class LocalRegistrationTransaction {
             .findByTokenHashForUpdate(invitationTokenHash)
             .orElseThrow(() -> new BusinessException(ErrorCode.INVITATION_INVALID));
     LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
-    invitationValidator.validate(invitation, now);
+    invitationValidator.validate(invitation, RegistrationInvitationPurpose.REGISTRATION, now);
 
     if (userRegistrationRepository.emailAddressExists(normalizedAddress)) {
       throw new BusinessException(ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
@@ -48,11 +49,7 @@ public class LocalRegistrationTransaction {
 
     try {
       RegistrationResult result =
-          userRegistrationRepository.create(
-              normalizedAddress,
-              passwordHash,
-              invitation.getMailAccountLimit(),
-              invitation.getEmailAddressLimit());
+          userRegistrationRepository.create(normalizedAddress, passwordHash);
       if (!invitationRepository.markUsed(invitation.getId(), result.userId(), now)) {
         throw new IllegalStateException("Locked invitation could not be consumed");
       }

@@ -19,7 +19,6 @@ public class MailAccountEntity {
 
   private String stalwartAccountId;
   private MailAccountStatus status;
-  private Integer emailAddressLimit;
   private Long version;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;

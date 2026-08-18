@@ -111,7 +111,7 @@ All API endpoints return the common response shape `{ "code", "message", "data" 
 - `3003`: registration invitation revoked (`410`).
 - `3004`: email address unavailable (`409`).
 
-Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. Stalwart account provisioning is handled separately. Invitation tokens are returned only when created; only their SHA-256 hashes are stored. User passwords are stored as versioned Argon2 hashes.
+Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. Stalwart account provisioning is handled separately. Invitation tokens use the format `yxi` followed by 22 URL-safe Base64 characters (128 bits of randomness), are returned only when created, and only their SHA-256 hashes are stored. Invitations carry a purpose instead of granting persistent account or address quotas. User passwords are stored as versioned Argon2 hashes.
 
 A batch operation can partially succeed. In that case the HTTP response remains successful, while `data.failed` contains a result for each failed email. Common per-email codes are `2000` (email not found), `2001` (restore record not found), `2003` (email is not exclusively in Trash), and `2004` (mail service failure).
 

@@ -19,7 +19,6 @@ public class AppUserEntity {
 
   private String passwordHash;
   private UserStatus status;
-  private Integer mailAccountLimit;
   private Long version;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;

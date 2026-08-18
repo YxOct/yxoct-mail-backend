@@ -6,6 +6,7 @@ import com.yxoct.mail.config.RegistrationProperties;
 import com.yxoct.mail.domain.user.CreatedRegistrationInvitation;
 import com.yxoct.mail.persistence.RegistrationInvitationRepository;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
+import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationStatus;
 import java.time.Clock;
 import java.time.Instant;
@@ -35,14 +36,18 @@ public class RegistrationInvitationService {
 
   @Transactional
   public CreatedRegistrationInvitation create() {
+    return create(RegistrationInvitationPurpose.REGISTRATION);
+  }
+
+  @Transactional
+  public CreatedRegistrationInvitation create(RegistrationInvitationPurpose purpose) {
     String token = tokenCodec.generate();
     Instant expiresAt = clock.instant().plus(properties.invitationTtl());
 
     RegistrationInvitationEntity invitation = new RegistrationInvitationEntity();
     invitation.setTokenHash(tokenCodec.hash(token));
     invitation.setStatus(RegistrationInvitationStatus.PENDING);
-    invitation.setMailAccountLimit(1);
-    invitation.setEmailAddressLimit(1);
+    invitation.setPurpose(purpose);
     invitation.setExpiresAt(LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC));
     repository.save(invitation);
 

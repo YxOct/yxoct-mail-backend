@@ -13,7 +13,7 @@ public interface RegistrationInvitationMapper extends BaseMapper<RegistrationInv
 
   @Select(
       """
-      SELECT id, token_hash, status, mail_account_limit, email_address_limit,
+      SELECT id, token_hash, status, purpose,
              expires_at, used_by_user_id, used_at, created_at
       FROM registration_invitation
       WHERE token_hash = #{tokenHash}

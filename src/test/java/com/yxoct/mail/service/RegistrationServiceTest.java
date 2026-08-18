@@ -12,6 +12,7 @@ import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.persistence.entity.AppUserEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressEntity;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
+import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationStatus;
 import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
@@ -56,6 +57,8 @@ class RegistrationServiceTest {
   void registersNormalizedPrimaryAddressAndConsumesInvitation() {
     CreatedRegistrationInvitation invitation = invitationService.create();
 
+    assertThat(invitation.token()).matches("^yxi[A-Za-z0-9_-]{22}$");
+
     RegistrationResult result =
         registrationService.register(new RegisterRequest(invitation.token(), "Alice", PASSWORD));
 
@@ -63,7 +66,6 @@ class RegistrationServiceTest {
     assertThat(result.status().name()).isEqualTo("PROVISIONING");
 
     AppUserEntity user = appUserMapper.selectById(result.userId());
-    assertThat(user.getMailAccountLimit()).isEqualTo(1);
     assertThat(user.getPasswordHash()).startsWith("{argon2@SpringSecurity_v5_8}");
     assertThat(user.getPasswordHash()).doesNotContain(PASSWORD);
     assertThat(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
@@ -77,6 +79,7 @@ class RegistrationServiceTest {
 
     RegistrationInvitationEntity consumed = invitationMapper.selectById(invitation.id());
     assertThat(consumed.getStatus()).isEqualTo(RegistrationInvitationStatus.USED);
+    assertThat(consumed.getPurpose()).isEqualTo(RegistrationInvitationPurpose.REGISTRATION);
     assertThat(consumed.getUsedByUserId()).isEqualTo(result.userId());
     assertThat(consumed.getUsedAt()).isNotNull();
     assertThat(consumed.getTokenHash()).isEqualTo(invitationTokenCodec.hash(invitation.token()));
@@ -96,6 +99,18 @@ class RegistrationServiceTest {
             BusinessException.class,
             exception ->
                 assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVITATION_ALREADY_USED));
+  }
+
+  @Test
+  void rejectsAnEmailAddressInvitationForRegistration() {
+    CreatedRegistrationInvitation invitation =
+        invitationService.create(RegistrationInvitationPurpose.EMAIL_ADDRESS);
+
+    assertRegistrationError(invitation.token(), "alice", ErrorCode.INVITATION_INVALID);
+
+    RegistrationInvitationEntity pending = invitationMapper.selectById(invitation.id());
+    assertThat(pending.getStatus()).isEqualTo(RegistrationInvitationStatus.PENDING);
+    assertThat(pending.getPurpose()).isEqualTo(RegistrationInvitationPurpose.EMAIL_ADDRESS);
   }
 
   @Test
@@ -136,8 +151,7 @@ class RegistrationServiceTest {
     RegistrationInvitationEntity expired = new RegistrationInvitationEntity();
     expired.setTokenHash(invitationTokenCodec.hash(expiredToken));
     expired.setStatus(RegistrationInvitationStatus.PENDING);
-    expired.setMailAccountLimit(1);
-    expired.setEmailAddressLimit(1);
+    expired.setPurpose(RegistrationInvitationPurpose.REGISTRATION);
     expired.setExpiresAt(LocalDateTime.ofInstant(clock.instant().minusSeconds(1), ZoneOffset.UTC));
     invitationMapper.insert(expired);
 

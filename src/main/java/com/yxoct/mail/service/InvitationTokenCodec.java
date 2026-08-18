@@ -11,7 +11,8 @@ import org.springframework.stereotype.Component;
 @Component
 public class InvitationTokenCodec {
 
-  private static final int TOKEN_BYTES = 32;
+  private static final String TOKEN_PREFIX = "yxi";
+  private static final int TOKEN_BYTES = 16;
 
   private final SecureRandom secureRandom;
 
@@ -22,7 +23,7 @@ public class InvitationTokenCodec {
   public String generate() {
     byte[] token = new byte[TOKEN_BYTES];
     secureRandom.nextBytes(token);
-    return Base64.getUrlEncoder().withoutPadding().encodeToString(token);
+    return TOKEN_PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(token);
   }
 
   public String hash(String token) {
