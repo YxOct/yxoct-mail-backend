@@ -82,6 +82,7 @@ Batch status updates return both `updatedIds` and `failed` items because JMAP ma
 All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important error codes are:
 
 - `1000`: invalid request (`400`).
+- `1002`: request resource not found (`404`).
 - `2000`: email not found (`404`).
 - `2001`: email restore record not found (`404`).
 - `2002`: mailbox not found (`404`).

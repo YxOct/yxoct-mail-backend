@@ -11,6 +11,8 @@ public enum ErrorCode {
 
   INTERNAL_ERROR(1001, HttpStatus.INTERNAL_SERVER_ERROR, "服务器内部错误"),
 
+  RESOURCE_NOT_FOUND(1002, HttpStatus.NOT_FOUND, "请求资源不存在"),
+
   // 邮件模块错误
   EMAIL_NOT_FOUND(2000, HttpStatus.NOT_FOUND, "邮件不存在"),
 

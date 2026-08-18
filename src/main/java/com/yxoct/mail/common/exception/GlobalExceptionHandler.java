@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -50,6 +51,14 @@ public class GlobalExceptionHandler {
 
     return ResponseEntity.status(ErrorCode.BAD_REQUEST.getHttpStatus())
         .body(ApiResponse.error(ErrorCode.BAD_REQUEST));
+  }
+
+  @ExceptionHandler(NoResourceFoundException.class)
+  public ResponseEntity<ApiResponse<Void>> handleResourceNotFoundException(
+      NoResourceFoundException exception) {
+    log.warn("Request resource not found: {}", exception.getResourcePath());
+    return ResponseEntity.status(ErrorCode.RESOURCE_NOT_FOUND.getHttpStatus())
+        .body(ApiResponse.error(ErrorCode.RESOURCE_NOT_FOUND));
   }
 
   @ExceptionHandler(Exception.class)

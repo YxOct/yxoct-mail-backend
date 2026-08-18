@@ -219,6 +219,15 @@ class MailControllerTest {
   }
 
   @Test
+  void returnsNotFoundWhenAttachmentBlobIdIsMissing() throws Exception {
+    mockMvc
+        .perform(get("/api/mail/emails/email-1/attachments/"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value(1002))
+        .andExpect(jsonPath("$.message").value("请求资源不存在"));
+  }
+
+  @Test
   void batchUpdatesEmailReadStatus() throws Exception {
     when(mailService.updateReadStatuses(List.of("email-1", "missing"), true))
         .thenReturn(
