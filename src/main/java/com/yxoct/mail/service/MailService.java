@@ -36,10 +36,13 @@ public class MailService {
 
   private final JmapClient jmapClient;
   private final JmapSessionCache sessionCache;
+  private final EmailHtmlSanitizer htmlSanitizer;
 
-  public MailService(JmapClient jmapClient, JmapSessionCache sessionCache) {
+  public MailService(
+      JmapClient jmapClient, JmapSessionCache sessionCache, EmailHtmlSanitizer htmlSanitizer) {
     this.jmapClient = jmapClient;
     this.sessionCache = sessionCache;
+    this.htmlSanitizer = htmlSanitizer;
   }
 
   /** 分页查询邮件列表 */
@@ -107,6 +110,9 @@ public class MailService {
     }
 
     EmailDetailResult.EmailInfo email = requireList(result.list()).getFirst();
+    String textBody = extractBody(email.bodyValues(), email.textBody(), "text/plain");
+    String rawHtmlBody = extractBody(email.bodyValues(), email.htmlBody(), "text/html");
+    String htmlBody = htmlSanitizer.sanitize(rawHtmlBody);
 
     return new MailDetail(
         email.id(),
@@ -115,7 +121,9 @@ public class MailService {
         email.receivedAt(),
         convertAddresses(email.from()),
         convertAddresses(email.to()),
-        extractBody(email),
+        textBody != null ? textBody : htmlBody,
+        textBody,
+        htmlBody,
         hasKeyword(email.keywords(), "$seen"),
         hasKeyword(email.keywords(), "$flagged"),
         convertAttachments(email.attachments()));
@@ -198,38 +206,22 @@ public class MailService {
   }
 
   /** 提取正文 */
-  private String extractBody(EmailDetailResult.EmailInfo email) {
-
-    if (email.bodyValues() == null || email.bodyValues().isEmpty()) {
-      return null;
-    }
-
-    String partId = findPartId(email.textBody());
-
-    if (partId == null) {
-      partId = findPartId(email.htmlBody());
-    }
-
-    if (partId == null) {
-      return null;
-    }
-
-    EmailBodyValue body = email.bodyValues().get(partId);
-
-    return body == null ? null : body.value();
-  }
-
-  private String findPartId(List<EmailBodyPart> bodyParts) {
-
-    if (bodyParts == null) {
+  private String extractBody(
+      java.util.Map<String, EmailBodyValue> bodyValues,
+      List<EmailBodyPart> bodyParts,
+      String expectedType) {
+    if (bodyValues == null || bodyValues.isEmpty() || bodyParts == null) {
       return null;
     }
 
     return bodyParts.stream()
         .filter(Objects::nonNull)
-        .map(EmailBodyPart::partId)
+        .filter(part -> expectedType.equalsIgnoreCase(part.type()))
+        .filter(part -> part.partId() != null && !part.partId().isBlank())
+        .map(part -> bodyValues.get(part.partId()))
         .filter(Objects::nonNull)
-        .filter(partId -> !partId.isBlank())
+        .map(EmailBodyValue::value)
+        .filter(Objects::nonNull)
         .findFirst()
         .orElse(null);
   }

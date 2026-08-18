@@ -142,6 +142,8 @@ class MailControllerTest {
     mockMvc
         .perform(get("/api/mail/emails/email-1"))
         .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.textBody").value("Hello"))
+        .andExpect(jsonPath("$.data.htmlBody").doesNotExist())
         .andExpect(jsonPath("$.data.attachments[0].blobId").value("blob-1"))
         .andExpect(jsonPath("$.data.attachments[0].name").value("report.pdf"))
         .andExpect(jsonPath("$.data.attachments[0].size").value(2048))

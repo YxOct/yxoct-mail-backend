@@ -50,7 +50,7 @@ class MailServiceTest {
 
   @BeforeEach
   void setUp() {
-    mailService = new MailService(jmapClient, sessionCache);
+    mailService = new MailService(jmapClient, sessionCache, new EmailHtmlSanitizer());
     session =
         new JmapSession(
             Map.of(),
@@ -156,7 +156,7 @@ class MailServiceTest {
   }
 
   @Test
-  void fallsBackToHtmlBodyWhenTextPartHasNoPartId() {
+  void returnsSanitizedHtmlBodyWhenPlainTextIsUnavailable() {
     EmailDetailResult.EmailInfo email =
         new EmailDetailResult.EmailInfo(
             "email-1",
@@ -165,9 +165,11 @@ class MailServiceTest {
             "2026-08-18T00:00:00Z",
             List.of(new EmailAddress("Sender", "sender@example.com")),
             null,
-            Map.of("html-part", new EmailBodyValue("<p>Hello</p>")),
-            List.of(new EmailBodyPart(null)),
-            List.of(new EmailBodyPart("html-part")),
+            Map.of(
+                "html-part",
+                new EmailBodyValue("<p onclick=\"alert(1)\">Hello<script>x()</script></p>")),
+            List.of(),
+            List.of(new EmailBodyPart("html-part", null, null, null, "text/html", null, null)),
             List.of(
                 new EmailBodyPart(
                     "attachment-part",
@@ -192,6 +194,8 @@ class MailServiceTest {
     MailDetail detail = mailService.getEmailDetail("email-1");
 
     assertThat(detail.body()).isEqualTo("<p>Hello</p>");
+    assertThat(detail.textBody()).isNull();
+    assertThat(detail.htmlBody()).isEqualTo("<p>Hello</p>");
     assertThat(detail.from()).hasSize(1);
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isTrue();
@@ -201,6 +205,35 @@ class MailServiceTest {
     assertThat(detail.attachments().getFirst().inline()).isFalse();
     assertThat(detail.attachments().get(1).inline()).isTrue();
     assertThat(detail.attachments().get(1).cid()).isEqualTo("logo@example");
+  }
+
+  @Test
+  void exposesPlainTextAndHtmlAlternativesSeparately() {
+    EmailDetailResult.EmailInfo email =
+        new EmailDetailResult.EmailInfo(
+            "email-1",
+            "Subject",
+            "Preview",
+            "2026-08-18T00:00:00Z",
+            null,
+            null,
+            Map.of(
+                "text-part",
+                new EmailBodyValue("Hello"),
+                "html-part",
+                new EmailBodyValue("<p>Hello</p>")),
+            List.of(new EmailBodyPart("text-part", null, null, null, "text/plain", null, null)),
+            List.of(new EmailBodyPart("html-part", null, null, null, "text/html", null, null)),
+            List.of(),
+            null);
+    when(jmapClient.getEmailDetails(session, List.of("email-1")))
+        .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
+
+    MailDetail detail = mailService.getEmailDetail("email-1");
+
+    assertThat(detail.body()).isEqualTo("Hello");
+    assertThat(detail.textBody()).isEqualTo("Hello");
+    assertThat(detail.htmlBody()).isEqualTo("<p>Hello</p>");
   }
 
   @Test
@@ -224,6 +257,8 @@ class MailServiceTest {
     MailDetail detail = mailService.getEmailDetail("email-1");
 
     assertThat(detail.body()).isNull();
+    assertThat(detail.textBody()).isNull();
+    assertThat(detail.htmlBody()).isNull();
     assertThat(detail.from()).isEmpty();
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isFalse();
