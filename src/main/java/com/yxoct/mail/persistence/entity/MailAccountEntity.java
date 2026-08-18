@@ -19,6 +19,11 @@ public class MailAccountEntity {
 
   private String stalwartAccountId;
   private MailAccountStatus status;
+  private String credentialCiphertext;
+  private Integer provisioningAttempts;
+  private LocalDateTime provisioningLeaseUntil;
+  private LocalDateTime nextProvisioningAt;
+  private String lastProvisioningError;
   private Long version;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;

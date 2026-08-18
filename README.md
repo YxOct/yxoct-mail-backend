@@ -16,6 +16,11 @@ The `dev` profile loads `.env` from the project root and requires:
 - `STALWART_TEST_USERNAME`: Development mailbox username.
 - `STALWART_TEST_PASSWORD`: Development mailbox password.
 
+When account provisioning is enabled, also set:
+
+- `STALWART_MANAGEMENT_API_KEY`: restricted API key used only to query domains and provision accounts.
+- `STALWART_CREDENTIAL_ENCRYPTION_KEY`: Base64-encoded 256-bit key used to encrypt internal mailbox credentials.
+
 For local development, start MySQL and wait for it to become healthy before starting the application:
 
 ```powershell
@@ -27,9 +32,9 @@ docker compose ps
 
 Flyway applies versioned migrations from `src/main/resources/db/migration` when the application starts. The migrations cover deleted-email restoration, users and mail accounts, and registration invitations. Applied migrations are tracked in `flyway_schema_history`; never edit a migration after it has been applied. Add a new version instead.
 
-The optional `STALWART_CONNECT_TIMEOUT`, `STALWART_READ_TIMEOUT`, `STALWART_SESSION_CACHE_TTL`, and `REGISTRATION_INVITATION_TTL` values use Spring Boot duration syntax and default to `5s`, `10s`, `1m`, and `7d`.
+The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key with `openssl rand -base64 32` or an equivalent cryptographically secure generator, and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
 
-The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required setting is missing.
+The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, `STALWART_PASSWORD`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a provisioning secret is missing or invalid.
 
 ## Run
 
@@ -111,7 +116,7 @@ All API endpoints return the common response shape `{ "code", "message", "data" 
 - `3003`: registration invitation revoked (`410`).
 - `3004`: email address unavailable (`409`).
 
-Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. Stalwart account provisioning is handled separately. Invitation tokens use the format `yxi` followed by 22 URL-safe Base64 characters (128 bits of randomness), are returned only when created, and only their SHA-256 hashes are stored. Invitations carry a purpose instead of granting persistent account or address quotas. User passwords are stored as versioned Argon2 hashes.
+Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. A background worker claims pending accounts with a lease, provisions them through Stalwart's management JMAP API, and records `ACTIVE` or `FAILED`; failed work is retried with bounded exponential backoff. Remote accounts carry the local account ID in their description so a retry can safely distinguish its own previous creation from an unrelated address conflict. Internal mailbox credentials are random, encrypted with AES-256-GCM, and never returned by an API. Invitation tokens use the format `yxi` followed by 22 URL-safe Base64 characters (128 bits of randomness), are returned only when created, and only their SHA-256 hashes are stored. Invitations carry a purpose instead of granting persistent account or address quotas. User passwords are stored as versioned Argon2 hashes.
 
 A batch operation can partially succeed. In that case the HTTP response remains successful, while `data.failed` contains a result for each failed email. Common per-email codes are `2000` (email not found), `2001` (restore record not found), `2003` (email is not exclusively in Trash), and `2004` (mail service failure).
 

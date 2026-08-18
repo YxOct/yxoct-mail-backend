@@ -21,6 +21,15 @@ spring:
       read-timeout: ${STALWART_READ_TIMEOUT:10s}
 stalwart:
   session-cache-ttl: ${STALWART_SESSION_CACHE_TTL:1m}
+  provisioning:
+    enabled: ${STALWART_PROVISIONING_ENABLED:false}
+    management-api-key: ${STALWART_MANAGEMENT_API_KEY:}
+    credential-encryption-key: ${STALWART_CREDENTIAL_ENCRYPTION_KEY:}
+    scan-interval: ${STALWART_PROVISIONING_SCAN_INTERVAL:10s}
+    lease-duration: ${STALWART_PROVISIONING_LEASE_DURATION:1m}
+    initial-retry-delay: ${STALWART_PROVISIONING_INITIAL_RETRY_DELAY:30s}
+    max-retry-delay: ${STALWART_PROVISIONING_MAX_RETRY_DELAY:1h}
+    batch-size: ${STALWART_PROVISIONING_BATCH_SIZE:20}
 app:
   registration:
     mail-domain: ${MAIL_DOMAIN:yxoct.com}
