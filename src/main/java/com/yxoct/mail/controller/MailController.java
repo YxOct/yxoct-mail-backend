@@ -9,6 +9,8 @@ import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
+import com.yxoct.mail.domain.mail.MoveEmailsRequest;
+import com.yxoct.mail.service.MailMoveService;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
 import jakarta.validation.Valid;
@@ -29,10 +31,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class MailController {
 
   private final MailService mailService;
+  private final MailMoveService mailMoveService;
   private final MailTrashService mailTrashService;
 
-  public MailController(MailService mailService, MailTrashService mailTrashService) {
+  public MailController(
+      MailService mailService, MailMoveService mailMoveService, MailTrashService mailTrashService) {
     this.mailService = mailService;
+    this.mailMoveService = mailMoveService;
     this.mailTrashService = mailTrashService;
   }
 
@@ -74,6 +79,13 @@ public class MailController {
       @Valid @RequestBody BatchUpdateStarStatusRequest request) {
 
     return ApiResponse.success(mailService.updateStarStatuses(request.ids(), request.starred()));
+  }
+
+  /** 批量移动邮件到指定邮箱 */
+  @PostMapping("/emails/move")
+  public ApiResponse<MailBatchUpdateResult> move(@Valid @RequestBody MoveEmailsRequest request) {
+    return ApiResponse.success(
+        mailMoveService.moveEmails(request.ids(), request.targetMailboxId()));
   }
 
   /** 批量将邮件移入垃圾箱 */

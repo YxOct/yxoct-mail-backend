@@ -55,6 +55,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /api/mail/emails/{id}`: get an email detail.
 - `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
+- `POST /api/mail/emails/move`: move up to 100 emails with `{ "ids": ["email-1"], "targetMailboxId": "archive" }`.
 - `POST /api/mail/emails/trash`: move up to 100 emails to Trash with `{ "ids": ["email-1"] }`.
 - `POST /api/mail/emails/restore`: restore up to 100 emails with `{ "ids": ["email-1"] }`.
 - `GET /actuator/health`: check application and Stalwart availability.
@@ -62,6 +63,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /actuator/health/readiness`: check whether the application, database, and Stalwart are ready to serve traffic.
 
 All email update endpoints accept between 1 and 100 IDs. Use a single-element `ids` array for a single-email operation.
+Use the dedicated Trash endpoint when the target mailbox has the `trash` role so the original mailbox locations can be saved for restoration.
 
 The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, which reports JMAP operation counts, durations, and classified outcomes. Production continues to expose only health information unless a metrics exporter is configured.
 
@@ -76,6 +78,7 @@ All mail endpoints return the common response shape `{ "code", "message", "data"
 - `1000`: invalid request (`400`).
 - `2000`: email not found (`404`).
 - `2001`: email restore record not found (`404`).
+- `2002`: mailbox not found (`404`).
 - `2004`: Stalwart connection or protocol failure (`502`).
 - `2005`: Stalwart timeout (`504`).
 - `2006`: Stalwart authentication failure (`502`).

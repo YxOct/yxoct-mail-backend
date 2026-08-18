@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
+import com.yxoct.mail.service.MailMoveService;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
 import java.util.List;
@@ -28,6 +29,8 @@ class MailControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private MailService mailService;
+
+  @MockitoBean private MailMoveService mailMoveService;
 
   @MockitoBean private MailTrashService mailTrashService;
 
@@ -105,6 +108,31 @@ class MailControllerTest {
             patch("/api/mail/emails/read-status")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"ids\":[],\"read\":true}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
+  }
+
+  @Test
+  void movesEmailsToMailbox() throws Exception {
+    when(mailMoveService.moveEmails(List.of("email-1", "email-2"), "archive"))
+        .thenReturn(new MailBatchUpdateResult(List.of("email-1", "email-2"), List.of()));
+
+    mockMvc
+        .perform(
+            post("/api/mail/emails/move")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"email-1\",\"email-2\"],\"targetMailboxId\":\"archive\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.updatedIds.length()").value(2));
+  }
+
+  @Test
+  void rejectsMoveWithoutTargetMailbox() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/mail/emails/move")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"email-1\"]}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value(1000));
   }
