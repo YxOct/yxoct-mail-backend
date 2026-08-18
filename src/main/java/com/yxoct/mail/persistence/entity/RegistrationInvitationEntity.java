@@ -11,16 +11,18 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@TableName("app_user")
-public class AppUserEntity {
+@TableName("registration_invitation")
+public class RegistrationInvitationEntity {
 
   @TableId(type = IdType.AUTO)
   private Long id;
 
-  private String passwordHash;
-  private UserStatus status;
+  private String tokenHash;
+  private RegistrationInvitationStatus status;
   private Integer mailAccountLimit;
-  private Long version;
+  private Integer emailAddressLimit;
+  private LocalDateTime expiresAt;
+  private Long usedByUserId;
+  private LocalDateTime usedAt;
   private LocalDateTime createdAt;
-  private LocalDateTime updatedAt;
 }

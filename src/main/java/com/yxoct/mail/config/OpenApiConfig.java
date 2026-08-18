@@ -27,7 +27,8 @@ public class OpenApiConfig {
             new Info()
                 .title("YxOct Mail API")
                 .version("v1")
-                .description("REST API for receiving and managing email through Stalwart JMAP."));
+                .description(
+                    "REST API for user access and receiving and managing email through Stalwart JMAP."));
   }
 
   private Components errorComponents() {
@@ -38,6 +39,24 @@ public class OpenApiConfig {
         .addResponses(
             "InternalError", errorResponse("Unexpected server error", ErrorCode.INTERNAL_ERROR))
         .addResponses("EmailNotFound", errorResponse("Email not found", ErrorCode.EMAIL_NOT_FOUND))
+        .addResponses(
+            "InvalidInvitationOrRequest",
+            errorResponse(
+                "Invalid registration request",
+                ErrorCode.BAD_REQUEST,
+                ErrorCode.INVITATION_INVALID))
+        .addResponses(
+            "RegistrationConflict",
+            errorResponse(
+                "Invitation or email address conflict",
+                ErrorCode.INVITATION_ALREADY_USED,
+                ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE))
+        .addResponses(
+            "InvitationGone",
+            errorResponse(
+                "Invitation expired or was revoked",
+                ErrorCode.INVITATION_EXPIRED,
+                ErrorCode.INVITATION_REVOKED))
         .addResponses(
             "MailboxNotFound", errorResponse("Mailbox not found", ErrorCode.MAILBOX_NOT_FOUND))
         .addResponses(

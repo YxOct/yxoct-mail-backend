@@ -68,12 +68,13 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2') AND success = TRUE"))
-        .isEqualTo(2);
+                    + "WHERE version IN ('1', '2', '3') AND success = TRUE"))
+        .isEqualTo(3);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM user_mail_account")).isZero();
+    assertThat(queryForInt("SELECT COUNT(*) FROM registration_invitation")).isZero();
   }
 
   private int queryForInt(String sql) throws Exception {
@@ -116,6 +117,16 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/mail/mailboxes'].get").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/read-status'].patch").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())
+        .andExpect(
+            jsonPath("$.paths['/api/auth/register'].post.responses['409'].['$ref']")
+                .value("#/components/responses/RegistrationConflict"))
+        .andExpect(
+            jsonPath("$.components.schemas.RegisterRequest.properties.password.writeOnly")
+                .value(true))
+        .andExpect(
+            jsonPath("$.components.schemas.RegisterRequest.properties.password.format")
+                .value("password"))
         .andExpect(
             jsonPath("$.components.schemas.ApiErrorResponse.properties.code.type").value("integer"))
         .andExpect(

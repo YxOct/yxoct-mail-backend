@@ -4,6 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.yxoct.mail.common.exception.BusinessException;
+import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.user.CreatedRegistrationInvitation;
+import com.yxoct.mail.domain.user.RegisterRequest;
+import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.persistence.entity.AppUserEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressType;
@@ -16,9 +21,16 @@ import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
 import com.yxoct.mail.persistence.mapper.MailAccountMapper;
 import com.yxoct.mail.persistence.mapper.UserMailAccountMapper;
+import com.yxoct.mail.service.RegistrationInvitationService;
+import com.yxoct.mail.service.RegistrationService;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -52,9 +64,12 @@ class MySqlUserPersistenceIT {
   @Autowired private MailAccountMapper mailAccountMapper;
   @Autowired private EmailAddressMapper emailAddressMapper;
   @Autowired private UserMailAccountMapper userMailAccountMapper;
+  @Autowired private RegistrationInvitationService invitationService;
+  @Autowired private RegistrationService registrationService;
 
   @AfterEach
   void cleanUp() {
+    jdbcTemplate.update("DELETE FROM registration_invitation");
     jdbcTemplate.update("DELETE FROM user_mail_account");
     jdbcTemplate.update("DELETE FROM email_address");
     jdbcTemplate.update("DELETE FROM mail_account");
@@ -67,15 +82,16 @@ class MySqlUserPersistenceIT {
       assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("MySQL");
     }
 
-    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '2'"))
+    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '3'"))
         .isEqualTo(1);
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM information_schema.tables "
                     + "WHERE table_schema = DATABASE() "
                     + "AND table_name IN "
-                    + "('app_user', 'mail_account', 'email_address', 'user_mail_account')"))
-        .isEqualTo(4);
+                    + "('app_user', 'mail_account', 'email_address', 'user_mail_account', "
+                    + "'registration_invitation')"))
+        .isEqualTo(5);
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM information_schema.statistics "
@@ -132,6 +148,41 @@ class MySqlUserPersistenceIT {
                     "alice@yxoct.com",
                     EmailAddressType.PRIMARY))
         .isInstanceOf(DuplicateKeyException.class);
+  }
+
+  @Test
+  void consumesAnInvitationOnlyOnceUnderConcurrentRegistration() throws Exception {
+    CreatedRegistrationInvitation invitation = invitationService.create();
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch start = new CountDownLatch(1);
+
+    List<Object> outcomes;
+    try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+      List<Future<Object>> futures =
+          List.of(
+              executor.submit(() -> registerAfterSignal(invitation.token(), "alice", ready, start)),
+              executor.submit(() -> registerAfterSignal(invitation.token(), "bob", ready, start)));
+      ready.await();
+      start.countDown();
+      outcomes = List.of(futures.get(0).get(), futures.get(1).get());
+    }
+
+    assertThat(outcomes).filteredOn(RegistrationResult.class::isInstance).hasSize(1);
+    assertThat(outcomes).filteredOn(ErrorCode.INVITATION_ALREADY_USED::equals).hasSize(1);
+    assertThat(appUserMapper.selectCount(null)).isEqualTo(1);
+  }
+
+  private Object registerAfterSignal(
+      String invitationToken, String localPart, CountDownLatch ready, CountDownLatch start)
+      throws InterruptedException {
+    ready.countDown();
+    start.await();
+    try {
+      return registrationService.register(
+          new RegisterRequest(invitationToken, localPart, "correct horse battery staple"));
+    } catch (BusinessException exception) {
+      return exception.getErrorCode();
+    }
   }
 
   private AppUserEntity insertUser() {

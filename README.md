@@ -11,6 +11,7 @@ The `dev` profile loads `.env` from the project root and requires:
 - `DB_URL`: MySQL JDBC URL.
 - `DB_USERNAME`: application database user.
 - `DB_PASSWORD`: application database password.
+- `MAIL_DOMAIN`: domain appended to the local part selected during registration.
 - `STALWART_BASE_URL`: Stalwart server base URL.
 - `STALWART_TEST_USERNAME`: Development mailbox username.
 - `STALWART_TEST_PASSWORD`: Development mailbox password.
@@ -24,9 +25,9 @@ docker compose ps
 
 `DB_ROOT_PASSWORD` and `DB_NAME` are used by Docker Compose when initializing MySQL. The optional database pool settings in `.env.example` use milliseconds for timeouts.
 
-Flyway applies versioned migrations from `src/main/resources/db/migration` when the application starts. Migration `V1` creates the records required to restore a deleted email to all of its original mailboxes. Applied migrations are tracked in `flyway_schema_history`; never edit a migration after it has been applied. Add a new version instead.
+Flyway applies versioned migrations from `src/main/resources/db/migration` when the application starts. The migrations cover deleted-email restoration, users and mail accounts, and registration invitations. Applied migrations are tracked in `flyway_schema_history`; never edit a migration after it has been applied. Add a new version instead.
 
-The optional `STALWART_CONNECT_TIMEOUT`, `STALWART_READ_TIMEOUT`, and `STALWART_SESSION_CACHE_TTL` values use Spring Boot duration syntax and default to `5s`, `10s`, and `1m`.
+The optional `STALWART_CONNECT_TIMEOUT`, `STALWART_READ_TIMEOUT`, `STALWART_SESSION_CACHE_TTL`, and `REGISTRATION_INVITATION_TTL` values use Spring Boot duration syntax and default to `5s`, `10s`, `1m`, and `7d`.
 
 The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, and `STALWART_PASSWORD` through the deployment environment. The application fails during startup when any required setting is missing.
 
@@ -93,7 +94,7 @@ An attachment is marked as inline only when its MIME disposition is `inline`; a 
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
-All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
+All API endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
 
 - `1000`: invalid request (`400`).
 - `1001`: unexpected server error (`500`).
@@ -104,6 +105,13 @@ All mail endpoints return the common response shape `{ "code", "message", "data"
 - `2005`: Stalwart timeout (`504`).
 - `2006`: Stalwart authentication failure (`502`).
 - `2007`: attachment not found on the email (`404`).
+- `3000`: invalid registration invitation (`400`).
+- `3001`: expired registration invitation (`410`).
+- `3002`: registration invitation already used (`409`).
+- `3003`: registration invitation revoked (`410`).
+- `3004`: email address unavailable (`409`).
+
+Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. Stalwart account provisioning is handled separately. Invitation tokens are returned only when created; only their SHA-256 hashes are stored. User passwords are stored as versioned Argon2 hashes.
 
 A batch operation can partially succeed. In that case the HTTP response remains successful, while `data.failed` contains a result for each failed email. Common per-email codes are `2000` (email not found), `2001` (restore record not found), `2003` (email is not exclusively in Trash), and `2004` (mail service failure).
 

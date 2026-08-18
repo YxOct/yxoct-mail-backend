@@ -21,6 +21,22 @@ spring:
       read-timeout: ${STALWART_READ_TIMEOUT:10s}
 stalwart:
   session-cache-ttl: ${STALWART_SESSION_CACHE_TTL:1m}
+app:
+  registration:
+    mail-domain: ${MAIL_DOMAIN:yxoct.com}
+    invitation-ttl: ${REGISTRATION_INVITATION_TTL:7d}
+    reserved-local-parts:
+      - abuse
+      - admin
+      - administrator
+      - mailer-daemon
+      - no-reply
+      - noreply
+      - postmaster
+      - root
+      - security
+      - support
+      - webmaster
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

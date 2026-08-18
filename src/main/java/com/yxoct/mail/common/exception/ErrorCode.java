@@ -28,7 +28,18 @@ public enum ErrorCode {
 
   MAIL_SERVICE_AUTHENTICATION_FAILED(2006, HttpStatus.BAD_GATEWAY, "邮件服务认证失败"),
 
-  ATTACHMENT_NOT_FOUND(2007, HttpStatus.NOT_FOUND, "附件不存在");
+  ATTACHMENT_NOT_FOUND(2007, HttpStatus.NOT_FOUND, "附件不存在"),
+
+  // 用户注册错误
+  INVITATION_INVALID(3000, HttpStatus.BAD_REQUEST, "邀请码无效"),
+
+  INVITATION_EXPIRED(3001, HttpStatus.GONE, "邀请码已过期"),
+
+  INVITATION_ALREADY_USED(3002, HttpStatus.CONFLICT, "邀请码已被使用"),
+
+  INVITATION_REVOKED(3003, HttpStatus.GONE, "邀请码已被撤销"),
+
+  EMAIL_ADDRESS_NOT_AVAILABLE(3004, HttpStatus.CONFLICT, "邮箱地址不可用");
 
   private final int code;
   private final HttpStatus httpStatus;
