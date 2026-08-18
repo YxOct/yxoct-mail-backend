@@ -252,8 +252,7 @@ public class MailService {
                     attachment.name(),
                     attachment.type(),
                     attachment.size(),
-                    "inline".equalsIgnoreCase(attachment.disposition())
-                        || (attachment.cid() != null && !attachment.cid().isBlank()),
+                    "inline".equalsIgnoreCase(attachment.disposition()),
                     attachment.cid()))
         .toList();
   }

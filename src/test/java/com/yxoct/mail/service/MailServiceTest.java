@@ -180,9 +180,15 @@ class MailServiceTest {
                     "report.pdf",
                     "application/pdf",
                     "attachment",
-                    null),
+                    "attachment@example"),
                 new EmailBodyPart(
-                    "image-part", "blob-2", 1024L, "logo.png", "image/png", null, "logo@example")),
+                    "image-part",
+                    "blob-2",
+                    1024L,
+                    "logo.png",
+                    "image/png",
+                    "inline",
+                    "logo@example")),
             Map.of("$seen", true, "$flagged", true));
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));

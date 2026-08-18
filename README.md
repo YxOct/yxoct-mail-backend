@@ -75,6 +75,7 @@ Email summaries and details expose `read` and `starred` boolean fields derived f
 Email details expose attachment metadata from Stalwart; attachment binary data is not stored in MySQL.
 Email details expose separate `textBody` and sanitized `htmlBody` fields. The legacy `body` field prefers plain text and falls back to sanitized HTML.
 Safe `cid:` image references in HTML are rewritten to the attachment endpoint. Remote and unmatched images are blocked by removing their source URLs.
+An attachment is marked as inline only when its MIME disposition is `inline`; a Content-ID alone does not make a regular attachment inline.
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
