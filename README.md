@@ -24,6 +24,8 @@ When account provisioning is enabled, also set:
 
 The provisioning account should be used only for automation. After validating its API key, its password credential can be removed. Do not grant account update or destroy permissions during normal operation. In production, restrict the API key to the backend server's fixed egress IP when possible.
 
+`JWT_SECRET` must also remain stable. Changing it immediately invalidates every access token. Access tokens expire after 15 minutes by default; opaque refresh tokens expire after 30 days, are stored only as SHA-256 hashes, and are rotated whenever they are used.
+
 For local development, start MySQL and wait for it to become healthy before starting the application:
 
 ```powershell
@@ -37,7 +39,7 @@ Flyway applies versioned migrations from `src/main/resources/db/migration` when 
 
 `APP_TIME_ZONE` defaults to `Asia/Shanghai` and should match the MySQL session time zone. The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key from 32 cryptographically random bytes, encode it as Base64URL without padding (43 characters), and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
 
-The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, `STALWART_PASSWORD`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a provisioning secret is missing or invalid.
+The `prod` profile does not load `.env`. Supply the database variables together with `JWT_SECRET`, `STALWART_BASE_URL`, `STALWART_USERNAME`, `STALWART_PASSWORD`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a required authentication or provisioning secret is missing or invalid.
 
 ## Run
 
@@ -102,6 +104,10 @@ An attachment is marked as inline only when its MIME disposition is `inline`; a 
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
+Authentication uses the primary email address and the password chosen during registration. Send the access token as `Authorization: Bearer <token>`. Refreshing rotates the refresh token, so clients must replace both stored tokens with the returned pair. Logging out revokes the submitted refresh token. Mail requests resolve the authenticated user's active owned mail account and decrypt its internal Stalwart credential for that request; the configured development mailbox is not used for authenticated user mail operations.
+
+Invitation management under `/api/admin/invitations` requires the `ADMIN` role. Administrators can create single-use `REGISTRATION` or `EMAIL_ADDRESS` invitations, list invitation metadata, and revoke pending invitations. The plaintext token is returned only by the create operation. Creation and revocation actor IDs are retained for audit purposes.
+
 All API endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
 
 - `1000`: invalid request (`400`).
@@ -118,8 +124,41 @@ All API endpoints return the common response shape `{ "code", "message", "data" 
 - `3002`: registration invitation already used (`409`).
 - `3003`: registration invitation revoked (`410`).
 - `3004`: email address unavailable (`409`).
+- `4000`: authentication failed or missing (`401`).
+- `4001`: user account disabled (`403`).
+- `4002`: insufficient permission (`403`).
+- `4003`: refresh token invalid or expired (`401`).
+- `4004`: the user's mail account is not active yet (`409`).
 
 Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. A background worker claims pending accounts with a lease, provisions them through Stalwart's management JMAP API, and records `ACTIVE` or `FAILED`; failed work is retried with bounded exponential backoff. Remote accounts carry the local account ID in their description so a retry can safely distinguish its own previous creation from an unrelated address conflict. Internal mailbox credentials are random, encrypted with AES-256-GCM, and never returned by an API. Invitation tokens use the format `yxi` followed by 22 URL-safe Base64 characters (128 bits of randomness), are returned only when created, and only their SHA-256 hashes are stored. Invitations carry a purpose instead of granting persistent account or address quotas. User passwords are stored as versioned Argon2 hashes.
+
+## First Administrator
+
+Administrator invitation APIs intentionally cannot bootstrap an empty installation. A database operator must create the first invitation and promote the first registered user once. Run these commands from the project root while the local MySQL container is running.
+
+Generate a correctly formatted invitation and insert only its hash:
+
+```powershell
+$bytes = [byte[]]::new(16)
+[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+$suffix = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+$invitation = "yxi$suffix"
+$hashBytes = [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($invitation))
+$tokenHash = [Convert]::ToHexString($hashBytes).ToLowerInvariant()
+$insertSql = "INSERT INTO registration_invitation (token_hash, status, purpose, expires_at) VALUES ('$tokenHash', 'PENDING', 'REGISTRATION', DATE_ADD(NOW(6), INTERVAL 7 DAY));"
+$insertSql | docker compose exec -T mysql sh -c 'mysql --user="$MYSQL_USER" --password="$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
+$invitation
+```
+
+Use the printed token once with the registration endpoint. After registration succeeds, replace the address below and promote that user:
+
+```powershell
+$adminAddress = "admin@yxoct.com"
+$promoteSql = "UPDATE app_user u JOIN user_mail_account uma ON uma.user_id = u.id JOIN email_address ea ON ea.mail_account_id = uma.mail_account_id AND ea.address_type = 'PRIMARY' SET u.role = 'ADMIN' WHERE ea.normalized_address = '$adminAddress'; SELECT ROW_COUNT() AS promoted;"
+$promoteSql | docker compose exec -T mysql sh -c 'mysql --user="$MYSQL_USER" --password="$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
+```
+
+The result must report `promoted = 1`. Log in again after promotion because previously issued JWTs still contain the old `USER` role. From then on, create and revoke invitations through the administrator API. Do not keep a reusable bootstrap secret in application configuration.
 
 A batch operation can partially succeed. In that case the HTTP response remains successful, while `data.failed` contains a result for each failed email. Common per-email codes are `2000` (email not found), `2001` (restore record not found), `2003` (email is not exclusively in Trash), and `2004` (mail service failure).
 
