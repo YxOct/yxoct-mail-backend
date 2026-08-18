@@ -11,11 +11,13 @@ import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.persistence.entity.AppUserEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressEntity;
+import com.yxoct.mail.persistence.entity.MailAccountEntity;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationStatus;
 import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
+import com.yxoct.mail.persistence.mapper.MailAccountMapper;
 import com.yxoct.mail.persistence.mapper.RegistrationInvitationMapper;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -40,6 +42,7 @@ class RegistrationServiceTest {
   @Autowired private InvitationTokenCodec invitationTokenCodec;
   @Autowired private AppUserMapper appUserMapper;
   @Autowired private EmailAddressMapper emailAddressMapper;
+  @Autowired private MailAccountMapper mailAccountMapper;
   @Autowired private PasswordEncoder passwordEncoder;
   @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private Clock clock;
@@ -56,14 +59,20 @@ class RegistrationServiceTest {
   @Test
   void registersNormalizedPrimaryAddressAndConsumesInvitation() {
     CreatedRegistrationInvitation invitation = invitationService.create();
+    LocalDateTime beforeRegistration = utcNow();
 
     assertThat(invitation.token()).matches("^yxi[A-Za-z0-9_-]{22}$");
 
     RegistrationResult result =
         registrationService.register(new RegisterRequest(invitation.token(), "Alice", PASSWORD));
+    LocalDateTime afterRegistration = utcNow();
 
     assertThat(result.emailAddress()).isEqualTo("alice@yxoct.com");
     assertThat(result.status().name()).isEqualTo("PROVISIONING");
+
+    MailAccountEntity mailAccount = mailAccountMapper.selectById(result.mailAccountId());
+    assertThat(mailAccount.getNextProvisioningAt())
+        .isBetween(beforeRegistration, afterRegistration);
 
     AppUserEntity user = appUserMapper.selectById(result.userId());
     assertThat(user.getPasswordHash()).startsWith("{argon2@SpringSecurity_v5_8}");
@@ -171,5 +180,9 @@ class RegistrationServiceTest {
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception -> assertThat(exception.getErrorCode()).isEqualTo(expectedError));
+  }
+
+  private LocalDateTime utcNow() {
+    return LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
   }
 }

@@ -49,7 +49,7 @@ public class LocalRegistrationTransaction {
 
     try {
       RegistrationResult result =
-          userRegistrationRepository.create(normalizedAddress, passwordHash);
+          userRegistrationRepository.create(normalizedAddress, passwordHash, now);
       if (!invitationRepository.markUsed(invitation.getId(), result.userId(), now)) {
         throw new IllegalStateException("Locked invitation could not be consumed");
       }

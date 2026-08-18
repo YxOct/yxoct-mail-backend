@@ -14,6 +14,7 @@ import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
 import com.yxoct.mail.persistence.mapper.MailAccountMapper;
 import com.yxoct.mail.persistence.mapper.UserMailAccountMapper;
+import java.time.LocalDateTime;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -42,7 +43,8 @@ public class UserRegistrationRepository {
         > 0;
   }
 
-  public RegistrationResult create(String normalizedAddress, String passwordHash) {
+  public RegistrationResult create(
+      String normalizedAddress, String passwordHash, LocalDateTime provisioningAt) {
     AppUserEntity user = new AppUserEntity();
     user.setPasswordHash(passwordHash);
     user.setStatus(UserStatus.ACTIVE);
@@ -50,6 +52,7 @@ public class UserRegistrationRepository {
 
     MailAccountEntity mailAccount = new MailAccountEntity();
     mailAccount.setStatus(MailAccountStatus.PROVISIONING);
+    mailAccount.setNextProvisioningAt(provisioningAt);
     mailAccountMapper.insert(mailAccount);
 
     EmailAddressEntity emailAddress = new EmailAddressEntity();
