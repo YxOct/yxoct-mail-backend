@@ -5,6 +5,7 @@ import com.yxoct.mail.config.StalwartProperties;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -17,6 +18,7 @@ public class JmapSessionCache {
 
   private volatile CachedSession cachedSession;
 
+  @Autowired
   public JmapSessionCache(JmapClient jmapClient, StalwartProperties properties) {
     this(jmapClient, properties.sessionCacheTtl(), Clock.systemUTC());
   }
