@@ -58,21 +58,9 @@ The `dev` profile exposes interactive OpenAPI documentation after the applicatio
 
 OpenAPI and Swagger UI are disabled by default, including under the `prod` profile. Enable them explicitly only when production API documentation should be publicly reachable.
 
-## API
+## API Behavior
 
-- `GET /api/mail/mailboxes`: list mailboxes.
-- `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20&keyword=invoice&read=false&starred=true&sortBy=receivedAt&direction=desc`: list emails with optional search, status filters, and sorting. `sortBy` supports `receivedAt`, `sentAt`, `subject`, `from`, `to`, and `size`; `direction` supports `asc` and `desc`. The default is newest first. `keyword` is limited to 200 characters and `size` must be between 1 and 100.
-- `GET /api/mail/emails/{id}`: get an email detail, including received attachment metadata.
-- `GET /api/mail/emails/{emailId}/attachments/{blobId}`: securely stream an attachment that belongs to the email.
-- `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
-- `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
-- `POST /api/mail/emails/move`: move up to 100 emails with `{ "ids": ["email-1"], "targetMailboxId": "archive" }`.
-- `POST /api/mail/emails/trash`: move up to 100 emails to Trash with `{ "ids": ["email-1"] }`.
-- `POST /api/mail/emails/restore`: restore up to 100 emails with `{ "ids": ["email-1"] }`.
-- `DELETE /api/mail/emails`: permanently delete up to 100 emails whose only mailbox is Trash with `{ "ids": ["email-1"] }`.
-- `GET /actuator/health`: check application and Stalwart availability.
-- `GET /actuator/health/liveness`: check only whether the application is alive.
-- `GET /actuator/health/readiness`: check whether the application, database, and Stalwart are ready to serve traffic.
+Use the generated OpenAPI documentation for the current endpoint list, request parameters, and request bodies.
 
 All email update endpoints accept between 1 and 100 IDs. Use a single-element `ids` array for a single-email operation.
 Use the dedicated Trash endpoint when the target mailbox has the `trash` role so the original mailbox locations can be saved for restoration.
