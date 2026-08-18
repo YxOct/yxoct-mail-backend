@@ -23,5 +23,8 @@ public class RegistrationInvitationEntity {
   private LocalDateTime expiresAt;
   private Long usedByUserId;
   private LocalDateTime usedAt;
+  private Long createdByUserId;
+  private Long revokedByUserId;
+  private LocalDateTime revokedAt;
   private LocalDateTime createdAt;
 }

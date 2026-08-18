@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,6 +12,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yxoct.mail.client.stalwart.JmapClient;
 import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
+import com.yxoct.mail.persistence.AuthenticatedUser;
+import com.yxoct.mail.persistence.entity.UserRole;
+import com.yxoct.mail.persistence.entity.UserStatus;
+import com.yxoct.mail.security.JwtTokenService;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -22,6 +27,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -40,6 +46,8 @@ class MailBackendApplicationTests {
   @Autowired private DataSource dataSource;
 
   @Autowired private SqlSessionFactory sqlSessionFactory;
+
+  @Autowired private JwtTokenService jwtTokenService;
 
   @Value("${spring.http.clients.connect-timeout}")
   private Duration connectTimeout;
@@ -68,8 +76,8 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7') AND success = TRUE"))
-        .isEqualTo(7);
+                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8') AND success = TRUE"))
+        .isEqualTo(8);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();
@@ -115,6 +123,29 @@ class MailBackendApplicationTests {
   }
 
   @Test
+  void restrictsInvitationManagementToAdministrators() throws Exception {
+    String userToken = tokenFor(UserRole.USER);
+    String adminToken = tokenFor(UserRole.ADMIN);
+
+    mockMvc
+        .perform(get("/api/admin/invitations").header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value(4002));
+
+    mockMvc
+        .perform(get("/api/admin/invitations").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+
+    mockMvc
+        .perform(
+            post("/api/admin/invitations")
+                .header("Authorization", "Bearer " + userToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"purpose\":\"REGISTRATION\"}"))
+        .andExpect(status().isForbidden());
+  }
+
+  @Test
   void openApiDocumentationDescribesMailEndpoints() throws Exception {
     mockMvc
         .perform(get("/v3/api-docs"))
@@ -127,6 +158,8 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/admin/invitations'].post").exists())
+        .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
         .andExpect(
             jsonPath("$.paths['/api/auth/register'].post.responses['409'].['$ref']")
                 .value("#/components/responses/RegistrationConflict"))
@@ -162,6 +195,12 @@ class MailBackendApplicationTests {
             jsonPath(
                     "$.paths['/api/mail/emails/{emailId}/attachments/{blobId}'].get.responses['200'].content['application/octet-stream'].schema.format")
                 .value("binary"));
+  }
+
+  private String tokenFor(UserRole role) {
+    return jwtTokenService
+        .issue(new AuthenticatedUser(42, "admin@yxoct.com", "unused", UserStatus.ACTIVE, role))
+        .accessToken();
   }
 
   @Test

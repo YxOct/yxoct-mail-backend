@@ -1,6 +1,7 @@
 package com.yxoct.mail.common.exception;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -43,7 +44,8 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler({
     HandlerMethodValidationException.class,
-    MethodArgumentTypeMismatchException.class
+    MethodArgumentTypeMismatchException.class,
+    ConstraintViolationException.class
   })
   public ResponseEntity<ApiResponse<Void>> handleRequestParameterException(Exception exception) {
 

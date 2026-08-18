@@ -11,6 +11,7 @@ import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
 import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +36,12 @@ public class OpenApiConfig {
     Components components = new Components();
     ModelConverters.getInstance().read(ApiErrorResponse.class).forEach(components::addSchemas);
     return components
+        .addSecuritySchemes(
+            "bearerAuth",
+            new SecurityScheme()
+                .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
+                .bearerFormat("JWT"))
         .addResponses("BadRequest", errorResponse("Invalid request", ErrorCode.BAD_REQUEST))
         .addResponses(
             "InternalError", errorResponse("Unexpected server error", ErrorCode.INTERNAL_ERROR))

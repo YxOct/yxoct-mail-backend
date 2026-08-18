@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
 import com.yxoct.mail.persistence.mapper.RegistrationInvitationMapper;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
@@ -36,7 +37,11 @@ public class RegistrationInvitationRepository {
     return mapper.markUsed(id, userId, usedAt) == 1;
   }
 
-  public boolean revoke(long id) {
-    return mapper.revoke(id) == 1;
+  public boolean revoke(long id, Long userId, LocalDateTime revokedAt) {
+    return mapper.revoke(id, userId, revokedAt) == 1;
+  }
+
+  public List<RegistrationInvitationEntity> findRecent(int limit) {
+    return mapper.findRecent(limit);
   }
 }
