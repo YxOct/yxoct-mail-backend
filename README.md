@@ -41,6 +41,8 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /api/mail/emails/{id}`: get an email detail.
 - `GET /actuator/health`: check application and Stalwart availability. Health details are not exposed over HTTP.
 
+The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, which reports JMAP operation counts, durations, and classified outcomes. Production continues to expose only health information unless a metrics exporter is configured.
+
 All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important error codes are:
 
 - `1000`: invalid request (`400`).

@@ -39,17 +39,26 @@ public class JmapClient {
   private final RestClient restClient;
   private final StalwartProperties properties;
   private final ObjectMapper objectMapper;
+  private final StalwartClientMetrics metrics;
 
   public JmapClient(
-      RestClient.Builder builder, StalwartProperties properties, ObjectMapper objectMapper) {
+      RestClient.Builder builder,
+      StalwartProperties properties,
+      ObjectMapper objectMapper,
+      StalwartClientMetrics metrics) {
 
     this.properties = properties;
     this.objectMapper = objectMapper;
+    this.metrics = metrics;
 
     this.restClient = builder.baseUrl(properties.baseUrl().toString()).build();
   }
 
   public JmapSession getSession() {
+    return metrics.record("session", this::fetchSession);
+  }
+
+  private JmapSession fetchSession() {
 
     JmapSession session =
         executeRequest(
@@ -66,6 +75,12 @@ public class JmapClient {
   }
 
   public EmailQueryResult queryEmails(
+      JmapSession session, String mailboxId, int position, int limit) {
+    return metrics.record(
+        "email.query", () -> queryEmailsInternal(session, mailboxId, position, limit));
+  }
+
+  private EmailQueryResult queryEmailsInternal(
       JmapSession session, String mailboxId, int position, int limit) {
 
     String accountId = getMailAccountId(session);
@@ -109,6 +124,10 @@ public class JmapClient {
   }
 
   public EmailListResult getEmailSummaries(JmapSession session, List<String> ids) {
+    return metrics.record("email.summaries", () -> getEmailSummariesInternal(session, ids));
+  }
+
+  private EmailListResult getEmailSummariesInternal(JmapSession session, List<String> ids) {
 
     String accountId = getMailAccountId(session);
 
@@ -141,6 +160,10 @@ public class JmapClient {
   }
 
   public EmailDetailResult getEmailDetails(JmapSession session, List<String> ids) {
+    return metrics.record("email.detail", () -> getEmailDetailsInternal(session, ids));
+  }
+
+  private EmailDetailResult getEmailDetailsInternal(JmapSession session, List<String> ids) {
 
     String accountId = getMailAccountId(session);
 
@@ -186,6 +209,10 @@ public class JmapClient {
   }
 
   public MailboxGetResult getMailboxes(JmapSession session) {
+    return metrics.record("mailbox.list", () -> getMailboxesInternal(session));
+  }
+
+  private MailboxGetResult getMailboxesInternal(JmapSession session) {
 
     String accountId = getMailAccountId(session);
 

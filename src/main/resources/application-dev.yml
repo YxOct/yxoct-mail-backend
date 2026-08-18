@@ -6,3 +6,9 @@ stalwart:
   base-url: ${STALWART_BASE_URL}
   username: ${STALWART_TEST_USERNAME}
   password: ${STALWART_TEST_PASSWORD}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics

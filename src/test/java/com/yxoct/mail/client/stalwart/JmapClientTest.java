@@ -17,6 +17,7 @@ import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -46,7 +47,8 @@ class JmapClientTest {
             builder,
             new StalwartProperties(
                 URI.create("http://localhost"), "user", "password", Duration.ofMinutes(1)),
-            JsonMapper.builder().build());
+            JsonMapper.builder().build(),
+            new StalwartClientMetrics(new SimpleMeterRegistry()));
   }
 
   @AfterEach
