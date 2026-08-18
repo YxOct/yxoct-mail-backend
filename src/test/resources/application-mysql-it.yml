@@ -1,0 +1,10 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/unused
+    username: unused
+    password: unused
+
+stalwart:
+  base-url: http://localhost
+  username: test-user
+  password: test-password

@@ -58,6 +58,22 @@ The `dev` profile exposes interactive OpenAPI documentation after the applicatio
 
 OpenAPI and Swagger UI are disabled by default, including under the `prod` profile. Enable them explicitly only when production API documentation should be publicly reachable.
 
+## Testing
+
+Run the fast test suite, which uses an in-memory H2 database in MySQL compatibility mode:
+
+```powershell
+.\mvnw.cmd test
+```
+
+Run the complete verification suite, including the Testcontainers integration tests against a temporary MySQL 8.4 instance:
+
+```powershell
+.\mvnw.cmd verify
+```
+
+The complete suite requires Docker to be running. The temporary database uses a random host port and does not access the MySQL instance managed by `compose.yaml`.
+
 ## API Behavior
 
 Use the generated OpenAPI documentation for the current endpoint list, request parameters, and request bodies.
