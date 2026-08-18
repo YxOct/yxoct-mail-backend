@@ -16,4 +16,8 @@ public class AuthenticationUserRepository {
   public Optional<AuthenticatedUser> findByEmailAddress(String normalizedEmailAddress) {
     return Optional.ofNullable(mapper.findByEmailAddress(normalizedEmailAddress));
   }
+
+  public Optional<AuthenticatedUser> findByUserId(long userId) {
+    return Optional.ofNullable(mapper.findByUserId(userId));
+  }
 }

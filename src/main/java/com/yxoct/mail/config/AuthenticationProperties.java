@@ -11,7 +11,10 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 @ConfigurationProperties(prefix = "app.authentication")
 public record AuthenticationProperties(
-    @NotBlank String issuer, String jwtSecret, @NotNull Duration accessTokenTtl) {
+    @NotBlank String issuer,
+    String jwtSecret,
+    @NotNull Duration accessTokenTtl,
+    @NotNull Duration refreshTokenTtl) {
 
   private static final String BASE64_URL_256_BIT_PATTERN = "[A-Za-z0-9_-]{43}";
 
@@ -31,6 +34,11 @@ public record AuthenticationProperties(
     return accessTokenTtl == null || (!accessTokenTtl.isZero() && !accessTokenTtl.isNegative());
   }
 
+  @AssertTrue(message = "refresh-token-ttl must be greater than zero")
+  public boolean isRefreshTokenTtlValid() {
+    return refreshTokenTtl == null || (!refreshTokenTtl.isZero() && !refreshTokenTtl.isNegative());
+  }
+
   public byte[] decodedJwtSecret() {
     return Base64.getUrlDecoder().decode(jwtSecret);
   }
@@ -41,6 +49,8 @@ public record AuthenticationProperties(
         + issuer
         + ", jwtSecret=***, accessTokenTtl="
         + accessTokenTtl
+        + ", refreshTokenTtl="
+        + refreshTokenTtl
         + "]";
   }
 }

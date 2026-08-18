@@ -1,11 +1,13 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
-import com.yxoct.mail.domain.user.AccessTokenResponse;
 import com.yxoct.mail.domain.user.LoginRequest;
+import com.yxoct.mail.domain.user.RefreshTokenRequest;
 import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
+import com.yxoct.mail.domain.user.TokenPairResponse;
 import com.yxoct.mail.service.LoginService;
+import com.yxoct.mail.service.RefreshTokenService;
 import com.yxoct.mail.service.RegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,10 +27,15 @@ public class AuthController {
 
   private final RegistrationService registrationService;
   private final LoginService loginService;
+  private final RefreshTokenService refreshTokenService;
 
-  public AuthController(RegistrationService registrationService, LoginService loginService) {
+  public AuthController(
+      RegistrationService registrationService,
+      LoginService loginService,
+      RefreshTokenService refreshTokenService) {
     this.registrationService = registrationService;
     this.loginService = loginService;
+    this.refreshTokenService = refreshTokenService;
   }
 
   @PostMapping("/register")
@@ -57,7 +64,20 @@ public class AuthController {
 
   @PostMapping("/login")
   @Operation(summary = "Log in with the primary email address")
-  public ApiResponse<AccessTokenResponse> login(@Valid @RequestBody LoginRequest request) {
+  public ApiResponse<TokenPairResponse> login(@Valid @RequestBody LoginRequest request) {
     return ApiResponse.success(loginService.login(request));
+  }
+
+  @PostMapping("/refresh")
+  @Operation(summary = "Rotate a refresh token and issue a new token pair")
+  public ApiResponse<TokenPairResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+    return ApiResponse.success(refreshTokenService.refresh(request.refreshToken()));
+  }
+
+  @PostMapping("/logout")
+  @Operation(summary = "Revoke a refresh token")
+  public ApiResponse<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+    refreshTokenService.revoke(request.refreshToken());
+    return ApiResponse.success();
   }
 }

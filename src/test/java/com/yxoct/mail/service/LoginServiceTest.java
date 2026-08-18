@@ -2,19 +2,16 @@ package com.yxoct.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
-import com.yxoct.mail.domain.user.AccessTokenResponse;
 import com.yxoct.mail.domain.user.LoginRequest;
+import com.yxoct.mail.domain.user.TokenPairResponse;
 import com.yxoct.mail.persistence.AuthenticatedUser;
 import com.yxoct.mail.persistence.AuthenticationUserRepository;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
-import com.yxoct.mail.security.JwtTokenService;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,25 +28,25 @@ class LoginServiceTest {
 
   @Mock private AuthenticationUserRepository userRepository;
   @Mock private PasswordEncoder passwordEncoder;
-  @Mock private JwtTokenService jwtTokenService;
+  @Mock private RefreshTokenService refreshTokenService;
 
   private LoginService loginService;
 
   @BeforeEach
   void setUp() {
-    loginService = new LoginService(userRepository, passwordEncoder, jwtTokenService);
+    loginService = new LoginService(userRepository, passwordEncoder, refreshTokenService);
   }
 
   @Test
   void normalizesAddressAndIssuesAccessToken() {
     AuthenticatedUser user = activeUser();
-    AccessTokenResponse expected = new AccessTokenResponse("token", "Bearer", 900);
+    TokenPairResponse expected =
+        new TokenPairResponse("token", "Bearer", 900, "a".repeat(43), 2_592_000);
     when(userRepository.findByEmailAddress("alice@yxoct.com")).thenReturn(Optional.of(user));
     when(passwordEncoder.matches(PASSWORD, PASSWORD_HASH)).thenReturn(true);
-    when(jwtTokenService.issue(user)).thenReturn(expected);
+    when(refreshTokenService.issueFor(user)).thenReturn(expected);
 
-    AccessTokenResponse result =
-        loginService.login(new LoginRequest(" Alice@YXOct.com ", PASSWORD));
+    TokenPairResponse result = loginService.login(new LoginRequest(" Alice@YXOct.com ", PASSWORD));
 
     assertThat(result).isEqualTo(expected);
   }
@@ -67,7 +64,6 @@ class LoginServiceTest {
 
     assertAuthenticationFailure(
         () -> loginService.login(new LoginRequest("alice@yxoct.com", PASSWORD)));
-    verify(jwtTokenService, never()).issue(user);
   }
 
   @Test

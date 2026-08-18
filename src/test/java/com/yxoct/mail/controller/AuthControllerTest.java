@@ -8,12 +8,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
-import com.yxoct.mail.domain.user.AccessTokenResponse;
 import com.yxoct.mail.domain.user.LoginRequest;
 import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
+import com.yxoct.mail.domain.user.TokenPairResponse;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.service.LoginService;
+import com.yxoct.mail.service.RefreshTokenService;
 import com.yxoct.mail.service.RegistrationService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +34,7 @@ class AuthControllerTest {
   @Autowired private MockMvc mockMvc;
   @MockitoBean private RegistrationService registrationService;
   @MockitoBean private LoginService loginService;
+  @MockitoBean private RefreshTokenService refreshTokenService;
 
   @Test
   void registersAnInvitedUser() throws Exception {
@@ -86,7 +88,8 @@ class AuthControllerTest {
   void logsInWithPrimaryEmailAddress() throws Exception {
     LoginRequest request = new LoginRequest("alice@yxoct.com", PASSWORD);
     when(loginService.login(request))
-        .thenReturn(new AccessTokenResponse("signed-access-token", "Bearer", 900));
+        .thenReturn(
+            new TokenPairResponse("signed-access-token", "Bearer", 900, "a".repeat(43), 2_592_000));
 
     mockMvc
         .perform(
@@ -104,9 +107,30 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.code").value(0))
         .andExpect(jsonPath("$.data.accessToken").value("signed-access-token"))
         .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-        .andExpect(jsonPath("$.data.expiresIn").value(900));
+        .andExpect(jsonPath("$.data.accessExpiresIn").value(900))
+        .andExpect(jsonPath("$.data.refreshToken").value("a".repeat(43)))
+        .andExpect(jsonPath("$.data.refreshExpiresIn").value(2_592_000));
 
     verify(loginService).login(request);
+  }
+
+  @Test
+  void rotatesRefreshToken() throws Exception {
+    String refreshToken = "a".repeat(43);
+    TokenPairResponse response =
+        new TokenPairResponse("new-access-token", "Bearer", 900, "b".repeat(43), 2_592_000);
+    when(refreshTokenService.refresh(refreshToken)).thenReturn(response);
+
+    mockMvc
+        .perform(
+            post("/api/auth/refresh")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+        .andExpect(jsonPath("$.data.refreshToken").value("b".repeat(43)));
+
+    verify(refreshTokenService).refresh(refreshToken);
   }
 
   private String registerJson(String localPart, String password) {

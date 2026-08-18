@@ -68,8 +68,8 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2', '3', '4', '5', '6') AND success = TRUE"))
-        .isEqualTo(6);
+                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7') AND success = TRUE"))
+        .isEqualTo(7);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();

@@ -46,7 +46,9 @@ public enum ErrorCode {
 
   ACCOUNT_DISABLED(4001, HttpStatus.FORBIDDEN, "用户账号已被禁用"),
 
-  ACCESS_DENIED(4002, HttpStatus.FORBIDDEN, "无权访问该资源");
+  ACCESS_DENIED(4002, HttpStatus.FORBIDDEN, "无权访问该资源"),
+
+  REFRESH_TOKEN_INVALID(4003, HttpStatus.UNAUTHORIZED, "刷新令牌无效或已过期");
 
   private final int code;
   private final HttpStatus httpStatus;
