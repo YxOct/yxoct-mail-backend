@@ -78,6 +78,13 @@ public class MailAccountProvisioningService {
       requireUpdated(repository.markSucceeded(accountId, stalwartAccountId, now()));
       log.info("Provisioned Stalwart mail account localAccountId={}", accountId);
     } catch (StalwartProvisioningException exception) {
+      if (exception.diagnostic() != null) {
+        log.warn(
+            "Stalwart provisioning diagnostic localAccountId={} failureCode={} diagnostic={}",
+            accountId,
+            exception.failureCode(),
+            exception.diagnostic());
+      }
       recordFailure(accountId, attempt, exception.failureCode());
     } catch (RuntimeException exception) {
       recordFailure(accountId, attempt, "UNEXPECTED_PROVISIONING_FAILURE");

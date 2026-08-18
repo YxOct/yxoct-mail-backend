@@ -90,6 +90,32 @@ class StalwartManagementClientTest {
             exception -> assertThat(exception.failureCode()).isEqualTo("REMOTE_ADDRESS_CONFLICT"));
   }
 
+  @Test
+  void exposesOnlySetErrorTypeAndPropertyNamesWhenCreationIsRejected() {
+    expectDomainLookup();
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(methodResponse("x:Account/query", "{\"ids\":[]}"));
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            methodResponse(
+                "x:Account/set",
+                "{\"notCreated\":{\"new-account\":{\"type\":\"invalidProperties\","
+                    + "\"description\":\"must not be logged\","
+                    + "\"properties\":[\"credentials\"]}}}"));
+
+    assertThatThrownBy(() -> client.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+        .isInstanceOfSatisfying(
+            StalwartProvisioningException.class,
+            exception -> {
+              assertThat(exception.failureCode()).isEqualTo("ACCOUNT_CREATE_REJECTED");
+              assertThat(exception.diagnostic())
+                  .isEqualTo("type=invalidProperties, properties=[credentials]")
+                  .doesNotContain("must not be logged", "internal-secret");
+            });
+  }
+
   private void expectDomainLookup() {
     server
         .expect(requestTo("http://localhost/jmap"))

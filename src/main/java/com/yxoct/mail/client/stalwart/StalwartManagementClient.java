@@ -102,7 +102,9 @@ public class StalwartManagementClient {
     JsonNode result = invoke("x:Account/set", Map.of("create", Map.of(CREATION_ID, account)));
     JsonNode created = result.path("created").path(CREATION_ID);
     if (!created.isObject()) {
-      throw new StalwartProvisioningException("ACCOUNT_CREATE_REJECTED");
+      throw new StalwartProvisioningException(
+          "ACCOUNT_CREATE_REJECTED",
+          setErrorDiagnostic(result.path("notCreated").path(CREATION_ID)));
     }
     return requiredText(created, "id", "INVALID_ACCOUNT_RESPONSE");
   }
@@ -189,6 +191,25 @@ public class StalwartManagementClient {
 
   private String textValue(JsonNode node) {
     return node.isString() ? node.stringValue() : null;
+  }
+
+  private String setErrorDiagnostic(JsonNode error) {
+    if (!error.isObject()) {
+      return "type=missing";
+    }
+    String type = nullableText(error, "type");
+    List<String> properties = new ArrayList<>();
+    JsonNode propertyNodes = error.path("properties");
+    if (propertyNodes.isArray()) {
+      for (JsonNode property : propertyNodes) {
+        String value = textValue(property);
+        if (value != null && !value.isBlank()) {
+          properties.add(value);
+        }
+      }
+    }
+    String diagnostic = "type=" + (type == null ? "unknown" : type);
+    return properties.isEmpty() ? diagnostic : diagnostic + ", properties=" + properties;
   }
 
   static String managementMarker(long localAccountId) {
