@@ -9,4 +9,5 @@ public record MailDetail(
     String receivedAt,
     List<MailAddress> from,
     List<MailAddress> to,
-    String body) {}
+    String body,
+    boolean read) {}

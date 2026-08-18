@@ -2,6 +2,7 @@ package com.yxoct.mail.client.stalwart;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.content;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
@@ -225,6 +226,7 @@ class JmapClientTest {
                       "state": "state",
                       "list": [{
                         "id": "email-1",
+                        "keywords": {"$seen": true},
                         "from": [{"name": "Sender", "email": "sender@example.com"}],
                         "bodyValues": {
                           "part-1": {"value": "Hello", "isTruncated": false}
@@ -249,6 +251,58 @@ class JmapClientTest {
     assertThat(email.from().getFirst().email()).isEqualTo("sender@example.com");
     assertThat(email.textBody().getFirst().partId()).isEqualTo("part-1");
     assertThat(email.bodyValues().get("part-1").value()).isEqualTo("Hello");
+    assertThat(email.keywords()).containsEntry("$seen", true);
+  }
+
+  @Test
+  void marksEmailAsRead() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("Email/set"))
+        .andExpect(jsonPath("$.methodCalls[0][1].update['email-1']['keywords/$seen']").value(true))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    client.setEmailRead(session(), "email-1", true);
+  }
+
+  @Test
+  void marksEmailAsUnreadByRemovingSeenKeyword() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(
+            content()
+                .json(
+                    """
+                    {
+                      "methodCalls": [[
+                        "Email/set",
+                        {"update": {"email-1": {"keywords/$seen": null}}},
+                        "0"
+                      ]]
+                    }
+                    """))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    client.setEmailRead(session(), "email-1", false);
+  }
+
+  @Test
+  void mapsMissingEmailUpdateToNotFound() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"old\",\"notUpdated\":{\"missing\":{\"type\":\"notFound\"}}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    assertBusinessError(
+        () -> client.setEmailRead(session(), "missing", true), ErrorCode.EMAIL_NOT_FOUND);
   }
 
   private void assertMailServiceUnavailable(

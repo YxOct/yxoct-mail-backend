@@ -88,14 +88,19 @@ class MailServiceTest {
                 "state",
                 List.of(
                     new EmailListResult.EmailInfo(
-                        "email-1", "Subject", "Preview", "2026-08-18T00:00:00Z")),
+                        "email-1",
+                        "Subject",
+                        "Preview",
+                        "2026-08-18T00:00:00Z",
+                        Map.of("$seen", true))),
                 List.of()));
 
     MailPage<MailSummary> page = mailService.queryEmails("inbox", 2, 20);
 
     assertThat(page.total()).isZero();
     assertThat(page.items())
-        .containsExactly(new MailSummary("email-1", "Subject", "Preview", "2026-08-18T00:00:00Z"));
+        .containsExactly(
+            new MailSummary("email-1", "Subject", "Preview", "2026-08-18T00:00:00Z", true));
   }
 
   @Test
@@ -127,7 +132,8 @@ class MailServiceTest {
             null,
             Map.of("html-part", new EmailBodyValue("<p>Hello</p>")),
             List.of(new EmailBodyPart(null)),
-            List.of(new EmailBodyPart("html-part")));
+            List.of(new EmailBodyPart("html-part")),
+            Map.of("$seen", true));
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
 
@@ -136,13 +142,23 @@ class MailServiceTest {
     assertThat(detail.body()).isEqualTo("<p>Hello</p>");
     assertThat(detail.from()).hasSize(1);
     assertThat(detail.to()).isEmpty();
+    assertThat(detail.read()).isTrue();
   }
 
   @Test
   void returnsNullWhenEmailHasNoBody() {
     EmailDetailResult.EmailInfo email =
         new EmailDetailResult.EmailInfo(
-            "email-1", "Subject", "Preview", "2026-08-18T00:00:00Z", null, null, null, null, null);
+            "email-1",
+            "Subject",
+            "Preview",
+            "2026-08-18T00:00:00Z",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null);
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
 
@@ -151,6 +167,14 @@ class MailServiceTest {
     assertThat(detail.body()).isNull();
     assertThat(detail.from()).isEmpty();
     assertThat(detail.to()).isEmpty();
+    assertThat(detail.read()).isFalse();
+  }
+
+  @Test
+  void updatesEmailReadStatus() {
+    mailService.updateReadStatus("email-1", true);
+
+    verify(jmapClient).setEmailRead(session, "email-1", true);
   }
 
   @Test

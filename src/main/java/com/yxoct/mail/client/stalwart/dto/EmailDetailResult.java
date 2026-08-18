@@ -15,5 +15,6 @@ public record EmailDetailResult(
       List<EmailAddress> to,
       Map<String, EmailBodyValue> bodyValues,
       List<EmailBodyPart> textBody,
-      List<EmailBodyPart> htmlBody) {}
+      List<EmailBodyPart> htmlBody,
+      Map<String, Boolean> keywords) {}
 }

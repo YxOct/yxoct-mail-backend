@@ -5,12 +5,16 @@ import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
+import com.yxoct.mail.domain.mail.UpdateReadStatusRequest;
 import com.yxoct.mail.service.MailService;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,5 +51,14 @@ public class MailController {
   public ApiResponse<MailDetail> detail(@PathVariable String id) {
 
     return ApiResponse.success(mailService.getEmailDetail(id));
+  }
+
+  /** 更新邮件已读状态 */
+  @PatchMapping("/emails/{id}/read-status")
+  public ApiResponse<Void> updateReadStatus(
+      @PathVariable String id, @Valid @RequestBody UpdateReadStatusRequest request) {
+
+    mailService.updateReadStatus(id, request.read());
+    return ApiResponse.success();
   }
 }

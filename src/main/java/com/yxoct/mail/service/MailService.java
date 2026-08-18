@@ -64,7 +64,11 @@ public class MailService {
             .map(
                 email ->
                     new MailSummary(
-                        email.id(), email.subject(), email.preview(), email.receivedAt()))
+                        email.id(),
+                        email.subject(),
+                        email.preview(),
+                        email.receivedAt(),
+                        hasKeyword(email.keywords(), "$seen")))
             .toList();
 
     return new MailPage<>(page, size, queryResult.total() == null ? 0 : queryResult.total(), items);
@@ -94,7 +98,13 @@ public class MailService {
         email.receivedAt(),
         convertAddresses(email.from()),
         convertAddresses(email.to()),
-        extractBody(email));
+        extractBody(email),
+        hasKeyword(email.keywords(), "$seen"));
+  }
+
+  /** 更新邮件已读状态 */
+  public void updateReadStatus(String id, boolean read) {
+    jmapClient.setEmailRead(sessionCache.getSession(), id, read);
   }
 
   /** 获取邮箱列表 */
@@ -159,6 +169,10 @@ public class MailService {
         .filter(partId -> !partId.isBlank())
         .findFirst()
         .orElse(null);
+  }
+
+  private boolean hasKeyword(java.util.Map<String, Boolean> keywords, String keyword) {
+    return keywords != null && Boolean.TRUE.equals(keywords.get(keyword));
   }
 
   private <T> List<T> requireList(List<T> values) {

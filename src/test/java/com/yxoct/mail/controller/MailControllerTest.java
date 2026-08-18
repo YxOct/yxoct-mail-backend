@@ -1,7 +1,9 @@
 package com.yxoct.mail.controller;
 
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +13,7 @@ import com.yxoct.mail.service.MailService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -54,6 +57,30 @@ class MailControllerTest {
         .andExpect(jsonPath("$.code").value(2005))
         .andExpect(jsonPath("$.message").value("邮件服务响应超时"))
         .andExpect(jsonPath("$.data").doesNotExist());
+  }
+
+  @Test
+  void updatesEmailReadStatus() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/email-1/read-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"read\":true}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(mailService).updateReadStatus("email-1", true);
+  }
+
+  @Test
+  void rejectsMissingReadStatus() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/email-1/read-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
   }
 
   private void assertBadRequest(String parameter, String value) throws Exception {
