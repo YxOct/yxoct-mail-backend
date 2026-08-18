@@ -18,8 +18,10 @@ The `dev` profile loads `.env` from the project root and requires:
 
 When account provisioning is enabled, also set:
 
-- `STALWART_MANAGEMENT_API_KEY`: restricted API key used only to query domains and provision accounts. Grant `authenticate`, `sysDomainQuery`, `sysDomainGet`, `sysAccountQuery`, `sysAccountGet`, and `sysAccountCreate`.
+- `STALWART_MANAGEMENT_API_KEY`: API key owned by a dedicated Stalwart provisioning account. Assign that account a custom role which extends the built-in `User` role and explicitly enables only `sysDomainQuery`, `sysDomainGet`, `sysAccountQuery`, `sysAccountGet`, and `sysAccountCreate`. Create the key with `Same permissions as account`. The `User` role inheritance is required because provisioning grants the built-in `User` role to each new mailbox and Stalwart rejects attempts to grant permissions the caller does not hold.
 - `STALWART_CREDENTIAL_ENCRYPTION_KEY`: Base64-encoded 256-bit key used to encrypt internal mailbox credentials.
+
+The provisioning account should be used only for automation. After validating its API key, its password credential can be removed. Do not grant account update or destroy permissions during normal operation. In production, restrict the API key to the backend server's fixed egress IP when possible.
 
 For local development, start MySQL and wait for it to become healthy before starting the application:
 
