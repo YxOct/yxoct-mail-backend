@@ -41,6 +41,8 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /api/mail/emails/{id}`: get an email detail.
 - `PATCH /api/mail/emails/{id}/read-status`: update read status with `{ "read": true }`.
 - `PATCH /api/mail/emails/{id}/star-status`: update star status with `{ "starred": true }`.
+- `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
+- `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
 - `GET /actuator/health`: check application and Stalwart availability.
 - `GET /actuator/health/liveness`: check only whether the application is alive.
 - `GET /actuator/health/readiness`: check whether the application and Stalwart are ready to serve traffic.
@@ -50,6 +52,8 @@ The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, whi
 Every HTTP response includes an `X-Request-Id`. A valid incoming value is preserved; otherwise the application generates one. The same value is included in logs and forwarded to Stalwart for request correlation. Health details are not exposed over HTTP.
 
 Email summaries and details expose `read` and `starred` boolean fields derived from the JMAP `$seen` and `$flagged` keywords.
+
+Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
 All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important error codes are:
 

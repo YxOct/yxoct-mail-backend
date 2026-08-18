@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.service.MailService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -103,6 +105,51 @@ class MailControllerTest {
             patch("/api/mail/emails/email-1/star-status")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
+  }
+
+  @Test
+  void batchUpdatesEmailReadStatus() throws Exception {
+    when(mailService.updateReadStatuses(List.of("email-1", "missing"), true))
+        .thenReturn(
+            new MailBatchUpdateResult(
+                List.of("email-1"),
+                List.of(new MailBatchUpdateResult.Failure("missing", 2000, "邮件不存在"))));
+
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/read-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"email-1\",\"missing\"],\"read\":true}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.updatedIds[0]").value("email-1"))
+        .andExpect(jsonPath("$.data.failed[0].id").value("missing"))
+        .andExpect(jsonPath("$.data.failed[0].code").value(2000));
+  }
+
+  @Test
+  void batchUpdatesEmailStarStatus() throws Exception {
+    when(mailService.updateStarStatuses(List.of("email-1", "email-2"), false))
+        .thenReturn(new MailBatchUpdateResult(List.of("email-1", "email-2"), List.of()));
+
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/star-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"email-1\",\"email-2\"],\"starred\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.updatedIds.length()").value(2))
+        .andExpect(jsonPath("$.data.failed").isEmpty());
+  }
+
+  @Test
+  void rejectsEmptyBatchIds() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/read-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[],\"read\":true}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value(1000));
   }

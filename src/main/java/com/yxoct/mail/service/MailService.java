@@ -8,15 +8,18 @@ import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
+import com.yxoct.mail.client.stalwart.dto.EmailUpdateResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailAddress;
+import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.stereotype.Service;
@@ -106,12 +109,26 @@ public class MailService {
 
   /** 更新邮件已读状态 */
   public void updateReadStatus(String id, boolean read) {
-    jmapClient.setEmailRead(sessionCache.getSession(), id, read);
+    requireSingleUpdate(updateReadStatuses(List.of(id), read));
+  }
+
+  /** 批量更新邮件已读状态 */
+  public MailBatchUpdateResult updateReadStatuses(List<String> ids, boolean read) {
+    validateUpdateIds(ids);
+    return toBatchUpdateResult(
+        jmapClient.setEmailsRead(sessionCache.getSession(), List.copyOf(ids), read));
   }
 
   /** 更新邮件星标状态 */
   public void updateStarStatus(String id, boolean starred) {
-    jmapClient.setEmailStarred(sessionCache.getSession(), id, starred);
+    requireSingleUpdate(updateStarStatuses(List.of(id), starred));
+  }
+
+  /** 批量更新邮件星标状态 */
+  public MailBatchUpdateResult updateStarStatuses(List<String> ids, boolean starred) {
+    validateUpdateIds(ids);
+    return toBatchUpdateResult(
+        jmapClient.setEmailsStarred(sessionCache.getSession(), List.copyOf(ids), starred));
   }
 
   /** 获取邮箱列表 */
@@ -180,6 +197,48 @@ public class MailService {
 
   private boolean hasKeyword(java.util.Map<String, Boolean> keywords, String keyword) {
     return keywords != null && Boolean.TRUE.equals(keywords.get(keyword));
+  }
+
+  private void validateUpdateIds(List<String> ids) {
+    if (ids == null
+        || ids.isEmpty()
+        || ids.size() > 100
+        || ids.stream().anyMatch(id -> id == null || id.isBlank())
+        || new HashSet<>(ids).size() != ids.size()) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+  }
+
+  private MailBatchUpdateResult toBatchUpdateResult(EmailUpdateResult result) {
+    if (result == null || result.updatedIds() == null || result.failures() == null) {
+      throw mailServiceUnavailable();
+    }
+
+    return new MailBatchUpdateResult(
+        result.updatedIds(),
+        result.failures().stream()
+            .map(
+                failure -> {
+                  ErrorCode errorCode = updateErrorCode(failure.type());
+                  return new MailBatchUpdateResult.Failure(
+                      failure.id(), errorCode.getCode(), errorCode.getMessage());
+                })
+            .toList());
+  }
+
+  private void requireSingleUpdate(MailBatchUpdateResult result) {
+    if (!result.failed().isEmpty()) {
+      int code = result.failed().getFirst().code();
+      ErrorCode errorCode =
+          code == ErrorCode.EMAIL_NOT_FOUND.getCode()
+              ? ErrorCode.EMAIL_NOT_FOUND
+              : ErrorCode.MAIL_SERVICE_UNAVAILABLE;
+      throw new BusinessException(errorCode);
+    }
+  }
+
+  private ErrorCode updateErrorCode(String type) {
+    return "notFound".equals(type) ? ErrorCode.EMAIL_NOT_FOUND : ErrorCode.MAIL_SERVICE_UNAVAILABLE;
   }
 
   private <T> List<T> requireList(List<T> values) {

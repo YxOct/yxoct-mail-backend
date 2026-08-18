@@ -4,6 +4,7 @@ import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.EmailSetResult;
+import com.yxoct.mail.client.stalwart.dto.EmailUpdateResult;
 import com.yxoct.mail.client.stalwart.dto.JmapMethodCall;
 import com.yxoct.mail.client.stalwart.dto.JmapMethodResponse;
 import com.yxoct.mail.client.stalwart.dto.JmapRequest;
@@ -211,46 +212,46 @@ public class JmapClient {
     return result;
   }
 
-  public void setEmailRead(JmapSession session, String emailId, boolean read) {
-    metrics.record(
-        "email.read-status",
-        () -> {
-          updateEmailKeyword(session, emailId, "$seen", read);
-          return null;
-        });
+  public EmailUpdateResult setEmailsRead(JmapSession session, List<String> emailIds, boolean read) {
+    return metrics.record(
+        "email.read-status", () -> updateEmailKeyword(session, emailIds, "$seen", read));
   }
 
-  public void setEmailStarred(JmapSession session, String emailId, boolean starred) {
-    metrics.record(
-        "email.star-status",
-        () -> {
-          updateEmailKeyword(session, emailId, "$flagged", starred);
-          return null;
-        });
+  public EmailUpdateResult setEmailsStarred(
+      JmapSession session, List<String> emailIds, boolean starred) {
+    return metrics.record(
+        "email.star-status", () -> updateEmailKeyword(session, emailIds, "$flagged", starred));
   }
 
-  private void updateEmailKeyword(
-      JmapSession session, String emailId, String keyword, boolean enabled) {
+  private EmailUpdateResult updateEmailKeyword(
+      JmapSession session, List<String> emailIds, String keyword, boolean enabled) {
 
     String accountId = getMailAccountId(session);
-    Map<String, Object> patch = new LinkedHashMap<>();
-    patch.put("keywords/" + keyword, enabled ? true : null);
+    if (emailIds == null || emailIds.isEmpty() || !hasUniqueIds(emailIds)) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+
+    Map<String, Map<String, Object>> updates = new LinkedHashMap<>();
+    for (String emailId : emailIds) {
+      Map<String, Object> patch = new LinkedHashMap<>();
+      patch.put("keywords/" + keyword, enabled ? true : null);
+      updates.put(emailId, patch);
+    }
 
     JmapRequest request =
         new JmapRequest(
             List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
             List.of(
                 new JmapMethodCall(
-                    "Email/set",
-                    Map.of("accountId", accountId, "update", Map.of(emailId, patch)),
-                    "0")));
+                    "Email/set", Map.of("accountId", accountId, "update", updates), "0")));
 
     EmailSetResult result =
         convertResponse(invoke(session, request, "Email/set"), EmailSetResult.class);
-    validateEmailUpdateResult(accountId, emailId, result);
+    return validateEmailUpdateResult(accountId, emailIds, result);
   }
 
-  private void validateEmailUpdateResult(String accountId, String emailId, EmailSetResult result) {
+  private EmailUpdateResult validateEmailUpdateResult(
+      String accountId, List<String> emailIds, EmailSetResult result) {
 
     if (result == null
         || !accountId.equals(result.accountId())
@@ -265,21 +266,24 @@ public class JmapClient {
     Map<String, EmailSetResult.SetError> notUpdated =
         result.notUpdated() == null ? Map.of() : result.notUpdated();
 
-    if (!updated.keySet().stream().allMatch(emailId::equals)
-        || !notUpdated.keySet().stream().allMatch(emailId::equals)
-        || updated.containsKey(emailId) == notUpdated.containsKey(emailId)) {
+    Set<String> requestedIds = Set.copyOf(emailIds);
+    Set<String> returnedIds = new HashSet<>(updated.keySet());
+    if (updated.keySet().stream().anyMatch(notUpdated::containsKey)
+        || notUpdated.values().stream()
+            .anyMatch(error -> error == null || error.type() == null || error.type().isBlank())) {
+      throw mailServiceUnavailable();
+    }
+    returnedIds.addAll(notUpdated.keySet());
+    if (!returnedIds.equals(requestedIds)) {
       throw mailServiceUnavailable();
     }
 
-    if (updated.containsKey(emailId)) {
-      return;
-    }
-
-    EmailSetResult.SetError error = notUpdated.get(emailId);
-    if (error != null && "notFound".equals(error.type())) {
-      throw new BusinessException(ErrorCode.EMAIL_NOT_FOUND);
-    }
-    throw mailServiceUnavailable();
+    return new EmailUpdateResult(
+        emailIds.stream().filter(updated::containsKey).toList(),
+        emailIds.stream()
+            .filter(notUpdated::containsKey)
+            .map(emailId -> new EmailUpdateResult.Failure(emailId, notUpdated.get(emailId).type()))
+            .toList());
   }
 
   public MailboxGetResult getMailboxes(JmapSession session) {

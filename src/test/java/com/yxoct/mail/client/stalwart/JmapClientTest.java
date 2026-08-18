@@ -14,6 +14,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
+import com.yxoct.mail.client.stalwart.dto.EmailUpdateResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
@@ -284,7 +285,10 @@ class JmapClientTest {
                 "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
-    client.setEmailRead(session(), "email-1", true);
+    EmailUpdateResult result = client.setEmailsRead(session(), List.of("email-1"), true);
+
+    assertThat(result.updatedIds()).containsExactly("email-1");
+    assertThat(result.failures()).isEmpty();
   }
 
   @Test
@@ -308,20 +312,38 @@ class JmapClientTest {
                 "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
-    client.setEmailRead(session(), "email-1", false);
+    client.setEmailsRead(session(), List.of("email-1"), false);
   }
 
   @Test
-  void mapsMissingEmailUpdateToNotFound() {
+  void returnsPartialBatchUpdateResult() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][1].update['email-1']['keywords/$seen']").value(true))
+        .andExpect(jsonPath("$.methodCalls[0][1].update['missing']['keywords/$seen']").value(true))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null},\"notUpdated\":{\"missing\":{\"type\":\"notFound\"}}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    EmailUpdateResult result = client.setEmailsRead(session(), List.of("email-1", "missing"), true);
+
+    assertThat(result.updatedIds()).containsExactly("email-1");
+    assertThat(result.failures())
+        .containsExactly(new EmailUpdateResult.Failure("missing", "notFound"));
+  }
+
+  @Test
+  void rejectsBatchResponseThatOmitsRequestedId() {
     server
         .expect(requestTo("http://localhost/jmap"))
         .andRespond(
             withSuccess(
-                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"old\",\"notUpdated\":{\"missing\":{\"type\":\"notFound\"}}},\"0\"]]}",
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
-    assertBusinessError(
-        () -> client.setEmailRead(session(), "missing", true), ErrorCode.EMAIL_NOT_FOUND);
+    assertMailServiceUnavailable(
+        () -> client.setEmailsRead(session(), List.of("email-1", "email-2"), true));
   }
 
   @Test
@@ -335,7 +357,7 @@ class JmapClientTest {
                 "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
-    client.setEmailStarred(session(), "email-1", true);
+    client.setEmailsStarred(session(), List.of("email-1"), true);
   }
 
   @Test
@@ -359,7 +381,7 @@ class JmapClientTest {
                 "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
-    client.setEmailStarred(session(), "email-1", false);
+    client.setEmailsStarred(session(), List.of("email-1"), false);
   }
 
   private void assertMailServiceUnavailable(

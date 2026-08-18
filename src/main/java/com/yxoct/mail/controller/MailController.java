@@ -1,6 +1,9 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import com.yxoct.mail.domain.mail.BatchUpdateReadStatusRequest;
+import com.yxoct.mail.domain.mail.BatchUpdateStarStatusRequest;
+import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
@@ -63,6 +66,14 @@ public class MailController {
     return ApiResponse.success();
   }
 
+  /** 批量更新邮件已读状态 */
+  @PatchMapping("/emails/read-status")
+  public ApiResponse<MailBatchUpdateResult> updateReadStatuses(
+      @Valid @RequestBody BatchUpdateReadStatusRequest request) {
+
+    return ApiResponse.success(mailService.updateReadStatuses(request.ids(), request.read()));
+  }
+
   /** 更新邮件星标状态 */
   @PatchMapping("/emails/{id}/star-status")
   public ApiResponse<Void> updateStarStatus(
@@ -70,5 +81,13 @@ public class MailController {
 
     mailService.updateStarStatus(id, request.starred());
     return ApiResponse.success();
+  }
+
+  /** 批量更新邮件星标状态 */
+  @PatchMapping("/emails/star-status")
+  public ApiResponse<MailBatchUpdateResult> updateStarStatuses(
+      @Valid @RequestBody BatchUpdateStarStatusRequest request) {
+
+    return ApiResponse.success(mailService.updateStarStatuses(request.ids(), request.starred()));
   }
 }

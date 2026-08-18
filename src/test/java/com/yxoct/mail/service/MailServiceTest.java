@@ -16,10 +16,12 @@ import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
+import com.yxoct.mail.client.stalwart.dto.EmailUpdateResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
@@ -174,16 +176,70 @@ class MailServiceTest {
 
   @Test
   void updatesEmailReadStatus() {
+    when(jmapClient.setEmailsRead(session, List.of("email-1"), true))
+        .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
+
     mailService.updateReadStatus("email-1", true);
 
-    verify(jmapClient).setEmailRead(session, "email-1", true);
+    verify(jmapClient).setEmailsRead(session, List.of("email-1"), true);
   }
 
   @Test
   void updatesEmailStarStatus() {
+    when(jmapClient.setEmailsStarred(session, List.of("email-1"), true))
+        .thenReturn(new EmailUpdateResult(List.of("email-1"), List.of()));
+
     mailService.updateStarStatus("email-1", true);
 
-    verify(jmapClient).setEmailStarred(session, "email-1", true);
+    verify(jmapClient).setEmailsStarred(session, List.of("email-1"), true);
+  }
+
+  @Test
+  void returnsPartialBatchReadResult() {
+    when(jmapClient.setEmailsRead(session, List.of("email-1", "missing"), true))
+        .thenReturn(
+            new EmailUpdateResult(
+                List.of("email-1"), List.of(new EmailUpdateResult.Failure("missing", "notFound"))));
+
+    MailBatchUpdateResult result =
+        mailService.updateReadStatuses(List.of("email-1", "missing"), true);
+
+    assertThat(result.updatedIds()).containsExactly("email-1");
+    assertThat(result.failed())
+        .containsExactly(new MailBatchUpdateResult.Failure("missing", 2000, "邮件不存在"));
+  }
+
+  @Test
+  void preservesNotFoundErrorForSingleUpdate() {
+    when(jmapClient.setEmailsRead(session, List.of("missing"), true))
+        .thenReturn(
+            new EmailUpdateResult(
+                List.of(), List.of(new EmailUpdateResult.Failure("missing", "notFound"))));
+
+    assertBusinessError(
+        () -> mailService.updateReadStatus("missing", true), ErrorCode.EMAIL_NOT_FOUND);
+  }
+
+  @Test
+  void mapsUnclassifiedBatchFailureToUnavailable() {
+    when(jmapClient.setEmailsStarred(session, List.of("email-1"), false))
+        .thenReturn(
+            new EmailUpdateResult(
+                List.of(), List.of(new EmailUpdateResult.Failure("email-1", "forbidden"))));
+
+    MailBatchUpdateResult result = mailService.updateStarStatuses(List.of("email-1"), false);
+
+    assertThat(result.failed())
+        .containsExactly(new MailBatchUpdateResult.Failure("email-1", 2004, "邮件服务暂时不可用"));
+  }
+
+  @Test
+  void rejectsDuplicateBatchIds() {
+    assertBusinessError(
+        () -> mailService.updateReadStatuses(List.of("email-1", "email-1"), true),
+        ErrorCode.BAD_REQUEST);
+
+    verifyNoInteractions(jmapClient, sessionCache);
   }
 
   @Test
