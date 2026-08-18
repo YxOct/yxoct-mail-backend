@@ -28,7 +28,9 @@ class MySqlEmailRestoreRepositoryIT {
   private static final List<String> EMAIL_IDS =
       List.of("mysql-it-email", "mysql-it-rollback-email");
 
-  @Container @ServiceConnection
+  @SuppressWarnings("resource") // Lifecycle is managed by the Testcontainers extension.
+  @Container
+  @ServiceConnection
   static final MySQLContainer MYSQL =
       new MySQLContainer("mysql:8.4")
           .withDatabaseName("yxoct_mail")
