@@ -12,7 +12,8 @@ import org.junit.jupiter.api.Test;
 
 class StalwartProvisioningPropertiesTest {
 
-  private static final String VALID_KEY = Base64.getEncoder().encodeToString(new byte[32]);
+  private static final String VALID_KEY =
+      Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
 
   private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -40,6 +41,15 @@ class StalwartProvisioningPropertiesTest {
 
     assertThat(invalidProperties)
         .containsExactlyInAnyOrder("managementApiKeyValid", "credentialEncryptionKeyValid");
+  }
+
+  @Test
+  void rejectsPaddedBase64EncryptionKey() {
+    String paddedKey = Base64.getEncoder().encodeToString(new byte[32]);
+
+    assertThat(validator.validate(properties(true, "API-secret", paddedKey)))
+        .extracting(violation -> violation.getPropertyPath().toString())
+        .containsExactly("credentialEncryptionKeyValid");
   }
 
   private StalwartProvisioningProperties properties(

@@ -20,19 +20,23 @@ public record StalwartProvisioningProperties(
     @NotNull Duration maxRetryDelay,
     @Min(1) int batchSize) {
 
+  private static final String BASE64_URL_256_BIT_PATTERN = "[A-Za-z0-9_-]{43}";
+
   @AssertTrue(message = "management-api-key is required when provisioning is enabled")
   public boolean isManagementApiKeyValid() {
     return !enabled || (managementApiKey != null && !managementApiKey.isBlank());
   }
 
-  @AssertTrue(message = "credential-encryption-key must be a Base64-encoded 256-bit key")
+  @AssertTrue(
+      message = "credential-encryption-key must be an unpadded Base64URL-encoded 256-bit key")
   public boolean isCredentialEncryptionKeyValid() {
     if (!enabled) {
       return true;
     }
     try {
       return credentialEncryptionKey != null
-          && Base64.getDecoder().decode(credentialEncryptionKey).length == 32;
+          && credentialEncryptionKey.matches(BASE64_URL_256_BIT_PATTERN)
+          && Base64.getUrlDecoder().decode(credentialEncryptionKey).length == 32;
     } catch (IllegalArgumentException exception) {
       return false;
     }
@@ -50,7 +54,7 @@ public record StalwartProvisioningProperties(
   }
 
   public byte[] decodedCredentialEncryptionKey() {
-    return Base64.getDecoder().decode(credentialEncryptionKey);
+    return Base64.getUrlDecoder().decode(credentialEncryptionKey);
   }
 
   @Override

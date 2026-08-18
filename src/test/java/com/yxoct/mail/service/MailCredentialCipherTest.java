@@ -39,7 +39,7 @@ class MailCredentialCipherTest {
     return new StalwartProvisioningProperties(
         true,
         "API-key",
-        Base64.getEncoder().encodeToString(key),
+        Base64.getUrlEncoder().withoutPadding().encodeToString(key),
         Duration.ofSeconds(10),
         Duration.ofMinutes(1),
         Duration.ofSeconds(30),

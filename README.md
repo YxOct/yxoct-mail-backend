@@ -19,7 +19,7 @@ The `dev` profile loads `.env` from the project root and requires:
 When account provisioning is enabled, also set:
 
 - `STALWART_MANAGEMENT_API_KEY`: API key owned by a dedicated Stalwart provisioning account. Assign that account a custom role which extends the built-in `User` role and explicitly enables only `sysDomainQuery`, `sysDomainGet`, `sysAccountQuery`, `sysAccountGet`, and `sysAccountCreate`. Create the key with `Same permissions as account`. The `User` role inheritance is required because provisioning grants the built-in `User` role to each new mailbox and Stalwart rejects attempts to grant permissions the caller does not hold.
-- `STALWART_CREDENTIAL_ENCRYPTION_KEY`: Base64-encoded 256-bit key used to encrypt internal mailbox credentials.
+- `STALWART_CREDENTIAL_ENCRYPTION_KEY`: unpadded Base64URL-encoded 256-bit key used to encrypt internal mailbox credentials.
 
 The provisioning account should be used only for automation. After validating its API key, its password credential can be removed. Do not grant account update or destroy permissions during normal operation. In production, restrict the API key to the backend server's fixed egress IP when possible.
 
@@ -34,7 +34,7 @@ docker compose ps
 
 Flyway applies versioned migrations from `src/main/resources/db/migration` when the application starts. The migrations cover deleted-email restoration, users and mail accounts, and registration invitations. Applied migrations are tracked in `flyway_schema_history`; never edit a migration after it has been applied. Add a new version instead.
 
-`APP_TIME_ZONE` defaults to `Asia/Shanghai` and should match the MySQL session time zone. The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key with `openssl rand -base64 32` or an equivalent cryptographically secure generator, and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
+`APP_TIME_ZONE` defaults to `Asia/Shanghai` and should match the MySQL session time zone. The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key from 32 cryptographically random bytes, encode it as Base64URL without padding (43 characters), and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
 
 The `prod` profile does not load `.env`. Supply the database variables together with `STALWART_BASE_URL`, `STALWART_USERNAME`, `STALWART_PASSWORD`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a provisioning secret is missing or invalid.
 
