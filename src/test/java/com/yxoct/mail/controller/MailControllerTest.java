@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -11,6 +12,7 @@ import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.service.MailService;
+import com.yxoct.mail.service.MailTrashService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +29,8 @@ class MailControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private MailService mailService;
+
+  @MockitoBean private MailTrashService mailTrashService;
 
   @Test
   void rejectsPageBelowOne() throws Exception {
@@ -150,6 +154,51 @@ class MailControllerTest {
             patch("/api/mail/emails/read-status")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"ids\":[],\"read\":true}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
+  }
+
+  @Test
+  void movesEmailToTrash() throws Exception {
+    mockMvc
+        .perform(post("/api/mail/emails/email-1/trash"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(mailTrashService).moveEmailToTrash("email-1");
+  }
+
+  @Test
+  void batchMovesEmailsToTrash() throws Exception {
+    when(mailTrashService.moveEmailsToTrash(List.of("email-1", "email-2")))
+        .thenReturn(new MailBatchUpdateResult(List.of("email-1", "email-2"), List.of()));
+
+    mockMvc
+        .perform(
+            post("/api/mail/emails/trash")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[\"email-1\",\"email-2\"]}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.updatedIds.length()").value(2));
+  }
+
+  @Test
+  void restoresEmail() throws Exception {
+    mockMvc
+        .perform(post("/api/mail/emails/email-1/restore"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(mailTrashService).restoreEmail("email-1");
+  }
+
+  @Test
+  void rejectsEmptyBatchRestoreRequest() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/mail/emails/restore")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"ids\":[]}"))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value(1000));
   }

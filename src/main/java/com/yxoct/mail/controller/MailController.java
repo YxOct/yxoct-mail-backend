@@ -1,6 +1,7 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import com.yxoct.mail.domain.mail.BatchEmailIdsRequest;
 import com.yxoct.mail.domain.mail.BatchUpdateReadStatusRequest;
 import com.yxoct.mail.domain.mail.BatchUpdateStarStatusRequest;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
@@ -11,6 +12,7 @@ import com.yxoct.mail.domain.mail.Mailbox;
 import com.yxoct.mail.domain.mail.UpdateReadStatusRequest;
 import com.yxoct.mail.domain.mail.UpdateStarStatusRequest;
 import com.yxoct.mail.service.MailService;
+import com.yxoct.mail.service.MailTrashService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -18,6 +20,7 @@ import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -28,9 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class MailController {
 
   private final MailService mailService;
+  private final MailTrashService mailTrashService;
 
-  public MailController(MailService mailService) {
+  public MailController(MailService mailService, MailTrashService mailTrashService) {
     this.mailService = mailService;
+    this.mailTrashService = mailTrashService;
   }
 
   /** 获取邮箱列表 */
@@ -89,5 +94,33 @@ public class MailController {
       @Valid @RequestBody BatchUpdateStarStatusRequest request) {
 
     return ApiResponse.success(mailService.updateStarStatuses(request.ids(), request.starred()));
+  }
+
+  /** 将邮件移入垃圾箱 */
+  @PostMapping("/emails/{id}/trash")
+  public ApiResponse<Void> moveToTrash(@PathVariable String id) {
+    mailTrashService.moveEmailToTrash(id);
+    return ApiResponse.success();
+  }
+
+  /** 批量将邮件移入垃圾箱 */
+  @PostMapping("/emails/trash")
+  public ApiResponse<MailBatchUpdateResult> moveToTrash(
+      @Valid @RequestBody BatchEmailIdsRequest request) {
+    return ApiResponse.success(mailTrashService.moveEmailsToTrash(request.ids()));
+  }
+
+  /** 将邮件恢复到删除前的邮箱 */
+  @PostMapping("/emails/{id}/restore")
+  public ApiResponse<Void> restore(@PathVariable String id) {
+    mailTrashService.restoreEmail(id);
+    return ApiResponse.success();
+  }
+
+  /** 批量将邮件恢复到删除前的邮箱 */
+  @PostMapping("/emails/restore")
+  public ApiResponse<MailBatchUpdateResult> restore(
+      @Valid @RequestBody BatchEmailIdsRequest request) {
+    return ApiResponse.success(mailTrashService.restoreEmails(request.ids()));
   }
 }

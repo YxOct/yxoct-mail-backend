@@ -57,6 +57,10 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `PATCH /api/mail/emails/{id}/star-status`: update star status with `{ "starred": true }`.
 - `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
+- `POST /api/mail/emails/{id}/trash`: move an email to Trash and remember all original mailboxes.
+- `POST /api/mail/emails/trash`: move up to 100 emails to Trash with `{ "ids": ["email-1"] }`.
+- `POST /api/mail/emails/{id}/restore`: restore an email to its original mailboxes.
+- `POST /api/mail/emails/restore`: restore up to 100 emails with `{ "ids": ["email-1"] }`.
 - `GET /actuator/health`: check application and Stalwart availability.
 - `GET /actuator/health/liveness`: check only whether the application is alive.
 - `GET /actuator/health/readiness`: check whether the application, database, and Stalwart are ready to serve traffic.
@@ -73,6 +77,7 @@ All mail endpoints return the common response shape `{ "code", "message", "data"
 
 - `1000`: invalid request (`400`).
 - `2000`: email not found (`404`).
+- `2001`: email restore record not found (`404`).
 - `2004`: Stalwart connection or protocol failure (`502`).
 - `2005`: Stalwart timeout (`504`).
 - `2006`: Stalwart authentication failure (`502`).

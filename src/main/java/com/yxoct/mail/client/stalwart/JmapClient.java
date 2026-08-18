@@ -2,6 +2,7 @@ package com.yxoct.mail.client.stalwart;
 
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
+import com.yxoct.mail.client.stalwart.dto.EmailMailboxResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.EmailSetResult;
 import com.yxoct.mail.client.stalwart.dto.EmailUpdateResult;
@@ -223,6 +224,85 @@ public class JmapClient {
         "email.star-status", () -> updateEmailKeyword(session, emailIds, "$flagged", starred));
   }
 
+  public EmailMailboxResult getEmailMailboxes(JmapSession session, List<String> emailIds) {
+    return metrics.record("email.mailboxes", () -> getEmailMailboxesInternal(session, emailIds));
+  }
+
+  private EmailMailboxResult getEmailMailboxesInternal(JmapSession session, List<String> emailIds) {
+
+    String accountId = getMailAccountId(session);
+    JmapRequest request =
+        new JmapRequest(
+            List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
+            List.of(
+                new JmapMethodCall(
+                    "Email/get",
+                    Map.of(
+                        "accountId",
+                        accountId,
+                        "ids",
+                        emailIds,
+                        "properties",
+                        List.of("id", "mailboxIds")),
+                    "0")));
+
+    EmailMailboxResult result =
+        convertResponse(invoke(session, request, "Email/get"), EmailMailboxResult.class);
+    validateGetResult(
+        accountId,
+        result == null ? null : result.accountId(),
+        result == null ? null : result.state(),
+        result == null ? null : result.list(),
+        result == null ? null : result.notFound(),
+        emailIds,
+        EmailMailboxResult.EmailInfo::id);
+
+    if (result.list().stream().anyMatch(email -> !isValidMailboxIds(email.mailboxIds()))) {
+      throw mailServiceUnavailable();
+    }
+    return result;
+  }
+
+  public EmailUpdateResult setEmailMailboxes(
+      JmapSession session, Map<String, List<String>> mailboxIdsByEmail) {
+    return metrics.record(
+        "email.move", () -> setEmailMailboxesInternal(session, mailboxIdsByEmail));
+  }
+
+  private EmailUpdateResult setEmailMailboxesInternal(
+      JmapSession session, Map<String, List<String>> mailboxIdsByEmail) {
+
+    String accountId = getMailAccountId(session);
+    if (mailboxIdsByEmail == null
+        || mailboxIdsByEmail.isEmpty()
+        || !hasUniqueIds(List.copyOf(mailboxIdsByEmail.keySet()))
+        || mailboxIdsByEmail.values().stream()
+            .anyMatch(
+                mailboxIds ->
+                    mailboxIds == null || mailboxIds.isEmpty() || !hasUniqueIds(mailboxIds))) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+
+    Map<String, Map<String, Object>> updates = new LinkedHashMap<>();
+    mailboxIdsByEmail.forEach(
+        (emailId, mailboxIds) -> {
+          Map<String, Boolean> targetMailboxIds = new LinkedHashMap<>();
+          mailboxIds.forEach(mailboxId -> targetMailboxIds.put(mailboxId, true));
+          updates.put(emailId, Map.of("mailboxIds", targetMailboxIds));
+        });
+
+    JmapRequest request =
+        new JmapRequest(
+            List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
+            List.of(
+                new JmapMethodCall(
+                    "Email/set", Map.of("accountId", accountId, "update", updates), "0")));
+
+    EmailSetResult result =
+        convertResponse(invoke(session, request, "Email/set"), EmailSetResult.class);
+    return validateEmailUpdateResult(accountId, List.copyOf(mailboxIdsByEmail.keySet()), result);
+  }
+
   private EmailUpdateResult updateEmailKeyword(
       JmapSession session, List<String> emailIds, String keyword, boolean enabled) {
 
@@ -376,6 +456,17 @@ public class JmapClient {
     return ids != null
         && ids.stream().allMatch(id -> id != null && !id.isBlank())
         && new HashSet<>(ids).size() == ids.size();
+  }
+
+  private boolean isValidMailboxIds(Map<String, Boolean> mailboxIds) {
+    return mailboxIds != null
+        && !mailboxIds.isEmpty()
+        && mailboxIds.entrySet().stream()
+            .allMatch(
+                entry ->
+                    entry.getKey() != null
+                        && !entry.getKey().isBlank()
+                        && Boolean.TRUE.equals(entry.getValue()));
   }
 
   private <T> void validateGetResult(

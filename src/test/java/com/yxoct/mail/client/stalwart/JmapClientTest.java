@@ -13,6 +13,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
+import com.yxoct.mail.client.stalwart.dto.EmailMailboxResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.EmailUpdateResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
@@ -25,6 +26,7 @@ import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -382,6 +384,56 @@ class JmapClientTest {
                 MediaType.APPLICATION_JSON));
 
     client.setEmailsStarred(session(), List.of("email-1"), false);
+  }
+
+  @Test
+  void getsEmailMailboxMemberships() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][1].properties[1]").value("mailboxIds"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/get\",{\"accountId\":\"account-1\",\"state\":\"state\",\"list\":[{\"id\":\"email-1\",\"mailboxIds\":{\"inbox\":true,\"archive\":true}}],\"notFound\":[]},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    EmailMailboxResult result = client.getEmailMailboxes(session(), List.of("email-1"));
+
+    assertThat(result.list().getFirst().mailboxIds())
+        .containsOnlyKeys("inbox", "archive")
+        .containsValue(true);
+  }
+
+  @Test
+  void rejectsInvalidEmailMailboxMemberships() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/get\",{\"accountId\":\"account-1\",\"state\":\"state\",\"list\":[{\"id\":\"email-1\",\"mailboxIds\":{}}],\"notFound\":[]},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    assertMailServiceUnavailable(() -> client.getEmailMailboxes(session(), List.of("email-1")));
+  }
+
+  @Test
+  void replacesEmailMailboxMemberships() {
+    Map<String, List<String>> updates = new LinkedHashMap<>();
+    updates.put("email-1", List.of("trash"));
+    updates.put("email-2", List.of("inbox", "archive"));
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("Email/set"))
+        .andExpect(jsonPath("$.methodCalls[0][1].update['email-1'].mailboxIds.trash").value(true))
+        .andExpect(jsonPath("$.methodCalls[0][1].update['email-2'].mailboxIds.inbox").value(true))
+        .andExpect(jsonPath("$.methodCalls[0][1].update['email-2'].mailboxIds.archive").value(true))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null,\"email-2\":null}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    EmailUpdateResult result = client.setEmailMailboxes(session(), updates);
+
+    assertThat(result.updatedIds()).containsExactly("email-1", "email-2");
   }
 
   private void assertMailServiceUnavailable(
