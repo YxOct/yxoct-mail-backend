@@ -18,6 +18,7 @@ import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
+import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import java.util.HashSet;
@@ -38,9 +39,9 @@ public class MailService {
 
   /** 分页查询邮件列表 */
   public MailPage<MailSummary> queryEmails(
-      String mailboxId, int page, int size, MailQueryFilter filter) {
+      String mailboxId, int page, int size, MailQueryFilter filter, MailSort sort) {
 
-    if (filter == null) {
+    if (filter == null || sort == null) {
       throw new BusinessException(ErrorCode.BAD_REQUEST);
     }
 
@@ -53,7 +54,7 @@ public class MailService {
     JmapSession session = sessionCache.getSession();
 
     EmailQueryResult queryResult =
-        jmapClient.queryEmails(session, mailboxId, position, size, filter);
+        jmapClient.queryEmails(session, mailboxId, position, size, filter, sort);
     if (queryResult == null) {
       throw mailServiceUnavailable();
     }

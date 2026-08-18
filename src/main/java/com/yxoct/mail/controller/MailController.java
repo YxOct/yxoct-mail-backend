@@ -8,6 +8,7 @@ import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
+import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import com.yxoct.mail.domain.mail.MoveEmailsRequest;
@@ -58,11 +59,17 @@ public class MailController {
       @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
       @RequestParam(required = false) @Size(max = 200) String keyword,
       @RequestParam(required = false) Boolean read,
-      @RequestParam(required = false) Boolean starred) {
+      @RequestParam(required = false) Boolean starred,
+      @RequestParam(defaultValue = "receivedAt") String sortBy,
+      @RequestParam(defaultValue = "desc") String direction) {
 
     return ApiResponse.success(
         mailService.queryEmails(
-            mailboxId, page, size, new MailQueryFilter(keyword, read, starred)));
+            mailboxId,
+            page,
+            size,
+            new MailQueryFilter(keyword, read, starred),
+            MailSort.parse(sortBy, direction)));
   }
 
   /** 获取邮件详情 */

@@ -17,6 +17,7 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
+import com.yxoct.mail.domain.mail.MailSort;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpTimeoutException;
@@ -81,16 +82,27 @@ public class JmapClient {
   }
 
   public EmailQueryResult queryEmails(
-      JmapSession session, String mailboxId, int position, int limit, MailQueryFilter filter) {
+      JmapSession session,
+      String mailboxId,
+      int position,
+      int limit,
+      MailQueryFilter filter,
+      MailSort sort) {
     return metrics.record(
-        "email.query", () -> queryEmailsInternal(session, mailboxId, position, limit, filter));
+        "email.query",
+        () -> queryEmailsInternal(session, mailboxId, position, limit, filter, sort));
   }
 
   private EmailQueryResult queryEmailsInternal(
-      JmapSession session, String mailboxId, int position, int limit, MailQueryFilter filter) {
+      JmapSession session,
+      String mailboxId,
+      int position,
+      int limit,
+      MailQueryFilter filter,
+      MailSort sort) {
 
     String accountId = getMailAccountId(session);
-    if (mailboxId == null || mailboxId.isBlank() || filter == null) {
+    if (mailboxId == null || mailboxId.isBlank() || filter == null || sort == null) {
       throw new BusinessException(ErrorCode.BAD_REQUEST);
     }
 
@@ -106,7 +118,12 @@ public class JmapClient {
                         "filter",
                         buildEmailFilter(mailboxId, filter),
                         "sort",
-                        List.of(Map.of("property", "receivedAt", "isAscending", false)),
+                        List.of(
+                            Map.of(
+                                "property",
+                                sort.field().jmapProperty(),
+                                "isAscending",
+                                sort.direction().ascending())),
                         "position",
                         position,
                         "limit",

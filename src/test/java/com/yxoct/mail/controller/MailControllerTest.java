@@ -12,6 +12,7 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
+import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.service.MailMoveService;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
@@ -58,7 +59,12 @@ class MailControllerTest {
 
   @Test
   void searchesAndFiltersEmails() throws Exception {
-    when(mailService.queryEmails("inbox", 1, 20, new MailQueryFilter("invoice", false, true)))
+    when(mailService.queryEmails(
+            "inbox",
+            1,
+            20,
+            new MailQueryFilter("invoice", false, true),
+            MailSort.parse("subject", "asc")))
         .thenReturn(new MailPage<>(1, 20, 0, List.of()));
 
     mockMvc
@@ -66,7 +72,9 @@ class MailControllerTest {
             get("/api/mail/mailboxes/inbox/emails")
                 .param("keyword", "invoice")
                 .param("read", "false")
-                .param("starred", "true"))
+                .param("starred", "true")
+                .param("sortBy", "subject")
+                .param("direction", "asc"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.total").value(0));
   }
@@ -77,6 +85,16 @@ class MailControllerTest {
         .perform(get("/api/mail/mailboxes/inbox/emails").param("keyword", "a".repeat(201)))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value(1000));
+  }
+
+  @Test
+  void rejectsUnsupportedSortField() throws Exception {
+    assertBadRequest("sortBy", "unsupported");
+  }
+
+  @Test
+  void rejectsUnsupportedSortDirection() throws Exception {
+    assertBadRequest("direction", "sideways");
   }
 
   @Test

@@ -22,6 +22,7 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
+import com.yxoct.mail.domain.mail.MailSort;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
@@ -95,7 +96,9 @@ class JmapClientTest {
   @Test
   void rejectsInvalidSessionBeforeSendingRequest() {
     assertMailServiceUnavailable(
-        () -> client.queryEmails(null, "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                null, "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
@@ -107,7 +110,9 @@ class JmapClientTest {
                 "{\"methodResponses\":[[\"Email/query\",{}]]}", MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(
-        () -> client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
@@ -154,7 +159,9 @@ class JmapClientTest {
                 MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(
-        () -> client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
@@ -164,7 +171,9 @@ class JmapClientTest {
         .andRespond(withSuccess("{\"methodResponses\":[]}", MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(
-        () -> client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
@@ -177,7 +186,9 @@ class JmapClientTest {
                 MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(
-        () -> client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
@@ -192,7 +203,9 @@ class JmapClientTest {
                 "{\"methodResponses\":[[\"Email/query\",{\"accountId\":\"account-1\",\"queryState\":\"query-state\",\"position\":0,\"total\":1,\"ids\":[\"email-1\"]},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
-    EmailQueryResult result = client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none());
+    EmailQueryResult result =
+        client.queryEmails(
+            session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort());
 
     assertThat(result.ids()).containsExactly("email-1");
     assertThat(result.total()).isEqualTo(1);
@@ -208,6 +221,8 @@ class JmapClientTest {
         .andExpect(jsonPath("$.methodCalls[0][1].filter.conditions[2].notKeyword").value("$seen"))
         .andExpect(
             jsonPath("$.methodCalls[0][1].filter.conditions[3].hasKeyword").value("$flagged"))
+        .andExpect(jsonPath("$.methodCalls[0][1].sort[0].property").value("subject"))
+        .andExpect(jsonPath("$.methodCalls[0][1].sort[0].isAscending").value(true))
         .andRespond(
             withSuccess(
                 "{\"methodResponses\":[[\"Email/query\",{\"accountId\":\"account-1\",\"queryState\":\"query-state\",\"position\":0,\"total\":0,\"ids\":[]},\"0\"]]}",
@@ -215,7 +230,12 @@ class JmapClientTest {
 
     EmailQueryResult result =
         client.queryEmails(
-            session(), "inbox", 0, 20, new MailQueryFilter(" invoice ", false, true));
+            session(),
+            "inbox",
+            0,
+            20,
+            new MailQueryFilter(" invoice ", false, true),
+            MailSort.parse("subject", "asc"));
 
     assertThat(result.ids()).isEmpty();
   }
@@ -230,7 +250,9 @@ class JmapClientTest {
                 MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(
-        () -> client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
@@ -243,7 +265,9 @@ class JmapClientTest {
                 MediaType.APPLICATION_JSON));
 
     assertMailServiceUnavailable(
-        () -> client.queryEmails(session(), "inbox", 0, 20, MailQueryFilter.none()));
+        () ->
+            client.queryEmails(
+                session(), "inbox", 0, 20, MailQueryFilter.none(), MailSort.defaultSort()));
   }
 
   @Test
