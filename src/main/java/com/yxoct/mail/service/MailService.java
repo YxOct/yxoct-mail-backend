@@ -68,7 +68,8 @@ public class MailService {
                         email.subject(),
                         email.preview(),
                         email.receivedAt(),
-                        hasKeyword(email.keywords(), "$seen")))
+                        hasKeyword(email.keywords(), "$seen"),
+                        hasKeyword(email.keywords(), "$flagged")))
             .toList();
 
     return new MailPage<>(page, size, queryResult.total() == null ? 0 : queryResult.total(), items);
@@ -99,12 +100,18 @@ public class MailService {
         convertAddresses(email.from()),
         convertAddresses(email.to()),
         extractBody(email),
-        hasKeyword(email.keywords(), "$seen"));
+        hasKeyword(email.keywords(), "$seen"),
+        hasKeyword(email.keywords(), "$flagged"));
   }
 
   /** 更新邮件已读状态 */
   public void updateReadStatus(String id, boolean read) {
     jmapClient.setEmailRead(sessionCache.getSession(), id, read);
+  }
+
+  /** 更新邮件星标状态 */
+  public void updateStarStatus(String id, boolean starred) {
+    jmapClient.setEmailStarred(sessionCache.getSession(), id, starred);
   }
 
   /** 获取邮箱列表 */

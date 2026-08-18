@@ -220,6 +220,15 @@ public class JmapClient {
         });
   }
 
+  public void setEmailStarred(JmapSession session, String emailId, boolean starred) {
+    metrics.record(
+        "email.star-status",
+        () -> {
+          updateEmailKeyword(session, emailId, "$flagged", starred);
+          return null;
+        });
+  }
+
   private void updateEmailKeyword(
       JmapSession session, String emailId, String keyword, boolean enabled) {
 

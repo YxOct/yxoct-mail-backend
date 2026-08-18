@@ -10,4 +10,5 @@ public record MailDetail(
     List<MailAddress> from,
     List<MailAddress> to,
     String body,
-    boolean read) {}
+    boolean read,
+    boolean starred) {}

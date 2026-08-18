@@ -6,6 +6,7 @@ import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import com.yxoct.mail.domain.mail.UpdateReadStatusRequest;
+import com.yxoct.mail.domain.mail.UpdateStarStatusRequest;
 import com.yxoct.mail.service.MailService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -59,6 +60,15 @@ public class MailController {
       @PathVariable String id, @Valid @RequestBody UpdateReadStatusRequest request) {
 
     mailService.updateReadStatus(id, request.read());
+    return ApiResponse.success();
+  }
+
+  /** 更新邮件星标状态 */
+  @PatchMapping("/emails/{id}/star-status")
+  public ApiResponse<Void> updateStarStatus(
+      @PathVariable String id, @Valid @RequestBody UpdateStarStatusRequest request) {
+
+    mailService.updateStarStatus(id, request.starred());
     return ApiResponse.success();
   }
 }

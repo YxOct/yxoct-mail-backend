@@ -83,6 +83,30 @@ class MailControllerTest {
         .andExpect(jsonPath("$.code").value(1000));
   }
 
+  @Test
+  void updatesEmailStarStatus() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/email-1/star-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"starred\":true}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(mailService).updateStarStatus("email-1", true);
+  }
+
+  @Test
+  void rejectsMissingStarStatus() throws Exception {
+    mockMvc
+        .perform(
+            patch("/api/mail/emails/email-1/star-status")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
+  }
+
   private void assertBadRequest(String parameter, String value) throws Exception {
     mockMvc
         .perform(get("/api/mail/mailboxes/inbox/emails").param(parameter, value))

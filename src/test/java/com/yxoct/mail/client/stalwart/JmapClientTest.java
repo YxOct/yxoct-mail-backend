@@ -12,6 +12,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withUnauthorizedRequest;
 
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
+import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailQueryResult;
 import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.common.exception.BusinessException;
@@ -226,7 +227,7 @@ class JmapClientTest {
                       "state": "state",
                       "list": [{
                         "id": "email-1",
-                        "keywords": {"$seen": true},
+                        "keywords": {"$seen": true, "$flagged": true},
                         "from": [{"name": "Sender", "email": "sender@example.com"}],
                         "bodyValues": {
                           "part-1": {"value": "Hello", "isTruncated": false}
@@ -252,6 +253,24 @@ class JmapClientTest {
     assertThat(email.textBody().getFirst().partId()).isEqualTo("part-1");
     assertThat(email.bodyValues().get("part-1").value()).isEqualTo("Hello");
     assertThat(email.keywords()).containsEntry("$seen", true);
+    assertThat(email.keywords()).containsEntry("$flagged", true);
+  }
+
+  @Test
+  void requestsAndDeserializesEmailSummaryKeywords() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][1].properties[4]").value("keywords"))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/get\",{\"accountId\":\"account-1\",\"state\":\"state\",\"list\":[{\"id\":\"email-1\",\"keywords\":{\"$seen\":true,\"$flagged\":true}}],\"notFound\":[]},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    EmailListResult result = client.getEmailSummaries(session(), List.of("email-1"));
+
+    assertThat(result.list().getFirst().keywords())
+        .containsEntry("$seen", true)
+        .containsEntry("$flagged", true);
   }
 
   @Test
@@ -303,6 +322,44 @@ class JmapClientTest {
 
     assertBusinessError(
         () -> client.setEmailRead(session(), "missing", true), ErrorCode.EMAIL_NOT_FOUND);
+  }
+
+  @Test
+  void starsEmail() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update['email-1']['keywords/$flagged']").value(true))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    client.setEmailStarred(session(), "email-1", true);
+  }
+
+  @Test
+  void unstarsEmailByRemovingFlaggedKeyword() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(
+            content()
+                .json(
+                    """
+                    {
+                      "methodCalls": [[
+                        "Email/set",
+                        {"update": {"email-1": {"keywords/$flagged": null}}},
+                        "0"
+                      ]]
+                    }
+                    """))
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/set\",{\"accountId\":\"account-1\",\"oldState\":\"old\",\"newState\":\"new\",\"updated\":{\"email-1\":null}},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    client.setEmailStarred(session(), "email-1", false);
   }
 
   private void assertMailServiceUnavailable(

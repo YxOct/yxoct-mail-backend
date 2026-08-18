@@ -92,7 +92,7 @@ class MailServiceTest {
                         "Subject",
                         "Preview",
                         "2026-08-18T00:00:00Z",
-                        Map.of("$seen", true))),
+                        Map.of("$seen", true, "$flagged", true))),
                 List.of()));
 
     MailPage<MailSummary> page = mailService.queryEmails("inbox", 2, 20);
@@ -100,7 +100,7 @@ class MailServiceTest {
     assertThat(page.total()).isZero();
     assertThat(page.items())
         .containsExactly(
-            new MailSummary("email-1", "Subject", "Preview", "2026-08-18T00:00:00Z", true));
+            new MailSummary("email-1", "Subject", "Preview", "2026-08-18T00:00:00Z", true, true));
   }
 
   @Test
@@ -133,7 +133,7 @@ class MailServiceTest {
             Map.of("html-part", new EmailBodyValue("<p>Hello</p>")),
             List.of(new EmailBodyPart(null)),
             List.of(new EmailBodyPart("html-part")),
-            Map.of("$seen", true));
+            Map.of("$seen", true, "$flagged", true));
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
 
@@ -143,6 +143,7 @@ class MailServiceTest {
     assertThat(detail.from()).hasSize(1);
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isTrue();
+    assertThat(detail.starred()).isTrue();
   }
 
   @Test
@@ -168,6 +169,7 @@ class MailServiceTest {
     assertThat(detail.from()).isEmpty();
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isFalse();
+    assertThat(detail.starred()).isFalse();
   }
 
   @Test
@@ -175,6 +177,13 @@ class MailServiceTest {
     mailService.updateReadStatus("email-1", true);
 
     verify(jmapClient).setEmailRead(session, "email-1", true);
+  }
+
+  @Test
+  void updatesEmailStarStatus() {
+    mailService.updateStarStatus("email-1", true);
+
+    verify(jmapClient).setEmailStarred(session, "email-1", true);
   }
 
   @Test
