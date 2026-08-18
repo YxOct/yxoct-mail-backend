@@ -119,7 +119,19 @@ class MailBackendApplicationTests {
     mockMvc
         .perform(get("/api/mail/mailboxes"))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value(4000));
+        .andExpect(jsonPath("$.code").value(4000))
+        .andExpect(jsonPath("$.message").value("身份认证失败"));
+  }
+
+  @Test
+  void permitsLogoutWithoutAccessToken() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + "a".repeat(43) + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
   }
 
   @Test

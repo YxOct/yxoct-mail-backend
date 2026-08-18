@@ -42,7 +42,7 @@ public enum ErrorCode {
   EMAIL_ADDRESS_NOT_AVAILABLE(3004, HttpStatus.CONFLICT, "邮箱地址不可用"),
 
   // 身份认证错误
-  AUTHENTICATION_FAILED(4000, HttpStatus.UNAUTHORIZED, "邮箱地址或密码错误"),
+  AUTHENTICATION_FAILED(4000, HttpStatus.UNAUTHORIZED, "身份认证失败"),
 
   ACCOUNT_DISABLED(4001, HttpStatus.FORBIDDEN, "用户账号已被禁用"),
 
@@ -50,7 +50,9 @@ public enum ErrorCode {
 
   REFRESH_TOKEN_INVALID(4003, HttpStatus.UNAUTHORIZED, "刷新令牌无效或已过期"),
 
-  MAIL_ACCOUNT_NOT_READY(4004, HttpStatus.CONFLICT, "邮箱账户尚未就绪");
+  MAIL_ACCOUNT_NOT_READY(4004, HttpStatus.CONFLICT, "邮箱账户尚未就绪"),
+
+  INVALID_LOGIN_CREDENTIALS(4005, HttpStatus.UNAUTHORIZED, "邮箱地址或密码错误");
 
   private final int code;
   private final HttpStatus httpStatus;

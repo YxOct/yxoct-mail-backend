@@ -32,9 +32,9 @@ public class LoginService {
     AuthenticatedUser user =
         userRepository
             .findByEmailAddress(normalizedAddress)
-            .orElseThrow(() -> new BusinessException(ErrorCode.AUTHENTICATION_FAILED));
+            .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_LOGIN_CREDENTIALS));
     if (!passwordEncoder.matches(request.password(), user.passwordHash())) {
-      throw new BusinessException(ErrorCode.AUTHENTICATION_FAILED);
+      throw new BusinessException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
     }
     if (user.status() != UserStatus.ACTIVE) {
       throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);

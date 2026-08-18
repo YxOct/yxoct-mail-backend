@@ -55,14 +55,14 @@ class LoginServiceTest {
   void usesSameFailureForUnknownAddressAndWrongPassword() {
     when(userRepository.findByEmailAddress("missing@yxoct.com")).thenReturn(Optional.empty());
 
-    assertAuthenticationFailure(
+    assertInvalidLoginCredentials(
         () -> loginService.login(new LoginRequest("missing@yxoct.com", PASSWORD)));
 
     AuthenticatedUser user = activeUser();
     when(userRepository.findByEmailAddress("alice@yxoct.com")).thenReturn(Optional.of(user));
     when(passwordEncoder.matches(PASSWORD, PASSWORD_HASH)).thenReturn(false);
 
-    assertAuthenticationFailure(
+    assertInvalidLoginCredentials(
         () -> loginService.login(new LoginRequest("alice@yxoct.com", PASSWORD)));
   }
 
@@ -86,11 +86,12 @@ class LoginServiceTest {
         1L, "alice@yxoct.com", PASSWORD_HASH, UserStatus.ACTIVE, UserRole.USER);
   }
 
-  private void assertAuthenticationFailure(Runnable action) {
+  private void assertInvalidLoginCredentials(Runnable action) {
     assertThatThrownBy(action::run)
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception ->
-                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTHENTICATION_FAILED));
+                assertThat(exception.getErrorCode())
+                    .isEqualTo(ErrorCode.INVALID_LOGIN_CREDENTIALS));
   }
 }

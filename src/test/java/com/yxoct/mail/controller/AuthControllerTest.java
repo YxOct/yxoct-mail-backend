@@ -115,6 +115,29 @@ class AuthControllerTest {
   }
 
   @Test
+  void returnsDedicatedErrorForInvalidLoginCredentials() throws Exception {
+    LoginRequest request = new LoginRequest("alice@yxoct.com", PASSWORD);
+    when(loginService.login(request))
+        .thenThrow(new BusinessException(ErrorCode.INVALID_LOGIN_CREDENTIALS));
+
+    mockMvc
+        .perform(
+            post("/api/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "emailAddress": "alice@yxoct.com",
+                      "password": "%s"
+                    }
+                    """
+                        .formatted(PASSWORD)))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value(4005))
+        .andExpect(jsonPath("$.message").value("邮箱地址或密码错误"));
+  }
+
+  @Test
   void rotatesRefreshToken() throws Exception {
     String refreshToken = "a".repeat(43);
     TokenPairResponse response =
@@ -131,6 +154,21 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.data.refreshToken").value("b".repeat(43)));
 
     verify(refreshTokenService).refresh(refreshToken);
+  }
+
+  @Test
+  void logsOutWithRefreshToken() throws Exception {
+    String refreshToken = "a".repeat(43);
+
+    mockMvc
+        .perform(
+            post("/api/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"refreshToken\":\"" + refreshToken + "\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(refreshTokenService).revoke(refreshToken);
   }
 
   private String registerJson(String localPart, String password) {

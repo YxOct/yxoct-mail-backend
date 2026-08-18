@@ -104,7 +104,7 @@ An attachment is marked as inline only when its MIME disposition is `inline`; a 
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
-Authentication uses the primary email address and the password chosen during registration. Send the access token as `Authorization: Bearer <token>`. Refreshing rotates the refresh token, so clients must replace both stored tokens with the returned pair. Logging out revokes the submitted refresh token. Mail requests resolve the authenticated user's active owned mail account and decrypt its internal Stalwart credential for that request; the configured development mailbox is not used for authenticated user mail operations.
+Authentication uses the primary email address and the password chosen during registration. Send the access token as `Authorization: Bearer <token>`. Refreshing rotates the refresh token, so clients must replace both stored tokens with the returned pair. Logging out requires only the submitted refresh token and remains available after an access token expires. Mail requests resolve the authenticated user's active owned mail account and decrypt its internal Stalwart credential for that request; the configured development mailbox is not used for authenticated user mail operations.
 
 Invitation management under `/api/admin/invitations` requires the `ADMIN` role. Administrators can create single-use `REGISTRATION` or `EMAIL_ADDRESS` invitations, list invitation metadata, and revoke pending invitations. The plaintext token is returned only by the create operation. Creation and revocation actor IDs are retained for audit purposes.
 
@@ -124,11 +124,12 @@ All API endpoints return the common response shape `{ "code", "message", "data" 
 - `3002`: registration invitation already used (`409`).
 - `3003`: registration invitation revoked (`410`).
 - `3004`: email address unavailable (`409`).
-- `4000`: authentication failed or missing (`401`).
+- `4000`: access authentication failed or missing (`401`).
 - `4001`: user account disabled (`403`).
 - `4002`: insufficient permission (`403`).
 - `4003`: refresh token invalid or expired (`401`).
 - `4004`: the user's mail account is not active yet (`409`).
+- `4005`: login email address or password is incorrect (`401`).
 
 Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. A background worker claims pending accounts with a lease, provisions them through Stalwart's management JMAP API, and records `ACTIVE` or `FAILED`; failed work is retried with bounded exponential backoff. Remote accounts carry the local account ID in their description so a retry can safely distinguish its own previous creation from an unrelated address conflict. Internal mailbox credentials are random, encrypted with AES-256-GCM, and never returned by an API. Invitation tokens use the format `yxi` followed by 22 URL-safe Base64 characters (128 bits of randomness), are returned only when created, and only their SHA-256 hashes are stored. Invitations carry a purpose instead of granting persistent account or address quotas. User passwords are stored as versioned Argon2 hashes.
 
