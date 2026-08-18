@@ -135,7 +135,7 @@ public class StalwartManagementClient {
       JsonNode response =
           restClient
               .post()
-              .uri("/api")
+              .uri("/jmap")
               .headers(this::setRequestHeaders)
               .body(request)
               .retrieve()

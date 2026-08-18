@@ -18,7 +18,7 @@ The `dev` profile loads `.env` from the project root and requires:
 
 When account provisioning is enabled, also set:
 
-- `STALWART_MANAGEMENT_API_KEY`: restricted API key used only to query domains and provision accounts.
+- `STALWART_MANAGEMENT_API_KEY`: restricted API key used only to query domains and provision accounts. Grant `authenticate`, `sysDomainQuery`, `sysDomainGet`, `sysAccountQuery`, `sysAccountGet`, and `sysAccountCreate`.
 - `STALWART_CREDENTIAL_ENCRYPTION_KEY`: Base64-encoded 256-bit key used to encrypt internal mailbox credentials.
 
 For local development, start MySQL and wait for it to become healthy before starting the application:

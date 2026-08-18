@@ -46,13 +46,13 @@ class StalwartManagementClientTest {
   void createsAccountWithManagedMarkerAndInternalCredential() {
     expectDomainLookup();
     server
-        .expect(requestTo("http://localhost/api"))
+        .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/query"))
         .andExpect(jsonPath("$.methodCalls[0][1].filter.name").value("alice"))
         .andExpect(jsonPath("$.methodCalls[0][1].filter.domainId").value("domain-1"))
         .andRespond(methodResponse("x:Account/query", "{\"ids\":[]}"));
     server
-        .expect(requestTo("http://localhost/api"))
+        .expect(requestTo("http://localhost/jmap"))
         .andExpect(header("Authorization", "Bearer API-key"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
         .andExpect(jsonPath("$.methodCalls[0][1].create.new-account.name").value("alice"))
@@ -92,12 +92,12 @@ class StalwartManagementClientTest {
 
   private void expectDomainLookup() {
     server
-        .expect(requestTo("http://localhost/api"))
+        .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Domain/query"))
         .andExpect(jsonPath("$.methodCalls[0][1].filter.name").value("yxoct.com"))
         .andRespond(methodResponse("x:Domain/query", "{\"ids\":[\"domain-1\"]}"));
     server
-        .expect(requestTo("http://localhost/api"))
+        .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Domain/get"))
         .andRespond(
             methodResponse(
@@ -106,11 +106,11 @@ class StalwartManagementClientTest {
 
   private void expectExistingAccount(String description) {
     server
-        .expect(requestTo("http://localhost/api"))
+        .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/query"))
         .andRespond(methodResponse("x:Account/query", "{\"ids\":[\"account-1\"]}"));
     server
-        .expect(requestTo("http://localhost/api"))
+        .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/get"))
         .andRespond(
             methodResponse(
