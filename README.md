@@ -39,9 +39,13 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /api/mail/mailboxes`: list mailboxes.
 - `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20`: list emails, ordered by newest first. `size` must be between 1 and 100.
 - `GET /api/mail/emails/{id}`: get an email detail.
-- `GET /actuator/health`: check application and Stalwart availability. Health details are not exposed over HTTP.
+- `GET /actuator/health`: check application and Stalwart availability.
+- `GET /actuator/health/liveness`: check only whether the application is alive.
+- `GET /actuator/health/readiness`: check whether the application and Stalwart are ready to serve traffic.
 
 The `dev` profile also exposes `/actuator/metrics/stalwart.client.requests`, which reports JMAP operation counts, durations, and classified outcomes. Production continues to expose only health information unless a metrics exporter is configured.
+
+Every HTTP response includes an `X-Request-Id`. A valid incoming value is preserved; otherwise the application generates one. The same value is included in logs and forwarded to Stalwart for request correlation. Health details are not exposed over HTTP.
 
 All mail endpoints return the common response shape `{ "code", "message", "data" }`. Important error codes are:
 
