@@ -15,6 +15,7 @@ import com.yxoct.mail.persistence.entity.MailAccountEntity;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationPurpose;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationStatus;
+import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
 import com.yxoct.mail.persistence.mapper.MailAccountMapper;
@@ -77,6 +78,7 @@ class RegistrationServiceTest {
     assertThat(user.getPasswordHash()).startsWith("{argon2@SpringSecurity_v5_8}");
     assertThat(user.getPasswordHash()).doesNotContain(PASSWORD);
     assertThat(passwordEncoder.matches(PASSWORD, user.getPasswordHash())).isTrue();
+    assertThat(user.getRole()).isEqualTo(UserRole.USER);
 
     EmailAddressEntity emailAddress =
         emailAddressMapper.selectOne(

@@ -19,6 +19,7 @@ public class AppUserEntity {
 
   private String passwordHash;
   private UserStatus status;
+  private UserRole role;
   private Long version;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;

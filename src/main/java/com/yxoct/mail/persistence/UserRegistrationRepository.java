@@ -9,6 +9,7 @@ import com.yxoct.mail.persistence.entity.MailAccountEntity;
 import com.yxoct.mail.persistence.entity.MailAccountRole;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.UserMailAccountEntity;
+import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
@@ -48,6 +49,7 @@ public class UserRegistrationRepository {
     AppUserEntity user = new AppUserEntity();
     user.setPasswordHash(passwordHash);
     user.setStatus(UserStatus.ACTIVE);
+    user.setRole(UserRole.USER);
     appUserMapper.insert(user);
 
     MailAccountEntity mailAccount = new MailAccountEntity();
