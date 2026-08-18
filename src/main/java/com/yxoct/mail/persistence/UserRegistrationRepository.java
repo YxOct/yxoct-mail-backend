@@ -45,7 +45,10 @@ public class UserRegistrationRepository {
   }
 
   public RegistrationResult create(
-      String normalizedAddress, String passwordHash, LocalDateTime provisioningAt) {
+      String normalizedAddress,
+      String displayName,
+      String passwordHash,
+      LocalDateTime provisioningAt) {
     AppUserEntity user = new AppUserEntity();
     user.setPasswordHash(passwordHash);
     user.setStatus(UserStatus.ACTIVE);
@@ -53,6 +56,7 @@ public class UserRegistrationRepository {
     appUserMapper.insert(user);
 
     MailAccountEntity mailAccount = new MailAccountEntity();
+    mailAccount.setDisplayName(displayName);
     mailAccount.setStatus(MailAccountStatus.PROVISIONING);
     mailAccount.setNextProvisioningAt(provisioningAt);
     mailAccountMapper.insert(mailAccount);
@@ -71,6 +75,10 @@ public class UserRegistrationRepository {
     userMailAccountMapper.insert(ownership);
 
     return new RegistrationResult(
-        user.getId(), mailAccount.getId(), normalizedAddress, MailAccountStatus.PROVISIONING);
+        user.getId(),
+        mailAccount.getId(),
+        normalizedAddress,
+        displayName,
+        MailAccountStatus.PROVISIONING);
   }
 }

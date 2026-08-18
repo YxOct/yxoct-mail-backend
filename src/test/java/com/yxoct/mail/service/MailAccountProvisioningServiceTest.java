@@ -50,7 +50,7 @@ class MailAccountProvisioningServiceTest {
   void claimsGeneratesCredentialAndActivatesAccount() {
     when(repository.claim(42, NOW_LOCAL, NOW_LOCAL.plusMinutes(1))).thenReturn(true);
     when(repository.findTask(42))
-        .thenReturn(new MailAccountProvisioningTask(42, "alice@yxoct.com", null, null, 1));
+        .thenReturn(new MailAccountProvisioningTask(42, "alice@yxoct.com", "Alice", null, null, 1));
     when(credentialGenerator.generate()).thenReturn("internal-secret");
     when(credentialCipher.encrypt("internal-secret")).thenReturn("v1:ciphertext");
     when(repository.saveCredential(42, "v1:ciphertext", NOW_LOCAL)).thenReturn(true);
@@ -69,7 +69,8 @@ class MailAccountProvisioningServiceTest {
     when(repository.claim(42, NOW_LOCAL, NOW_LOCAL.plusMinutes(1))).thenReturn(true);
     when(repository.findTask(42))
         .thenReturn(
-            new MailAccountProvisioningTask(42, "alice@yxoct.com", null, "v1:ciphertext", 3));
+            new MailAccountProvisioningTask(
+                42, "alice@yxoct.com", "Alice", null, "v1:ciphertext", 3));
     when(credentialCipher.decrypt("v1:ciphertext")).thenReturn("internal-secret");
     when(managementClient.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
         .thenThrow(new StalwartProvisioningException("MANAGEMENT_REQUEST_FAILED"));

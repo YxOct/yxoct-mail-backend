@@ -82,7 +82,7 @@ class MySqlUserPersistenceIT {
       assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("MySQL");
     }
 
-    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '5'"))
+    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '9'"))
         .isEqualTo(1);
     assertThat(
             queryForInt(
@@ -115,6 +115,14 @@ class MySqlUserPersistenceIT {
                     + "'provisioning_lease_until', 'next_provisioning_at', "
                     + "'last_provisioning_error')"))
         .isEqualTo(5);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                    + "WHERE table_schema = DATABASE() "
+                    + "AND table_name = 'mail_account' "
+                    + "AND column_name = 'display_name' "
+                    + "AND is_nullable = 'NO'"))
+        .isEqualTo(1);
   }
 
   @Test
@@ -190,7 +198,7 @@ class MySqlUserPersistenceIT {
     start.await();
     try {
       return registrationService.register(
-          new RegisterRequest(invitationToken, localPart, "correct horse battery staple"));
+          new RegisterRequest(invitationToken, localPart, null, "correct horse battery staple"));
     } catch (BusinessException exception) {
       return exception.getErrorCode();
     }
@@ -207,6 +215,7 @@ class MySqlUserPersistenceIT {
 
   private MailAccountEntity insertAccount(String stalwartAccountId) {
     MailAccountEntity account = new MailAccountEntity();
+    account.setDisplayName("Test Account");
     account.setStalwartAccountId(stalwartAccountId);
     account.setStatus(MailAccountStatus.ACTIVE);
     assertThat(mailAccountMapper.insert(account)).isEqualTo(1);

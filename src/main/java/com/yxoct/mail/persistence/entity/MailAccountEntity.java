@@ -17,6 +17,7 @@ public class MailAccountEntity {
   @TableId(type = IdType.AUTO)
   private Long id;
 
+  private String displayName;
   private String stalwartAccountId;
   private MailAccountStatus status;
   private String credentialCiphertext;

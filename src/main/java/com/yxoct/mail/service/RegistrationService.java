@@ -42,6 +42,7 @@ public class RegistrationService {
   public RegistrationResult register(RegisterRequest request) {
     validateRequest(request);
     String normalizedAddress = emailAddressNormalizer.normalize(request.emailLocalPart());
+    String displayName = normalizeDisplayName(request.displayName(), request.emailLocalPart());
     String invitationTokenHash = invitationTokenCodec.hash(request.invitationCode());
     invitationValidator.validate(
         invitationRepository
@@ -50,7 +51,8 @@ public class RegistrationService {
         RegistrationInvitationPurpose.REGISTRATION,
         LocalDateTime.ofInstant(clock.instant(), clock.getZone()));
     String passwordHash = passwordEncoder.encode(request.password());
-    return registrationTransaction.register(invitationTokenHash, normalizedAddress, passwordHash);
+    return registrationTransaction.register(
+        invitationTokenHash, normalizedAddress, displayName, passwordHash);
   }
 
   private void validateRequest(RegisterRequest request) {
@@ -63,5 +65,18 @@ public class RegistrationService {
         || request.password().length() > 128) {
       throw new BusinessException(ErrorCode.BAD_REQUEST);
     }
+  }
+
+  private String normalizeDisplayName(String requestedDisplayName, String emailLocalPart) {
+    if (requestedDisplayName == null || requestedDisplayName.isBlank()) {
+      return emailLocalPart;
+    }
+    String displayName = requestedDisplayName.strip();
+    if (displayName.isEmpty()
+        || displayName.length() > 100
+        || displayName.codePoints().anyMatch(Character::isISOControl)) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+    return displayName;
   }
 }

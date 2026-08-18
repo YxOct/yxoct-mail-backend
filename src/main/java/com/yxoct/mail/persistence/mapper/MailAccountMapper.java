@@ -46,6 +46,7 @@ public interface MailAccountMapper extends BaseMapper<MailAccountEntity> {
       """
       SELECT ma.id AS account_id,
              ea.normalized_address AS email_address,
+             ma.display_name,
              ma.stalwart_account_id,
              ma.credential_ciphertext,
              ma.provisioning_attempts

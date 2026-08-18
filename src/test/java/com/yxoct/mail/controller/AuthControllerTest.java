@@ -38,10 +38,11 @@ class AuthControllerTest {
 
   @Test
   void registersAnInvitedUser() throws Exception {
-    RegisterRequest request = new RegisterRequest(INVITATION, "alice", PASSWORD);
+    RegisterRequest request = new RegisterRequest(INVITATION, "alice", null, PASSWORD);
     when(registrationService.register(request))
         .thenReturn(
-            new RegistrationResult(1L, 2L, "alice@yxoct.com", MailAccountStatus.PROVISIONING));
+            new RegistrationResult(
+                1L, 2L, "alice@yxoct.com", "alice", MailAccountStatus.PROVISIONING));
 
     mockMvc
         .perform(
@@ -53,6 +54,7 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.data.userId").value(1))
         .andExpect(jsonPath("$.data.mailAccountId").value(2))
         .andExpect(jsonPath("$.data.emailAddress").value("alice@yxoct.com"))
+        .andExpect(jsonPath("$.data.displayName").value("alice"))
         .andExpect(jsonPath("$.data.status").value("PROVISIONING"));
 
     verify(registrationService).register(request);
@@ -71,7 +73,7 @@ class AuthControllerTest {
 
   @Test
   void returnsConflictWhenEmailAddressIsUnavailable() throws Exception {
-    RegisterRequest request = new RegisterRequest(INVITATION, "alice", PASSWORD);
+    RegisterRequest request = new RegisterRequest(INVITATION, "alice", null, PASSWORD);
     when(registrationService.register(request))
         .thenThrow(new BusinessException(ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE));
 

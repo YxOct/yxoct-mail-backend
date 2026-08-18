@@ -34,7 +34,10 @@ public class LocalRegistrationTransaction {
 
   @Transactional
   public RegistrationResult register(
-      String invitationTokenHash, String normalizedAddress, String passwordHash) {
+      String invitationTokenHash,
+      String normalizedAddress,
+      String displayName,
+      String passwordHash) {
     RegistrationInvitationEntity invitation =
         invitationRepository
             .findByTokenHashForUpdate(invitationTokenHash)
@@ -48,7 +51,7 @@ public class LocalRegistrationTransaction {
 
     try {
       RegistrationResult result =
-          userRegistrationRepository.create(normalizedAddress, passwordHash, now);
+          userRegistrationRepository.create(normalizedAddress, displayName, passwordHash, now);
       if (!invitationRepository.markUsed(invitation.getId(), result.userId(), now)) {
         throw new IllegalStateException("Locked invitation could not be consumed");
       }

@@ -64,13 +64,16 @@ class RegistrationServiceTest {
     assertThat(invitation.token()).matches("^yxi[A-Za-z0-9_-]{22}$");
 
     RegistrationResult result =
-        registrationService.register(new RegisterRequest(invitation.token(), "Alice", PASSWORD));
+        registrationService.register(
+            new RegisterRequest(invitation.token(), "Alice", "  Alice Zhang  ", PASSWORD));
     LocalDateTime afterRegistration = applicationNow();
 
     assertThat(result.emailAddress()).isEqualTo("alice@yxoct.com");
+    assertThat(result.displayName()).isEqualTo("Alice Zhang");
     assertThat(result.status().name()).isEqualTo("PROVISIONING");
 
     MailAccountEntity mailAccount = mailAccountMapper.selectById(result.mailAccountId());
+    assertThat(mailAccount.getDisplayName()).isEqualTo("Alice Zhang");
     assertThat(mailAccount.getNextProvisioningAt())
         .isBetween(beforeRegistration, afterRegistration);
 
@@ -99,16 +102,45 @@ class RegistrationServiceTest {
   @Test
   void rejectsReusingAnInvitation() {
     CreatedRegistrationInvitation invitation = invitationService.create();
-    registrationService.register(new RegisterRequest(invitation.token(), "alice", PASSWORD));
+    registrationService.register(new RegisterRequest(invitation.token(), "alice", null, PASSWORD));
 
     assertThatThrownBy(
             () ->
                 registrationService.register(
-                    new RegisterRequest(invitation.token(), "bob", PASSWORD)))
+                    new RegisterRequest(invitation.token(), "bob", null, PASSWORD)))
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception ->
                 assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVITATION_ALREADY_USED));
+  }
+
+  @Test
+  void defaultsMissingDisplayNameToEmailLocalPart() {
+    CreatedRegistrationInvitation invitation = invitationService.create();
+
+    RegistrationResult result =
+        registrationService.register(
+            new RegisterRequest(invitation.token(), "Alice", null, PASSWORD));
+
+    assertThat(result.displayName()).isEqualTo("Alice");
+    assertThat(mailAccountMapper.selectById(result.mailAccountId()).getDisplayName())
+        .isEqualTo("Alice");
+  }
+
+  @Test
+  void rejectsControlCharactersInDisplayNameWithoutConsumingInvitation() {
+    CreatedRegistrationInvitation invitation = invitationService.create();
+
+    assertThatThrownBy(
+            () ->
+                registrationService.register(
+                    new RegisterRequest(invitation.token(), "alice", "Alice\r\nBcc: x", PASSWORD)))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception -> assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BAD_REQUEST));
+
+    assertThat(invitationMapper.selectById(invitation.id()).getStatus())
+        .isEqualTo(RegistrationInvitationStatus.PENDING);
   }
 
   @Test
@@ -127,12 +159,13 @@ class RegistrationServiceTest {
   void keepsSecondInvitationPendingWhenEmailAddressIsTaken() {
     CreatedRegistrationInvitation firstInvitation = invitationService.create();
     CreatedRegistrationInvitation secondInvitation = invitationService.create();
-    registrationService.register(new RegisterRequest(firstInvitation.token(), "alice", PASSWORD));
+    registrationService.register(
+        new RegisterRequest(firstInvitation.token(), "alice", null, PASSWORD));
 
     assertThatThrownBy(
             () ->
                 registrationService.register(
-                    new RegisterRequest(secondInvitation.token(), "ALICE", PASSWORD)))
+                    new RegisterRequest(secondInvitation.token(), "ALICE", null, PASSWORD)))
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception ->
@@ -177,7 +210,7 @@ class RegistrationServiceTest {
     assertThatThrownBy(
             () ->
                 registrationService.register(
-                    new RegisterRequest(invitationToken, localPart, PASSWORD)))
+                    new RegisterRequest(invitationToken, localPart, null, PASSWORD)))
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception -> assertThat(exception.getErrorCode()).isEqualTo(expectedError));
