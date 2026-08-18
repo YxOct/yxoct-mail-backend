@@ -11,9 +11,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import tools.jackson.databind.JsonNode;
 
 @Component
@@ -35,18 +37,17 @@ public class StalwartManagementClient {
     this.properties = provisioningProperties;
   }
 
-  public String ensureAccount(long localAccountId, String emailAddress, String password) {
+  public String ensureAccount(String emailAddress, String password, String displayName) {
     AddressParts address = AddressParts.parse(emailAddress);
     String domainId = findDomainId(address.domain());
-    String marker = managementMarker(localAccountId);
     RemoteAccount existing = findAccount(address, domainId);
     if (existing != null) {
-      if (!marker.equals(existing.description())) {
+      if (!credentialsMatch(address.email(), password)) {
         throw new StalwartProvisioningException("REMOTE_ADDRESS_CONFLICT");
       }
       return existing.id();
     }
-    return createAccount(address.localPart(), domainId, password, marker);
+    return createAccount(address.localPart(), domainId, password, displayName);
   }
 
   private String findDomainId(String domain) {
@@ -72,10 +73,7 @@ public class StalwartManagementClient {
     List<RemoteAccount> matches = new ArrayList<>();
     for (JsonNode item : elements(result.path("list"))) {
       if (address.email().equalsIgnoreCase(nullableText(item, "emailAddress"))) {
-        matches.add(
-            new RemoteAccount(
-                requiredText(item, "id", "INVALID_ACCOUNT_RESPONSE"),
-                nullableText(item, "description")));
+        matches.add(new RemoteAccount(requiredText(item, "id", "INVALID_ACCOUNT_RESPONSE")));
       }
     }
     if (matches.size() > 1) {
@@ -107,6 +105,26 @@ public class StalwartManagementClient {
           setErrorDiagnostic(result.path("notCreated").path(CREATION_ID)));
     }
     return requiredText(created, "id", "INVALID_ACCOUNT_RESPONSE");
+  }
+
+  private boolean credentialsMatch(String emailAddress, String password) {
+    try {
+      restClient
+          .get()
+          .uri("/.well-known/jmap")
+          .headers(headers -> setCredentialHeaders(headers, emailAddress, password))
+          .retrieve()
+          .toBodilessEntity();
+      return true;
+    } catch (RestClientResponseException exception) {
+      if (exception.getStatusCode().equals(HttpStatus.UNAUTHORIZED)
+          || exception.getStatusCode().equals(HttpStatus.FORBIDDEN)) {
+        return false;
+      }
+      throw new StalwartProvisioningException("MANAGEMENT_REQUEST_FAILED", exception);
+    } catch (RestClientException exception) {
+      throw new StalwartProvisioningException("MANAGEMENT_REQUEST_FAILED", exception);
+    }
   }
 
   private List<String> queryIds(String method, Map<String, Object> filter) {
@@ -159,6 +177,15 @@ public class StalwartManagementClient {
 
   private void setRequestHeaders(HttpHeaders headers) {
     headers.setBearerAuth(properties.managementApiKey());
+    setRequestId(headers);
+  }
+
+  private void setCredentialHeaders(HttpHeaders headers, String emailAddress, String password) {
+    headers.setBasicAuth(emailAddress, password);
+    setRequestId(headers);
+  }
+
+  private void setRequestId(HttpHeaders headers) {
     String requestId = RequestIdContext.current();
     if (requestId != null) {
       headers.set(RequestIdContext.HEADER_NAME, requestId);
@@ -212,11 +239,7 @@ public class StalwartManagementClient {
     return properties.isEmpty() ? diagnostic : diagnostic + ", properties=" + properties;
   }
 
-  static String managementMarker(long localAccountId) {
-    return "Managed by yxoct-mail-backend; localAccountId=" + localAccountId;
-  }
-
-  private record RemoteAccount(String id, String description) {}
+  private record RemoteAccount(String id) {}
 
   private record AddressParts(String email, String localPart, String domain) {
 

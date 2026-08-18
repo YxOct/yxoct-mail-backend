@@ -5,16 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.test.web.client.ResponseCreator;
@@ -43,7 +46,7 @@ class StalwartManagementClientTest {
   }
 
   @Test
-  void createsAccountWithManagedMarkerAndInternalCredential() {
+  void createsAccountWithDisplayNameAndInternalCredential() {
     expectDomainLookup();
     server
         .expect(requestTo("http://localhost/jmap"))
@@ -57,8 +60,7 @@ class StalwartManagementClientTest {
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
         .andExpect(jsonPath("$.methodCalls[0][1].create.new-account.name").value("alice"))
         .andExpect(
-            jsonPath("$.methodCalls[0][1].create.new-account.description")
-                .value(StalwartManagementClient.managementMarker(42)))
+            jsonPath("$.methodCalls[0][1].create.new-account.description").value("Alice Zhang"))
         .andExpect(
             jsonPath("$.methodCalls[0][1].create.new-account.credentials['0'].secret")
                 .value("internal-secret"))
@@ -66,28 +68,43 @@ class StalwartManagementClientTest {
             methodResponse(
                 "x:Account/set", "{\"created\":{\"new-account\":{\"id\":\"account-1\"}}}"));
 
-    assertThat(client.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+    assertThat(client.ensureAccount("alice@yxoct.com", "internal-secret", "Alice Zhang"))
         .isEqualTo("account-1");
   }
 
   @Test
-  void reusesOnlyAnAccountCreatedForTheSameLocalAccount() {
+  void reusesAnExistingAccountWhenItsCredentialMatches() {
     expectDomainLookup();
-    expectExistingAccount(StalwartManagementClient.managementMarker(42));
+    expectExistingAccount();
+    expectCredentialVerification(withSuccess("{}", MediaType.APPLICATION_JSON));
 
-    assertThat(client.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+    assertThat(client.ensureAccount("alice@yxoct.com", "internal-secret", "Alice"))
         .isEqualTo("account-1");
   }
 
   @Test
-  void rejectsAnUnmanagedAddressConflict() {
+  void rejectsAnExistingAccountWhenItsCredentialDoesNotMatch() {
     expectDomainLookup();
-    expectExistingAccount("Created outside this application");
+    expectExistingAccount();
+    expectCredentialVerification(withStatus(HttpStatus.UNAUTHORIZED));
 
-    assertThatThrownBy(() -> client.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+    assertThatThrownBy(() -> client.ensureAccount("alice@yxoct.com", "internal-secret", "Alice"))
         .isInstanceOfSatisfying(
             StalwartProvisioningException.class,
             exception -> assertThat(exception.failureCode()).isEqualTo("REMOTE_ADDRESS_CONFLICT"));
+  }
+
+  @Test
+  void treatsCredentialVerificationServerErrorsAsRetryableManagementFailures() {
+    expectDomainLookup();
+    expectExistingAccount();
+    expectCredentialVerification(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+    assertThatThrownBy(() -> client.ensureAccount("alice@yxoct.com", "internal-secret", "Alice"))
+        .isInstanceOfSatisfying(
+            StalwartProvisioningException.class,
+            exception ->
+                assertThat(exception.failureCode()).isEqualTo("MANAGEMENT_REQUEST_FAILED"));
   }
 
   @Test
@@ -105,7 +122,7 @@ class StalwartManagementClientTest {
                     + "\"description\":\"must not be logged\","
                     + "\"properties\":[\"credentials\"]}}}"));
 
-    assertThatThrownBy(() -> client.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+    assertThatThrownBy(() -> client.ensureAccount("alice@yxoct.com", "internal-secret", "Alice"))
         .isInstanceOfSatisfying(
             StalwartProvisioningException.class,
             exception -> {
@@ -130,7 +147,7 @@ class StalwartManagementClientTest {
                 "x:Domain/get", "{\"list\":[{\"id\":\"domain-1\",\"name\":\"yxoct.com\"}]}"));
   }
 
-  private void expectExistingAccount(String description) {
+  private void expectExistingAccount() {
     server
         .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/query"))
@@ -141,9 +158,18 @@ class StalwartManagementClientTest {
         .andRespond(
             methodResponse(
                 "x:Account/get",
-                "{\"list\":[{\"id\":\"account-1\",\"emailAddress\":\"alice@yxoct.com\",\"description\":\""
-                    + description
-                    + "\"}]}"));
+                "{\"list\":[{\"id\":\"account-1\",\"emailAddress\":\"alice@yxoct.com\"}]}"));
+  }
+
+  private void expectCredentialVerification(ResponseCreator response) {
+    String credentials =
+        Base64.getEncoder()
+            .encodeToString(
+                "alice@yxoct.com:internal-secret".getBytes(StandardCharsets.ISO_8859_1));
+    server
+        .expect(requestTo("http://localhost/.well-known/jmap"))
+        .andExpect(header("Authorization", "Basic " + credentials))
+        .andRespond(response);
   }
 
   private ResponseCreator methodResponse(String method, String result) {

@@ -55,7 +55,7 @@ class MailAccountProvisioningServiceTest {
     when(credentialCipher.encrypt("internal-secret")).thenReturn("v1:ciphertext");
     when(repository.saveCredential(42, "v1:ciphertext", NOW_LOCAL)).thenReturn(true);
     when(credentialCipher.decrypt("v1:ciphertext")).thenReturn("internal-secret");
-    when(managementClient.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+    when(managementClient.ensureAccount("alice@yxoct.com", "internal-secret", "Alice"))
         .thenReturn("stalwart-1");
     when(repository.markSucceeded(42, "stalwart-1", NOW_LOCAL)).thenReturn(true);
 
@@ -72,7 +72,7 @@ class MailAccountProvisioningServiceTest {
             new MailAccountProvisioningTask(
                 42, "alice@yxoct.com", "Alice", null, "v1:ciphertext", 3));
     when(credentialCipher.decrypt("v1:ciphertext")).thenReturn("internal-secret");
-    when(managementClient.ensureAccount(42, "alice@yxoct.com", "internal-secret"))
+    when(managementClient.ensureAccount("alice@yxoct.com", "internal-secret", "Alice"))
         .thenThrow(new StalwartProvisioningException("MANAGEMENT_REQUEST_FAILED"));
 
     service.provision(42);

@@ -74,7 +74,7 @@ public class MailAccountProvisioningService {
       String ciphertext = ensureCredential(task);
       String password = credentialCipher.decrypt(ciphertext);
       String stalwartAccountId =
-          stalwartManagementClient.ensureAccount(accountId, task.emailAddress(), password);
+          stalwartManagementClient.ensureAccount(task.emailAddress(), password, task.displayName());
       requireUpdated(repository.markSucceeded(accountId, stalwartAccountId, now()));
       log.info("Provisioned Stalwart mail account localAccountId={}", accountId);
     } catch (StalwartProvisioningException exception) {
