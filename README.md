@@ -53,6 +53,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 - `GET /api/mail/mailboxes`: list mailboxes.
 - `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20&keyword=invoice&read=false&starred=true&sortBy=receivedAt&direction=desc`: list emails with optional search, status filters, and sorting. `sortBy` supports `receivedAt`, `sentAt`, `subject`, `from`, `to`, and `size`; `direction` supports `asc` and `desc`. The default is newest first. `keyword` is limited to 200 characters and `size` must be between 1 and 100.
 - `GET /api/mail/emails/{id}`: get an email detail, including received attachment metadata.
+- `GET /api/mail/emails/{emailId}/attachments/{blobId}`: securely stream an attachment that belongs to the email.
 - `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
 - `POST /api/mail/emails/move`: move up to 100 emails with `{ "ids": ["email-1"], "targetMailboxId": "archive" }`.
@@ -85,6 +86,7 @@ All mail endpoints return the common response shape `{ "code", "message", "data"
 - `2004`: Stalwart connection or protocol failure (`502`).
 - `2005`: Stalwart timeout (`504`).
 - `2006`: Stalwart authentication failure (`502`).
+- `2007`: attachment not found on the email (`404`).
 
 ## Code Style
 

@@ -1,11 +1,17 @@
 package com.yxoct.mail.controller;
 
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yxoct.mail.common.exception.BusinessException;
@@ -19,6 +25,7 @@ import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.service.MailMoveService;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +34,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 @ActiveProfiles("test")
 @WebMvcTest(MailController.class)
@@ -138,6 +146,41 @@ class MailControllerTest {
         .andExpect(jsonPath("$.data.attachments[0].name").value("report.pdf"))
         .andExpect(jsonPath("$.data.attachments[0].size").value(2048))
         .andExpect(jsonPath("$.data.attachments[0].inline").value(false));
+  }
+
+  @Test
+  void streamsAttachmentWithDownloadHeaders() throws Exception {
+    MailAttachment attachment =
+        new MailAttachment("part-1", "blob-1", "报告.pdf", "application/pdf", 15, false, null);
+    when(mailService.getAttachment("email-1", "blob-1")).thenReturn(attachment);
+    doAnswer(
+            invocation -> {
+              invocation
+                  .getArgument(1, java.io.OutputStream.class)
+                  .write("attachment-data".getBytes(StandardCharsets.UTF_8));
+              return null;
+            })
+        .when(mailService)
+        .downloadAttachment(
+            org.mockito.ArgumentMatchers.eq(attachment), org.mockito.ArgumentMatchers.any());
+
+    MvcResult result =
+        mockMvc
+            .perform(get("/api/mail/emails/email-1/attachments/blob-1"))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+
+    mockMvc
+        .perform(asyncDispatch(result))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Type", "application/pdf"))
+        .andExpect(header().longValue("Content-Length", 15))
+        .andExpect(
+            header().string("Content-Disposition", org.hamcrest.Matchers.containsString("UTF-8''")))
+        .andExpect(content().bytes("attachment-data".getBytes(StandardCharsets.UTF_8)));
+    verify(mailService)
+        .downloadAttachment(
+            org.mockito.ArgumentMatchers.eq(attachment), org.mockito.ArgumentMatchers.any());
   }
 
   @Test

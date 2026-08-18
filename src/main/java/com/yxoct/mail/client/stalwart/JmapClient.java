@@ -1,5 +1,6 @@
 package com.yxoct.mail.client.stalwart;
 
+import com.yxoct.mail.client.stalwart.dto.EmailAttachmentResult;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailMailboxResult;
@@ -18,6 +19,8 @@ import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpTimeoutException;
@@ -31,11 +34,13 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.util.UriTemplate;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
@@ -254,6 +259,111 @@ public class JmapClient {
         ids,
         EmailDetailResult.EmailInfo::id);
     return result;
+  }
+
+  public void downloadBlob(
+      JmapSession session, String blobId, String name, String type, OutputStream outputStream) {
+    metrics.record(
+        "blob.download",
+        () -> {
+          downloadBlobInternal(session, blobId, name, type, outputStream);
+          return null;
+        });
+  }
+
+  public EmailAttachmentResult getEmailAttachments(JmapSession session, List<String> ids) {
+    return metrics.record("email.attachments", () -> getEmailAttachmentsInternal(session, ids));
+  }
+
+  private EmailAttachmentResult getEmailAttachmentsInternal(JmapSession session, List<String> ids) {
+    String accountId = getMailAccountId(session);
+    JmapRequest request =
+        new JmapRequest(
+            List.of("urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"),
+            List.of(
+                new JmapMethodCall(
+                    "Email/get",
+                    Map.of(
+                        "accountId",
+                        accountId,
+                        "ids",
+                        ids,
+                        "properties",
+                        List.of("id", "attachments"),
+                        "bodyProperties",
+                        List.of("partId", "blobId", "size", "name", "type", "disposition", "cid")),
+                    "0")));
+
+    EmailAttachmentResult result =
+        convertResponse(invoke(session, request, "Email/get"), EmailAttachmentResult.class);
+    validateGetResult(
+        accountId,
+        result == null ? null : result.accountId(),
+        result == null ? null : result.state(),
+        result == null ? null : result.list(),
+        result == null ? null : result.notFound(),
+        ids,
+        EmailAttachmentResult.EmailInfo::id);
+    return result;
+  }
+
+  private void downloadBlobInternal(
+      JmapSession session, String blobId, String name, String type, OutputStream outputStream) {
+    String accountId = getMailAccountId(session);
+    if (blobId == null
+        || blobId.isBlank()
+        || type == null
+        || type.isBlank()
+        || outputStream == null
+        || session.downloadUrl() == null
+        || session.downloadUrl().isBlank()) {
+      throw mailServiceUnavailable();
+    }
+
+    URI downloadUri;
+    try {
+      downloadUri =
+          new UriTemplate(session.downloadUrl())
+              .expand(
+                  Map.of(
+                      "accountId", accountId,
+                      "blobId", blobId,
+                      "type", type,
+                      "name", name == null || name.isBlank() ? "attachment" : name));
+    } catch (IllegalArgumentException exception) {
+      throw mailServiceUnavailable(exception);
+    }
+
+    if (!isSameOrigin(downloadUri, properties.baseUrl())) {
+      throw mailServiceUnavailable();
+    }
+
+    executeRequest(
+        () ->
+            restClient
+                .get()
+                .uri(downloadUri)
+                .headers(this::setRequestHeaders)
+                .exchange(
+                    (request, response) -> {
+                      HttpStatusCode status = response.getStatusCode();
+                      if (status.value() == 401 || status.value() == 403) {
+                        throw new BusinessException(ErrorCode.MAIL_SERVICE_AUTHENTICATION_FAILED);
+                      }
+                      if (status.value() == 404) {
+                        throw new BusinessException(ErrorCode.ATTACHMENT_NOT_FOUND);
+                      }
+                      if (status.isError()) {
+                        throw mailServiceUnavailable();
+                      }
+                      try {
+                        response.getBody().transferTo(outputStream);
+                        outputStream.flush();
+                      } catch (IOException exception) {
+                        throw mailServiceUnavailable(exception);
+                      }
+                      return null;
+                    }));
   }
 
   public EmailUpdateResult setEmailsRead(JmapSession session, List<String> emailIds, boolean read) {
@@ -552,6 +662,21 @@ public class JmapClient {
         && apiUrl.getHost() != null
         && ("http".equalsIgnoreCase(apiUrl.getScheme())
             || "https".equalsIgnoreCase(apiUrl.getScheme()));
+  }
+
+  private boolean isSameOrigin(URI candidate, URI expected) {
+    return isValidApiUrl(candidate)
+        && expected != null
+        && candidate.getScheme().equalsIgnoreCase(expected.getScheme())
+        && candidate.getHost().equalsIgnoreCase(expected.getHost())
+        && effectivePort(candidate) == effectivePort(expected);
+  }
+
+  private int effectivePort(URI uri) {
+    if (uri.getPort() >= 0) {
+      return uri.getPort();
+    }
+    return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
   }
 
   private boolean hasUniqueIds(List<String> ids) {

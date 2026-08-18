@@ -19,7 +19,12 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -29,6 +34,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @RestController
 @RequestMapping("/api/mail")
@@ -78,6 +84,25 @@ public class MailController {
   public ApiResponse<MailDetail> detail(@PathVariable String id) {
 
     return ApiResponse.success(mailService.getEmailDetail(id));
+  }
+
+  /** 下载邮件附件 */
+  @GetMapping("/emails/{emailId}/attachments/{blobId}")
+  public ResponseEntity<StreamingResponseBody> downloadAttachment(
+      @PathVariable String emailId, @PathVariable String blobId) {
+    var attachment = mailService.getAttachment(emailId, blobId);
+    String filename =
+        attachment.name() == null || attachment.name().isBlank() ? "attachment" : attachment.name();
+    ContentDisposition disposition =
+        ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+    StreamingResponseBody body =
+        outputStream -> mailService.downloadAttachment(attachment, outputStream);
+
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(attachment.type()))
+        .contentLength(attachment.size())
+        .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+        .body(body);
   }
 
   /** 批量更新邮件已读状态 */

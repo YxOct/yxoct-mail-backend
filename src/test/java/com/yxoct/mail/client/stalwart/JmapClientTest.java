@@ -8,9 +8,11 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withUnauthorizedRequest;
 
+import com.yxoct.mail.client.stalwart.dto.EmailAttachmentResult;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
 import com.yxoct.mail.client.stalwart.dto.EmailListResult;
 import com.yxoct.mail.client.stalwart.dto.EmailMailboxResult;
@@ -24,6 +26,7 @@ import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
@@ -35,6 +38,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -344,6 +348,78 @@ class JmapClientTest {
   }
 
   @Test
+  void streamsBlobFromExpandedDownloadUrl() {
+    server
+        .expect(
+            requestTo(
+                "http://localhost/download/account-1/blob-1/report%20Q1.pdf?type=application/pdf"))
+        .andExpect(header("Authorization", "Basic dXNlcjpwYXNzd29yZA=="))
+        .andRespond(withSuccess("attachment-data", MediaType.APPLICATION_OCTET_STREAM));
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+    client.downloadBlob(
+        sessionWithDownloadUrl("http://localhost/download/{accountId}/{blobId}/{name}?type={type}"),
+        "blob-1",
+        "report Q1.pdf",
+        "application/pdf",
+        output);
+
+    assertThat(output.toString(java.nio.charset.StandardCharsets.UTF_8))
+        .isEqualTo("attachment-data");
+  }
+
+  @Test
+  void fetchesOnlyAttachmentMetadataForDownloadValidation() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][1].properties[0]").value("id"))
+        .andExpect(jsonPath("$.methodCalls[0][1].properties[1]").value("attachments"))
+        .andExpect(jsonPath("$.methodCalls[0][1].fetchTextBodyValues").doesNotExist())
+        .andRespond(
+            withSuccess(
+                "{\"methodResponses\":[[\"Email/get\",{\"accountId\":\"account-1\",\"state\":\"state\",\"list\":[{\"id\":\"email-1\",\"attachments\":[{\"partId\":\"part-1\",\"blobId\":\"blob-1\",\"size\":2048,\"name\":\"report.pdf\",\"type\":\"application/pdf\"}]}],\"notFound\":[]},\"0\"]]}",
+                MediaType.APPLICATION_JSON));
+
+    EmailAttachmentResult result = client.getEmailAttachments(session(), List.of("email-1"));
+
+    assertThat(result.list().getFirst().attachments().getFirst().blobId()).isEqualTo("blob-1");
+  }
+
+  @Test
+  void rejectsCrossOriginDownloadUrl() {
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+    assertMailServiceUnavailable(
+        () ->
+            client.downloadBlob(
+                sessionWithDownloadUrl(
+                    "https://untrusted.example/download/{accountId}/{blobId}/{name}?type={type}"),
+                "blob-1",
+                "report.pdf",
+                "application/pdf",
+                output));
+  }
+
+  @Test
+  void mapsMissingDownloadedBlobToAttachmentNotFound() {
+    server
+        .expect(
+            requestTo("http://localhost/download/account-1/blob-1/attachment?type=application/pdf"))
+        .andRespond(withStatus(HttpStatus.NOT_FOUND));
+
+    assertBusinessError(
+        () ->
+            client.downloadBlob(
+                sessionWithDownloadUrl(
+                    "http://localhost/download/{accountId}/{blobId}/{name}?type={type}"),
+                "blob-1",
+                null,
+                "application/pdf",
+                new ByteArrayOutputStream()),
+        ErrorCode.ATTACHMENT_NOT_FOUND);
+  }
+
+  @Test
   void marksEmailAsRead() {
     server
         .expect(requestTo("http://localhost/jmap"))
@@ -558,5 +634,18 @@ class JmapClientTest {
         null,
         null,
         "state");
+  }
+
+  private JmapSession sessionWithDownloadUrl(String downloadUrl) {
+    JmapSession session = session();
+    return new JmapSession(
+        session.accounts(),
+        session.primaryAccounts(),
+        session.username(),
+        session.apiUrl(),
+        downloadUrl,
+        session.uploadUrl(),
+        session.eventSourceUrl(),
+        session.state());
   }
 }

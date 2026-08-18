@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.yxoct.mail.client.stalwart.JmapClient;
 import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.EmailAddress;
+import com.yxoct.mail.client.stalwart.dto.EmailAttachmentResult;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyPart;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
@@ -21,12 +22,14 @@ import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.mail.MailAttachment;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.domain.mail.MailSummary;
+import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
@@ -248,6 +251,72 @@ class MailServiceTest {
 
     assertBusinessError(
         () -> mailService.getEmailDetail("email-1"), ErrorCode.MAIL_SERVICE_UNAVAILABLE);
+  }
+
+  @Test
+  void findsAttachmentOnlyWhenItBelongsToEmail() {
+    EmailDetailResult.EmailInfo email = emailWithAttachment();
+    when(jmapClient.getEmailAttachments(session, List.of("email-1")))
+        .thenReturn(attachmentResult(email));
+
+    MailAttachment attachment = mailService.getAttachment("email-1", "blob-1");
+
+    assertThat(attachment.name()).isEqualTo("report.pdf");
+  }
+
+  @Test
+  void rejectsBlobThatDoesNotBelongToEmail() {
+    EmailDetailResult.EmailInfo email = emailWithAttachment();
+    when(jmapClient.getEmailAttachments(session, List.of("email-1")))
+        .thenReturn(attachmentResult(email));
+
+    assertBusinessError(
+        () -> mailService.getAttachment("email-1", "other-blob"), ErrorCode.ATTACHMENT_NOT_FOUND);
+  }
+
+  @Test
+  void reportsMissingEmailBeforeAttachmentLookup() {
+    when(jmapClient.getEmailAttachments(session, List.of("missing")))
+        .thenReturn(new EmailAttachmentResult("account-1", "state", List.of(), List.of("missing")));
+
+    assertBusinessError(
+        () -> mailService.getAttachment("missing", "blob-1"), ErrorCode.EMAIL_NOT_FOUND);
+  }
+
+  @Test
+  void delegatesAttachmentStreamingToJmapClient() {
+    MailAttachment attachment =
+        new MailAttachment("part-1", "blob-1", "report.pdf", "application/pdf", 2048, false, null);
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+
+    mailService.downloadAttachment(attachment, output);
+
+    verify(jmapClient).downloadBlob(session, "blob-1", "report.pdf", "application/pdf", output);
+  }
+
+  private EmailDetailResult.EmailInfo emailWithAttachment() {
+    return new EmailDetailResult.EmailInfo(
+        "email-1",
+        "Subject",
+        "Preview",
+        "2026-08-18T00:00:00Z",
+        null,
+        null,
+        null,
+        null,
+        null,
+        List.of(
+            new EmailBodyPart(
+                "part-1", "blob-1", 2048L, "report.pdf", "application/pdf", "attachment", null)),
+        null);
+  }
+
+  private EmailAttachmentResult attachmentResult(EmailDetailResult.EmailInfo email) {
+    return new EmailAttachmentResult(
+        "account-1",
+        "state",
+        List.of(new EmailAttachmentResult.EmailInfo(email.id(), email.attachments())),
+        List.of());
   }
 
   @Test

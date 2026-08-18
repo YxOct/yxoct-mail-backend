@@ -3,6 +3,7 @@ package com.yxoct.mail.service;
 import com.yxoct.mail.client.stalwart.JmapClient;
 import com.yxoct.mail.client.stalwart.JmapSessionCache;
 import com.yxoct.mail.client.stalwart.dto.EmailAddress;
+import com.yxoct.mail.client.stalwart.dto.EmailAttachmentResult;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyPart;
 import com.yxoct.mail.client.stalwart.dto.EmailBodyValue;
 import com.yxoct.mail.client.stalwart.dto.EmailDetailResult;
@@ -22,9 +23,12 @@ import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
+import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import org.springframework.http.InvalidMediaTypeException;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -117,6 +121,41 @@ public class MailService {
         convertAttachments(email.attachments()));
   }
 
+  public MailAttachment getAttachment(String emailId, String blobId) {
+    if (emailId == null || emailId.isBlank() || blobId == null || blobId.isBlank()) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+
+    EmailAttachmentResult result =
+        jmapClient.getEmailAttachments(sessionCache.getSession(), List.of(emailId));
+    if (result == null || result.list() == null || result.notFound() == null) {
+      throw mailServiceUnavailable();
+    }
+    if (result.notFound().contains(emailId)) {
+      throw new BusinessException(ErrorCode.EMAIL_NOT_FOUND);
+    }
+    if (result.list().isEmpty()) {
+      throw mailServiceUnavailable();
+    }
+
+    return convertAttachments(result.list().getFirst().attachments()).stream()
+        .filter(attachment -> blobId.equals(attachment.blobId()))
+        .findFirst()
+        .orElseThrow(() -> new BusinessException(ErrorCode.ATTACHMENT_NOT_FOUND));
+  }
+
+  public void downloadAttachment(MailAttachment attachment, OutputStream outputStream) {
+    if (attachment == null || outputStream == null) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
+    jmapClient.downloadBlob(
+        sessionCache.getSession(),
+        attachment.blobId(),
+        attachment.name(),
+        attachment.type(),
+        outputStream);
+  }
+
   /** 批量更新邮件已读状态 */
   public MailBatchUpdateResult updateReadStatuses(List<String> ids, boolean read) {
     validateUpdateIds(ids);
@@ -207,8 +246,7 @@ public class MailService {
                         || attachment.blobId().isBlank()
                         || attachment.size() == null
                         || attachment.size() < 0
-                        || attachment.type() == null
-                        || attachment.type().isBlank())) {
+                        || !isValidMediaType(attachment.type()))) {
       throw mailServiceUnavailable();
     }
 
@@ -224,6 +262,18 @@ public class MailService {
                     "inline".equalsIgnoreCase(attachment.disposition()),
                     attachment.cid()))
         .toList();
+  }
+
+  private boolean isValidMediaType(String type) {
+    if (type == null || type.isBlank()) {
+      return false;
+    }
+    try {
+      MediaType.parseMediaType(type);
+      return true;
+    } catch (InvalidMediaTypeException exception) {
+      return false;
+    }
   }
 
   private boolean hasKeyword(java.util.Map<String, Boolean> keywords, String keyword) {

@@ -24,7 +24,9 @@ public enum ErrorCode {
 
   MAIL_SERVICE_TIMEOUT(2005, HttpStatus.GATEWAY_TIMEOUT, "邮件服务响应超时"),
 
-  MAIL_SERVICE_AUTHENTICATION_FAILED(2006, HttpStatus.BAD_GATEWAY, "邮件服务认证失败");
+  MAIL_SERVICE_AUTHENTICATION_FAILED(2006, HttpStatus.BAD_GATEWAY, "邮件服务认证失败"),
+
+  ATTACHMENT_NOT_FOUND(2007, HttpStatus.NOT_FOUND, "附件不存在");
 
   private final int code;
   private final HttpStatus httpStatus;
