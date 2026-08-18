@@ -153,7 +153,7 @@ $invitation
 Use the printed token once with the registration endpoint. After registration succeeds, replace the address below and promote that user:
 
 ```powershell
-$adminAddress = "admin@yxoct.com"
+$adminAddress = "owner@yxoct.com"
 $promoteSql = "UPDATE app_user u JOIN user_mail_account uma ON uma.user_id = u.id JOIN email_address ea ON ea.mail_account_id = uma.mail_account_id AND ea.address_type = 'PRIMARY' SET u.role = 'ADMIN' WHERE ea.normalized_address = '$adminAddress'; SELECT ROW_COUNT() AS promoted;"
 $promoteSql | docker compose exec -T mysql sh -c 'mysql --user="$MYSQL_USER" --password="$MYSQL_PASSWORD" "$MYSQL_DATABASE"'
 ```
