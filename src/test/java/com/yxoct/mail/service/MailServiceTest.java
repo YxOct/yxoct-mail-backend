@@ -24,6 +24,7 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
+import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSummary;
 import java.net.URI;
 import java.util.List;
@@ -61,10 +62,10 @@ class MailServiceTest {
 
   @Test
   void returnsEmptyPageWithoutFetchingSummaries() {
-    when(jmapClient.queryEmails(session, "inbox", 0, 20))
+    when(jmapClient.queryEmails(session, "inbox", 0, 20, MailQueryFilter.none()))
         .thenReturn(new EmailQueryResult("account-1", "query-state", 0, 0, List.of()));
 
-    MailPage<MailSummary> page = mailService.queryEmails("inbox", 1, 20);
+    MailPage<MailSummary> page = mailService.queryEmails("inbox", 1, 20, MailQueryFilter.none());
 
     assertThat(page.total()).isZero();
     assertThat(page.items()).isEmpty();
@@ -74,14 +75,22 @@ class MailServiceTest {
   @Test
   void rejectsPaginationPositionAboveIntegerRange() {
     assertBusinessError(
-        () -> mailService.queryEmails("inbox", Integer.MAX_VALUE, 100), ErrorCode.BAD_REQUEST);
+        () -> mailService.queryEmails("inbox", Integer.MAX_VALUE, 100, MailQueryFilter.none()),
+        ErrorCode.BAD_REQUEST);
+
+    verifyNoInteractions(jmapClient, sessionCache);
+  }
+
+  @Test
+  void rejectsMissingQueryFilter() {
+    assertBusinessError(() -> mailService.queryEmails("inbox", 1, 20, null), ErrorCode.BAD_REQUEST);
 
     verifyNoInteractions(jmapClient, sessionCache);
   }
 
   @Test
   void mapsEmailSummariesAndDefaultsMissingTotal() {
-    when(jmapClient.queryEmails(session, "inbox", 20, 20))
+    when(jmapClient.queryEmails(session, "inbox", 20, 20, MailQueryFilter.none()))
         .thenReturn(new EmailQueryResult("account-1", "query-state", 20, null, List.of("email-1")));
     when(jmapClient.getEmailSummaries(session, List.of("email-1")))
         .thenReturn(
@@ -97,7 +106,7 @@ class MailServiceTest {
                         Map.of("$seen", true, "$flagged", true))),
                 List.of()));
 
-    MailPage<MailSummary> page = mailService.queryEmails("inbox", 2, 20);
+    MailPage<MailSummary> page = mailService.queryEmails("inbox", 2, 20, MailQueryFilter.none());
 
     assertThat(page.total()).isZero();
     assertThat(page.items())
@@ -107,11 +116,12 @@ class MailServiceTest {
 
   @Test
   void rejectsEmailQueryWithoutIds() {
-    when(jmapClient.queryEmails(session, "inbox", 0, 20))
+    when(jmapClient.queryEmails(session, "inbox", 0, 20, MailQueryFilter.none()))
         .thenReturn(new EmailQueryResult("account-1", "query-state", 0, 0, null));
 
     assertBusinessError(
-        () -> mailService.queryEmails("inbox", 1, 20), ErrorCode.MAIL_SERVICE_UNAVAILABLE);
+        () -> mailService.queryEmails("inbox", 1, 20, MailQueryFilter.none()),
+        ErrorCode.MAIL_SERVICE_UNAVAILABLE);
   }
 
   @Test

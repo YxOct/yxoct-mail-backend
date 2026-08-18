@@ -16,9 +16,11 @@ import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
+import com.yxoct.mail.domain.mail.MailQueryFilter;
 import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.http.HttpTimeoutException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -79,15 +81,18 @@ public class JmapClient {
   }
 
   public EmailQueryResult queryEmails(
-      JmapSession session, String mailboxId, int position, int limit) {
+      JmapSession session, String mailboxId, int position, int limit, MailQueryFilter filter) {
     return metrics.record(
-        "email.query", () -> queryEmailsInternal(session, mailboxId, position, limit));
+        "email.query", () -> queryEmailsInternal(session, mailboxId, position, limit, filter));
   }
 
   private EmailQueryResult queryEmailsInternal(
-      JmapSession session, String mailboxId, int position, int limit) {
+      JmapSession session, String mailboxId, int position, int limit, MailQueryFilter filter) {
 
     String accountId = getMailAccountId(session);
+    if (mailboxId == null || mailboxId.isBlank() || filter == null) {
+      throw new BusinessException(ErrorCode.BAD_REQUEST);
+    }
 
     JmapRequest request =
         new JmapRequest(
@@ -99,7 +104,7 @@ public class JmapClient {
                         "accountId",
                         accountId,
                         "filter",
-                        Map.of("inMailbox", mailboxId),
+                        buildEmailFilter(mailboxId, filter),
                         "sort",
                         List.of(Map.of("property", "receivedAt", "isAscending", false)),
                         "position",
@@ -125,6 +130,24 @@ public class JmapClient {
     }
 
     return result;
+  }
+
+  private Map<String, Object> buildEmailFilter(String mailboxId, MailQueryFilter filter) {
+    List<Map<String, Object>> conditions = new ArrayList<>();
+    conditions.add(Map.of("inMailbox", mailboxId));
+    if (filter.keyword() != null) {
+      conditions.add(Map.of("text", filter.keyword()));
+    }
+    if (filter.read() != null) {
+      conditions.add(Map.of(filter.read() ? "hasKeyword" : "notKeyword", "$seen"));
+    }
+    if (filter.starred() != null) {
+      conditions.add(Map.of(filter.starred() ? "hasKeyword" : "notKeyword", "$flagged"));
+    }
+    if (conditions.size() == 1) {
+      return conditions.getFirst();
+    }
+    return Map.of("operator", "AND", "conditions", conditions);
   }
 
   public EmailListResult getEmailSummaries(JmapSession session, List<String> ids) {

@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
+import com.yxoct.mail.domain.mail.MailPage;
+import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.service.MailMoveService;
 import com.yxoct.mail.service.MailService;
 import com.yxoct.mail.service.MailTrashService;
@@ -52,6 +54,29 @@ class MailControllerTest {
   @Test
   void rejectsNonNumericPage() throws Exception {
     assertBadRequest("page", "invalid");
+  }
+
+  @Test
+  void searchesAndFiltersEmails() throws Exception {
+    when(mailService.queryEmails("inbox", 1, 20, new MailQueryFilter("invoice", false, true)))
+        .thenReturn(new MailPage<>(1, 20, 0, List.of()));
+
+    mockMvc
+        .perform(
+            get("/api/mail/mailboxes/inbox/emails")
+                .param("keyword", "invoice")
+                .param("read", "false")
+                .param("starred", "true"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(0));
+  }
+
+  @Test
+  void rejectsKeywordAboveMaximumLength() throws Exception {
+    mockMvc
+        .perform(get("/api/mail/mailboxes/inbox/emails").param("keyword", "a".repeat(201)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
   }
 
   @Test

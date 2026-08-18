@@ -7,6 +7,7 @@ import com.yxoct.mail.domain.mail.BatchUpdateStarStatusRequest;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
 import com.yxoct.mail.domain.mail.MailPage;
+import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
 import com.yxoct.mail.domain.mail.MoveEmailsRequest;
@@ -16,6 +17,7 @@ import com.yxoct.mail.service.MailTrashService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -53,9 +55,14 @@ public class MailController {
   public ApiResponse<MailPage<MailSummary>> emails(
       @PathVariable String mailboxId,
       @RequestParam(defaultValue = "1") @Min(1) int page,
-      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+      @RequestParam(required = false) @Size(max = 200) String keyword,
+      @RequestParam(required = false) Boolean read,
+      @RequestParam(required = false) Boolean starred) {
 
-    return ApiResponse.success(mailService.queryEmails(mailboxId, page, size));
+    return ApiResponse.success(
+        mailService.queryEmails(
+            mailboxId, page, size, new MailQueryFilter(keyword, read, starred)));
   }
 
   /** 获取邮件详情 */

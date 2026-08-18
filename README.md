@@ -51,7 +51,7 @@ For production, set `SPRING_PROFILES_ACTIVE=prod` and provide the production Sta
 ## API
 
 - `GET /api/mail/mailboxes`: list mailboxes.
-- `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20`: list emails, ordered by newest first. `size` must be between 1 and 100.
+- `GET /api/mail/mailboxes/{mailboxId}/emails?page=1&size=20&keyword=invoice&read=false&starred=true`: list emails, ordered by newest first. Search and status filters are optional; `keyword` is limited to 200 characters and `size` must be between 1 and 100.
 - `GET /api/mail/emails/{id}`: get an email detail.
 - `PATCH /api/mail/emails/read-status`: update up to 100 emails with `{ "ids": ["email-1"], "read": true }`.
 - `PATCH /api/mail/emails/star-status`: update up to 100 emails with `{ "ids": ["email-1"], "starred": true }`.
