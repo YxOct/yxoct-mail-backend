@@ -5,6 +5,6 @@
   "java.configuration.updateBuildConfiguration": "automatic",
   "java.compile.nullAnalysis.mode": "disabled",
   "java.debug.settings.enableRunDebugCodeLens": true,
-  "java.debug.settings.console": "internalConsole",
+  "java.debug.settings.console": "integratedTerminal",
   "java.debug.settings.vmArgs": "-Dspring.profiles.active=dev -Dspring.devtools.restart.enabled=false"
 }

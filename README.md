@@ -45,7 +45,7 @@ The `prod` profile does not load `.env`. Supply the database variables together 
 
 Select a profile explicitly when starting the application.
 
-In VS Code, open `MailBackendApplication.java` and use `Run Java` or `Debug Java` in the editor title bar. The committed workspace configuration selects the `dev` profile, reads `.env` through `application-dev.yml`, writes output to the Debug Console, and disables DevTools restart so the stop button terminates the only application JVM. Restart the application manually after recompiling code changes.
+In VS Code, open `MailBackendApplication.java` and use `Run Java` or `Debug Java` in the editor title bar. The committed workspace configuration selects the `dev` profile, reads `.env` through `application-dev.yml`, writes output to the integrated terminal, and disables DevTools restart so the stop button terminates the application JVM. Restart the application manually after recompiling code changes.
 
 **Windows (development):**
 
