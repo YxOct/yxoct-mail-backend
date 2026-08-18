@@ -133,11 +133,7 @@ class MySqlUserPersistenceIT {
     assertThat(appUserMapper.selectById(user.getId()).getStatus()).isEqualTo(UserStatus.ACTIVE);
     assertThat(mailAccountMapper.selectById(firstAccount.getId()).getStatus())
         .isEqualTo(MailAccountStatus.ACTIVE);
-    assertThat(
-            userMailAccountMapper.selectCount(
-                Wrappers.<UserMailAccountEntity>lambdaQuery()
-                    .eq(UserMailAccountEntity::getUserId, user.getId())))
-        .isEqualTo(2);
+    assertThat(userMailAccountMapper.countByUserId(user.getId())).isEqualTo(2);
     assertThat(
             emailAddressMapper.selectCount(
                 Wrappers.<EmailAddressEntity>lambdaQuery()
