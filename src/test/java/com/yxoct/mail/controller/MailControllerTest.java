@@ -178,11 +178,44 @@ class MailControllerTest {
         .andExpect(header().string("Content-Type", "application/pdf"))
         .andExpect(header().longValue("Content-Length", 15))
         .andExpect(
+            header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("attachment")))
+        .andExpect(
             header().string("Content-Disposition", org.hamcrest.Matchers.containsString("UTF-8''")))
         .andExpect(content().bytes("attachment-data".getBytes(StandardCharsets.UTF_8)));
     verify(mailService)
         .downloadAttachment(
             org.mockito.ArgumentMatchers.eq(attachment), org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void servesCidAttachmentsInline() throws Exception {
+    MailAttachment attachment =
+        new MailAttachment("part-1", "blob-1", "logo.png", "image/png", 4, true, "logo@example");
+    when(mailService.getAttachment("email-1", "blob-1")).thenReturn(attachment);
+    doAnswer(
+            invocation -> {
+              invocation
+                  .getArgument(1, java.io.OutputStream.class)
+                  .write("logo".getBytes(StandardCharsets.UTF_8));
+              return null;
+            })
+        .when(mailService)
+        .downloadAttachment(
+            org.mockito.ArgumentMatchers.eq(attachment), org.mockito.ArgumentMatchers.any());
+
+    MvcResult result =
+        mockMvc
+            .perform(get("/api/mail/emails/email-1/attachments/blob-1"))
+            .andExpect(request().asyncStarted())
+            .andReturn();
+
+    mockMvc
+        .perform(asyncDispatch(result))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Content-Type", "image/png"))
+        .andExpect(
+            header().string("Content-Disposition", org.hamcrest.Matchers.startsWith("inline")))
+        .andExpect(content().bytes("logo".getBytes(StandardCharsets.UTF_8)));
   }
 
   @Test

@@ -93,8 +93,10 @@ public class MailController {
     var attachment = mailService.getAttachment(emailId, blobId);
     String filename =
         attachment.name() == null || attachment.name().isBlank() ? "attachment" : attachment.name();
+    ContentDisposition.Builder dispositionBuilder =
+        attachment.inline() ? ContentDisposition.inline() : ContentDisposition.attachment();
     ContentDisposition disposition =
-        ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
+        dispositionBuilder.filename(filename, StandardCharsets.UTF_8).build();
     StreamingResponseBody body =
         outputStream -> mailService.downloadAttachment(attachment, outputStream);
 

@@ -74,6 +74,7 @@ Every HTTP response includes an `X-Request-Id`. A valid incoming value is preser
 Email summaries and details expose `read` and `starred` boolean fields derived from the JMAP `$seen` and `$flagged` keywords.
 Email details expose attachment metadata from Stalwart; attachment binary data is not stored in MySQL.
 Email details expose separate `textBody` and sanitized `htmlBody` fields. The legacy `body` field prefers plain text and falls back to sanitized HTML.
+Safe `cid:` image references in HTML are rewritten to the attachment endpoint. Remote and unmatched images are blocked by removing their source URLs.
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 

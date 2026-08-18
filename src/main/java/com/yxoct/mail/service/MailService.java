@@ -110,9 +110,10 @@ public class MailService {
     }
 
     EmailDetailResult.EmailInfo email = requireList(result.list()).getFirst();
+    List<MailAttachment> attachments = convertAttachments(email.attachments());
     String textBody = extractBody(email.bodyValues(), email.textBody(), "text/plain");
     String rawHtmlBody = extractBody(email.bodyValues(), email.htmlBody(), "text/html");
-    String htmlBody = htmlSanitizer.sanitize(rawHtmlBody);
+    String htmlBody = htmlSanitizer.sanitize(rawHtmlBody, email.id(), attachments);
 
     return new MailDetail(
         email.id(),
@@ -126,7 +127,7 @@ public class MailService {
         htmlBody,
         hasKeyword(email.keywords(), "$seen"),
         hasKeyword(email.keywords(), "$flagged"),
-        convertAttachments(email.attachments()));
+        attachments);
   }
 
   public MailAttachment getAttachment(String emailId, String blobId) {
@@ -251,7 +252,8 @@ public class MailService {
                     attachment.name(),
                     attachment.type(),
                     attachment.size(),
-                    "inline".equalsIgnoreCase(attachment.disposition()),
+                    "inline".equalsIgnoreCase(attachment.disposition())
+                        || (attachment.cid() != null && !attachment.cid().isBlank()),
                     attachment.cid()))
         .toList();
   }

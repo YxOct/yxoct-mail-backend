@@ -2,6 +2,8 @@ package com.yxoct.mail.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yxoct.mail.domain.mail.MailAttachment;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class EmailHtmlSanitizerTest {
@@ -29,5 +31,20 @@ class EmailHtmlSanitizerTest {
         .contains("href=\"https://example.com\"")
         .contains("rel=\"nofollow noopener noreferrer\"")
         .doesNotContain("ftp://");
+  }
+
+  @Test
+  void rewritesKnownCidImagesAndBlocksOtherSources() {
+    MailAttachment inlineImage =
+        new MailAttachment("part-1", "blob-1", "logo.png", "image/png", 1024, true, "logo@example");
+
+    String sanitized =
+        sanitizer.sanitize(
+            "<img src=\"CID:logo%40example\"><img src=\"cid:missing\">"
+                + "<img src=\"https://tracker.example/pixel\">",
+            "email-1", List.of(inlineImage));
+
+    assertThat(sanitized)
+        .isEqualTo("<img src=\"/api/mail/emails/email-1/attachments/blob-1\"><img><img>");
   }
 }

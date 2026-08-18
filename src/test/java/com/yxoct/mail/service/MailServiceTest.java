@@ -167,7 +167,9 @@ class MailServiceTest {
             null,
             Map.of(
                 "html-part",
-                new EmailBodyValue("<p onclick=\"alert(1)\">Hello<script>x()</script></p>")),
+                new EmailBodyValue(
+                    "<p onclick=\"alert(1)\">Hello<script>x()</script></p>"
+                        + "<img src=\"cid:logo@example\"><img src=\"https://tracker.example/pixel\">")),
             List.of(),
             List.of(new EmailBodyPart("html-part", null, null, null, "text/html", null, null)),
             List.of(
@@ -180,22 +182,17 @@ class MailServiceTest {
                     "attachment",
                     null),
                 new EmailBodyPart(
-                    "image-part",
-                    "blob-2",
-                    1024L,
-                    "logo.png",
-                    "image/png",
-                    "inline",
-                    "logo@example")),
+                    "image-part", "blob-2", 1024L, "logo.png", "image/png", null, "logo@example")),
             Map.of("$seen", true, "$flagged", true));
     when(jmapClient.getEmailDetails(session, List.of("email-1")))
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(email), List.of()));
 
     MailDetail detail = mailService.getEmailDetail("email-1");
 
-    assertThat(detail.body()).isEqualTo("<p>Hello</p>");
+    assertThat(detail.body())
+        .isEqualTo("<p>Hello</p><img src=\"/api/mail/emails/email-1/attachments/blob-2\"><img>");
     assertThat(detail.textBody()).isNull();
-    assertThat(detail.htmlBody()).isEqualTo("<p>Hello</p>");
+    assertThat(detail.htmlBody()).isEqualTo(detail.body());
     assertThat(detail.from()).hasSize(1);
     assertThat(detail.to()).isEmpty();
     assertThat(detail.read()).isTrue();
