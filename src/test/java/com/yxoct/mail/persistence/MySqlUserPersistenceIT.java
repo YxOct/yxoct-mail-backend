@@ -14,6 +14,7 @@ import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.persistence.entity.AppUserEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressType;
+import com.yxoct.mail.persistence.entity.MailAccountDriftType;
 import com.yxoct.mail.persistence.entity.MailAccountEntity;
 import com.yxoct.mail.persistence.entity.MailAccountRole;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
@@ -87,6 +88,10 @@ class MySqlUserPersistenceIT {
   @Autowired private MailCredentialCipher credentialCipher;
   @Autowired private MailAccountSettingsRepository settingsRepository;
   @Autowired private UserStatusManagementRepository statusManagementRepository;
+  @Autowired private MailAccountProvisioningRepository provisioningRepository;
+  @Autowired private AdminMailAccountRepository adminMailAccountRepository;
+  @Autowired private MailAccountReconciliationRepository reconciliationRepository;
+  @Autowired private AdminUserRepository adminUserRepository;
 
   @AfterEach
   void cleanUp() {
@@ -94,6 +99,7 @@ class MySqlUserPersistenceIT {
     RequestContextHolder.resetRequestAttributes();
     jdbcTemplate.update("DELETE FROM registration_invitation");
     jdbcTemplate.update("DELETE FROM user_status_audit");
+    jdbcTemplate.update("DELETE FROM mail_account_reconciliation");
     jdbcTemplate.update("DELETE FROM user_mail_account");
     jdbcTemplate.update("DELETE FROM email_address");
     jdbcTemplate.update("DELETE FROM mail_account");
@@ -162,6 +168,189 @@ class MySqlUserPersistenceIT {
                     + "AND table_name = 'user_status_audit' "
                     + "AND index_name = 'idx_user_status_audit_user_created'"))
         .isEqualTo(3);
+    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '17'"))
+        .isEqualTo(1);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM information_schema.statistics "
+                    + "WHERE table_schema = DATABASE() "
+                    + "AND table_name = 'mail_account_reconciliation' "
+                    + "AND index_name = 'idx_mail_account_reconciliation_drift'"))
+        .isEqualTo(3);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                    + "WHERE table_schema = DATABASE() "
+                    + "AND table_name = 'user_status_audit' "
+                    + "AND column_name = 'action' "
+                    + "AND character_maximum_length = 64"))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void persistsTheProvisioningRetryLifecycleOnMySql() {
+    AppUserEntity user = insertUser();
+    MailAccountEntity account = insertAccount(null);
+    insertOwnership(user.getId(), account.getId());
+    insertAddress(
+        account.getId(),
+        "provisioning@yxoct.com",
+        "provisioning@yxoct.com",
+        EmailAddressType.PRIMARY);
+    LocalDateTime now = LocalDateTime.of(2026, 8, 19, 10, 0);
+    jdbcTemplate.update(
+        "UPDATE mail_account SET status = 'PROVISIONING', next_provisioning_at = ?, "
+            + "provisioning_attempts = 0 WHERE id = ?",
+        now.minusMinutes(1),
+        account.getId());
+
+    assertThat(provisioningRepository.findCandidates(now, 10)).containsExactly(account.getId());
+    assertThat(provisioningRepository.claim(account.getId(), now, now.plusMinutes(1))).isTrue();
+    assertThat(provisioningRepository.claim(account.getId(), now, now.plusMinutes(1))).isFalse();
+
+    MailAccountProvisioningTask task = provisioningRepository.findTask(account.getId());
+    assertThat(task.emailAddress()).isEqualTo("provisioning@yxoct.com");
+    assertThat(task.provisioningAttempts()).isEqualTo(1);
+    assertThat(provisioningRepository.saveCredential(account.getId(), "ciphertext", now)).isTrue();
+
+    LocalDateTime retryAt = now.plusMinutes(5);
+    assertThat(
+            provisioningRepository.markFailed(
+                account.getId(), "MANAGEMENT_REQUEST_FAILED", retryAt, now))
+        .isTrue();
+    assertThat(provisioningRepository.findCandidates(now, 10)).isEmpty();
+    assertThat(provisioningRepository.findCandidates(retryAt, 10)).containsExactly(account.getId());
+
+    assertThat(provisioningRepository.claim(account.getId(), retryAt, retryAt.plusMinutes(1)))
+        .isTrue();
+    assertThat(
+            provisioningRepository.markSucceeded(account.getId(), "stalwart-provisioning", retryAt))
+        .isTrue();
+
+    MailAccountEntity stored = mailAccountMapper.selectById(account.getId());
+    assertThat(stored.getStatus()).isEqualTo(MailAccountStatus.ACTIVE);
+    assertThat(stored.getStalwartAccountId()).isEqualTo("stalwart-provisioning");
+    assertThat(stored.getCredentialCiphertext()).isEqualTo("ciphertext");
+    assertThat(stored.getProvisioningAttempts()).isEqualTo(2);
+    assertThat(stored.getProvisioningLeaseUntil()).isNull();
+    assertThat(stored.getLastProvisioningError()).isNull();
+  }
+
+  @Test
+  void queriesAndRetriesProvisioningIssuesWithAuditHistory() {
+    AppUserEntity operator = insertUser();
+    MailAccountEntity operatorAccount = insertAccount("stalwart-operator");
+    insertOwnership(operator.getId(), operatorAccount.getId());
+    insertAddress(
+        operatorAccount.getId(), "owner@yxoct.com", "owner@yxoct.com", EmailAddressType.PRIMARY);
+
+    AppUserEntity user = insertUser();
+    MailAccountEntity account = insertAccount(null);
+    insertOwnership(user.getId(), account.getId());
+    insertAddress(
+        account.getId(), "failed@yxoct.com", "failed@yxoct.com", EmailAddressType.PRIMARY);
+    LocalDateTime failedAt = LocalDateTime.of(2026, 8, 19, 11, 0);
+    jdbcTemplate.update(
+        "UPDATE mail_account SET status = 'FAILED', provisioning_attempts = 3, "
+            + "last_provisioning_error = 'MANAGEMENT_REQUEST_FAILED', "
+            + "next_provisioning_at = ? WHERE id = ?",
+        failedAt.plusHours(1),
+        account.getId());
+
+    assertThat(adminMailAccountRepository.countProvisioningIssues()).isEqualTo(1);
+    assertThat(adminMailAccountRepository.findProvisioningIssues(1, 20))
+        .singleElement()
+        .satisfies(
+            issue -> {
+              assertThat(issue.mailAccountId()).isEqualTo(account.getId());
+              assertThat(issue.userId()).isEqualTo(user.getId());
+              assertThat(issue.emailAddress()).isEqualTo("failed@yxoct.com");
+              assertThat(issue.provisioningAttempts()).isEqualTo(3);
+              assertThat(issue.lastProvisioningError()).isEqualTo("MANAGEMENT_REQUEST_FAILED");
+            });
+    assertThat(adminMailAccountRepository.findForRetryForUpdate(account.getId()))
+        .hasValueSatisfying(target -> assertThat(target.userId()).isEqualTo(user.getId()));
+
+    assertThat(adminMailAccountRepository.scheduleRetry(account.getId(), failedAt)).isTrue();
+    adminMailAccountRepository.saveRetryAudit(
+        user.getId(), operator.getId(), account.getId(), failedAt);
+
+    assertThat(provisioningRepository.findCandidates(failedAt, 10))
+        .containsExactly(account.getId());
+    assertThat(adminUserRepository.findAudits(user.getId(), 1, 20))
+        .singleElement()
+        .satisfies(
+            audit -> {
+              assertThat(audit.action())
+                  .isEqualTo(UserStatusAuditAction.MAIL_ACCOUNT_PROVISIONING_RETRY_REQUESTED);
+              assertThat(audit.reason()).isEqualTo("mailAccountId=" + account.getId());
+              assertThat(audit.operatedByUserId()).isEqualTo(operator.getId());
+              assertThat(audit.operatedByEmailAddress()).isEqualTo("owner@yxoct.com");
+            });
+  }
+
+  @Test
+  void persistsAndQueriesMetadataDriftWithRepairAudit() {
+    AppUserEntity operator = insertUser();
+    AppUserEntity user = insertUser();
+    MailAccountEntity account = insertAccount("stalwart-drift");
+    account.setDisplayName("Alice");
+    assertThat(mailAccountMapper.updateById(account)).isEqualTo(1);
+    insertOwnership(user.getId(), account.getId());
+    insertAddress(account.getId(), "alice@yxoct.com", "alice@yxoct.com", EmailAddressType.PRIMARY);
+    insertAddress(account.getId(), "z@yxoct.com", "z@yxoct.com", EmailAddressType.ALIAS);
+    insertAddress(account.getId(), "a@yxoct.com", "a@yxoct.com", EmailAddressType.ALIAS);
+    LocalDateTime checkedAt = LocalDateTime.of(2026, 8, 19, 12, 0);
+
+    assertThat(reconciliationRepository.findCandidates(10))
+        .singleElement()
+        .satisfies(
+            candidate -> {
+              assertThat(candidate.mailAccountId()).isEqualTo(account.getId());
+              assertThat(candidate.displayName()).isEqualTo("Alice");
+            });
+    assertThat(reconciliationRepository.findExpectedAliases(account.getId()))
+        .containsExactly("a@yxoct.com", "z@yxoct.com");
+
+    reconciliationRepository.saveResult(
+        account.getId(), MailAccountDriftType.DISPLAY_NAME_MISMATCH, null, checkedAt);
+    assertThat(reconciliationRepository.countDrifts()).isEqualTo(1);
+    assertThat(reconciliationRepository.findDrifts(1, 20))
+        .singleElement()
+        .satisfies(
+            drift -> {
+              assertThat(drift.mailAccountId()).isEqualTo(account.getId());
+              assertThat(drift.driftType()).isEqualTo("DISPLAY_NAME_MISMATCH");
+              assertThat(drift.checkedAt()).isEqualTo(checkedAt);
+            });
+    assertThat(adminMailAccountRepository.findDriftForUpdate(account.getId()))
+        .hasValueSatisfying(
+            target -> {
+              assertThat(target.displayName()).isEqualTo("Alice");
+              assertThat(target.driftType()).isEqualTo(MailAccountDriftType.DISPLAY_NAME_MISMATCH);
+            });
+
+    reconciliationRepository.saveResult(
+        account.getId(), MailAccountDriftType.ALIAS_MISMATCH, null, checkedAt.plusMinutes(1));
+    assertThat(reconciliationRepository.findDrifts(1, 20))
+        .singleElement()
+        .extracting(AdminMailAccountDriftRecord::driftType)
+        .isEqualTo("ALIAS_MISMATCH");
+
+    adminMailAccountRepository.saveDriftRepairAudit(
+        user.getId(), operator.getId(), account.getId(), "ALIAS_MISMATCH", checkedAt);
+    assertThat(adminUserRepository.findAudits(user.getId(), 1, 20))
+        .singleElement()
+        .satisfies(
+            audit -> {
+              assertThat(audit.action())
+                  .isEqualTo(UserStatusAuditAction.MAIL_ACCOUNT_DRIFT_REPAIR_REQUESTED);
+              assertThat(audit.reason())
+                  .isEqualTo("mailAccountId=" + account.getId() + "; driftType=ALIAS_MISMATCH");
+            });
+
+    reconciliationRepository.clearResult(account.getId());
+    assertThat(reconciliationRepository.countDrifts()).isZero();
   }
 
   @Test
