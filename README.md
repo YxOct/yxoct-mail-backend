@@ -73,6 +73,8 @@ Add the locations from `deploy/nginx/webmail-api.conf` to the existing `webmail.
 
 MySQL backup and restore installation is documented in `deploy/backup/README.md`. Production credentials stay in the server environment file and are not stored in Git or backup scripts.
 
+Stalwart deployment, off-host backup, retention cleanup, and restore rehearsal are documented in `deploy/MAIL_INFRASTRUCTURE.md`. Runtime data, server configuration, certificates, SSH keys, and real environment files remain outside Git.
+
 ## API documentation
 
 With the `dev` profile running:

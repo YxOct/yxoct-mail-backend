@@ -1,0 +1,17 @@
+services:
+  stalwart:
+    image: stalwartlabs/stalwart:v0.16
+    container_name: stalwart
+    restart: unless-stopped
+
+    ports:
+      - "25:25"
+      - "127.0.0.1:8080:8080"
+
+    volumes:
+      - ./etc:/etc/stalwart
+      - ./data:/var/lib/stalwart
+      - /opt/stalwart-certs:/certs:ro
+
+    security_opt:
+      - no-new-privileges:true

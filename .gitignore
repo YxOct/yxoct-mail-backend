@@ -39,3 +39,14 @@ build/
 .env.*
 !.env.example
 !deploy/.env.prod.example
+
+### Deployment runtime data and secrets ###
+deploy/**/.env
+deploy/**/.env.*
+!deploy/**/.env.example
+!deploy/**/.env.*.example
+deploy/**/data/
+deploy/**/etc/
+deploy/**/backups/
+deploy/**/*.key
+deploy/**/*.pem
