@@ -131,6 +131,20 @@ class MailBackendApplicationTests {
   }
 
   @Test
+  void restrictsPrometheusMetricsToAdministrators() throws Exception {
+    String userToken = tokenFor(UserRole.USER);
+    String adminToken = tokenFor(UserRole.ADMIN);
+
+    mockMvc.perform(get("/actuator/prometheus")).andExpect(status().isUnauthorized());
+    mockMvc
+        .perform(get("/actuator/prometheus").header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isForbidden());
+    mockMvc
+        .perform(get("/actuator/prometheus").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+  }
+
+  @Test
   void rejectsUnauthenticatedMailRequestsWithApiError() throws Exception {
     mockMvc
         .perform(get("/api/mail/mailboxes"))

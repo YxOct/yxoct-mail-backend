@@ -6,6 +6,10 @@ spring:
     driver-class-name: org.h2.Driver
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
   health:
     redis:
       enabled: false

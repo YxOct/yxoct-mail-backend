@@ -3,6 +3,7 @@ package com.yxoct.mail.service;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
+import com.yxoct.mail.monitoring.MailOperationalMetrics;
 import com.yxoct.mail.persistence.MailAccountProvisioningRepository;
 import com.yxoct.mail.persistence.MailAccountProvisioningTask;
 import java.time.Clock;
@@ -24,6 +25,7 @@ public class MailAccountProvisioningService {
   private final MailCredentialCipher credentialCipher;
   private final StalwartProvisioningProperties properties;
   private final Clock clock;
+  private final MailOperationalMetrics metrics;
 
   public MailAccountProvisioningService(
       MailAccountProvisioningRepository repository,
@@ -31,12 +33,14 @@ public class MailAccountProvisioningService {
       MailCredentialGenerator credentialGenerator,
       MailCredentialCipher credentialCipher,
       StalwartProvisioningProperties properties,
+      MailOperationalMetrics metrics,
       Clock clock) {
     this.repository = repository;
     this.stalwartManagementClient = stalwartManagementClient;
     this.credentialGenerator = credentialGenerator;
     this.credentialCipher = credentialCipher;
     this.properties = properties;
+    this.metrics = metrics;
     this.clock = clock;
   }
 
@@ -57,6 +61,7 @@ public class MailAccountProvisioningService {
     }
     LocalDateTime claimedAt = now();
     if (!repository.claim(accountId, claimedAt, claimedAt.plus(properties.leaseDuration()))) {
+      metrics.recordProvisioning("claim_skipped");
       return;
     }
 
@@ -69,6 +74,7 @@ public class MailAccountProvisioningService {
       attempt = task.provisioningAttempts();
       if (task.stalwartAccountId() != null && !task.stalwartAccountId().isBlank()) {
         requireUpdated(repository.markSucceeded(accountId, task.stalwartAccountId(), now()));
+        metrics.recordProvisioning("succeeded");
         return;
       }
       String ciphertext = ensureCredential(task);
@@ -76,6 +82,7 @@ public class MailAccountProvisioningService {
       String stalwartAccountId =
           stalwartManagementClient.ensureAccount(task.emailAddress(), password, task.displayName());
       requireUpdated(repository.markSucceeded(accountId, stalwartAccountId, now()));
+      metrics.recordProvisioning("succeeded");
       log.info("Provisioned Stalwart mail account localAccountId={}", accountId);
     } catch (StalwartProvisioningException exception) {
       if (exception.diagnostic() != null) {
@@ -113,6 +120,7 @@ public class MailAccountProvisioningService {
     LocalDateTime failedAt = now();
     Duration retryDelay = retryDelay(attempt);
     repository.markFailed(accountId, failureCode, failedAt.plus(retryDelay), failedAt);
+    metrics.recordProvisioning("failed");
     log.warn(
         "Stalwart provisioning failed localAccountId={} failureCode={} retryIn={}",
         accountId,

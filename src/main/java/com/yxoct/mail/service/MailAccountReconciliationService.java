@@ -6,6 +6,7 @@ import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
 import com.yxoct.mail.config.StalwartReconciliationProperties;
+import com.yxoct.mail.monitoring.MailOperationalMetrics;
 import com.yxoct.mail.persistence.MailAccountReconciliationCandidate;
 import com.yxoct.mail.persistence.MailAccountReconciliationRepository;
 import com.yxoct.mail.persistence.entity.MailAccountDriftType;
@@ -29,6 +30,7 @@ public class MailAccountReconciliationService {
   private final StalwartReconciliationProperties reconciliationProperties;
   private final ReconciliationLeaseCoordinator leaseCoordinator;
   private final Clock clock;
+  private final MailOperationalMetrics metrics;
 
   public MailAccountReconciliationService(
       MailAccountReconciliationRepository repository,
@@ -36,12 +38,14 @@ public class MailAccountReconciliationService {
       StalwartProvisioningProperties provisioningProperties,
       StalwartReconciliationProperties reconciliationProperties,
       ReconciliationLeaseCoordinator leaseCoordinator,
+      MailOperationalMetrics metrics,
       Clock clock) {
     this.repository = repository;
     this.managementClient = managementClient;
     this.provisioningProperties = provisioningProperties;
     this.reconciliationProperties = reconciliationProperties;
     this.leaseCoordinator = leaseCoordinator;
+    this.metrics = metrics;
     this.clock = clock;
   }
 
@@ -52,11 +56,18 @@ public class MailAccountReconciliationService {
     }
     LocalDateTime startedAt = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
     if (!leaseCoordinator.tryAcquire(startedAt)) {
+      metrics.recordReconciliationLeaseSkipped();
       return;
     }
-    for (MailAccountReconciliationCandidate candidate :
-        repository.findCandidates(reconciliationProperties.batchSize())) {
-      reconcile(candidate);
+    try {
+      for (MailAccountReconciliationCandidate candidate :
+          repository.findCandidates(reconciliationProperties.batchSize())) {
+        reconcile(candidate);
+      }
+      metrics.recordReconciliationCompleted(clock.instant());
+    } catch (RuntimeException exception) {
+      metrics.recordReconciliationFailed();
+      throw exception;
     }
   }
 
@@ -71,6 +82,7 @@ public class MailAccountReconciliationService {
             MailAccountDriftType.REMOTE_ACCOUNT_MISSING,
             null,
             checkedAt);
+        metrics.recordReconciliationInspection("remote_account_missing");
         return;
       }
       boolean expectedEnabled = candidate.status() == MailAccountStatus.ACTIVE;
@@ -82,12 +94,15 @@ public class MailAccountReconciliationService {
         driftType = detectMetadataDrift(candidate);
       }
       repository.saveResult(candidate.mailAccountId(), driftType, null, checkedAt);
+      metrics.recordReconciliationInspection(
+          driftType == null ? "in_sync" : driftType.name().toLowerCase(java.util.Locale.ROOT));
     } catch (StalwartProvisioningException exception) {
       repository.saveResult(
           candidate.mailAccountId(),
           MailAccountDriftType.INSPECTION_FAILED,
           exception.failureCode(),
           checkedAt);
+      metrics.recordReconciliationInspection("inspection_failed");
       log.warn(
           "Stalwart reconciliation failed mailAccountId={} failureCode={}",
           candidate.mailAccountId(),

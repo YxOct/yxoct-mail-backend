@@ -2,3 +2,9 @@ stalwart:
   base-url: ${STALWART_BASE_URL}
   provisioning:
     enabled: ${STALWART_PROVISIONING_ENABLED:true}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: ${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,prometheus}

@@ -92,6 +92,9 @@ logging:
   pattern:
     correlation: "[requestId=%X{requestId:-}] "
 management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
   endpoints:
     web:
       exposure:

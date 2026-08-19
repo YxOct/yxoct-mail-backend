@@ -11,6 +11,7 @@ import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
 import com.yxoct.mail.config.StalwartReconciliationProperties;
+import com.yxoct.mail.monitoring.MailOperationalMetrics;
 import com.yxoct.mail.persistence.MailAccountReconciliationCandidate;
 import com.yxoct.mail.persistence.MailAccountReconciliationRepository;
 import com.yxoct.mail.persistence.entity.MailAccountDriftType;
@@ -38,6 +39,7 @@ class MailAccountReconciliationServiceTest {
   @Mock private MailAccountReconciliationRepository repository;
   @Mock private StalwartManagementClient managementClient;
   @Mock private ReconciliationLeaseCoordinator leaseCoordinator;
+  @Mock private MailOperationalMetrics metrics;
   private MailAccountReconciliationService service;
 
   @BeforeEach
@@ -141,7 +143,7 @@ class MailAccountReconciliationServiceTest {
 
     service.reconcileAccounts();
 
-    verifyNoInteractions(repository, managementClient, leaseCoordinator);
+    verifyNoInteractions(repository, managementClient, leaseCoordinator, metrics);
   }
 
   @Test
@@ -173,6 +175,7 @@ class MailAccountReconciliationServiceTest {
         new StalwartReconciliationProperties(
             Duration.ofMinutes(5), Duration.ofMinutes(10), batchSize),
         leaseCoordinator,
+        metrics,
         Clock.fixed(INSTANT, ZONE));
   }
 

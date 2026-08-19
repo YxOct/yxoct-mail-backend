@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
+import com.yxoct.mail.monitoring.MailOperationalMetrics;
 import com.yxoct.mail.persistence.MailAccountProvisioningRepository;
 import com.yxoct.mail.persistence.MailAccountProvisioningTask;
 import java.time.Clock;
@@ -31,6 +32,7 @@ class MailAccountProvisioningServiceTest {
   @Mock private StalwartManagementClient managementClient;
   @Mock private MailCredentialGenerator credentialGenerator;
   @Mock private MailCredentialCipher credentialCipher;
+  @Mock private MailOperationalMetrics metrics;
 
   private MailAccountProvisioningService service;
 
@@ -43,6 +45,7 @@ class MailAccountProvisioningServiceTest {
             credentialGenerator,
             credentialCipher,
             properties(true),
+            metrics,
             Clock.fixed(NOW, APPLICATION_ZONE));
   }
 
@@ -102,12 +105,14 @@ class MailAccountProvisioningServiceTest {
             credentialGenerator,
             credentialCipher,
             properties(false),
+            metrics,
             Clock.fixed(NOW, APPLICATION_ZONE));
 
     service.provision(42);
     service.provisionPendingAccounts();
 
-    verifyNoInteractions(repository, managementClient, credentialGenerator, credentialCipher);
+    verifyNoInteractions(
+        repository, managementClient, credentialGenerator, credentialCipher, metrics);
   }
 
   private StalwartProvisioningProperties properties(boolean enabled) {

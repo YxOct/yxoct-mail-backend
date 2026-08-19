@@ -3,6 +3,7 @@ package com.yxoct.mail.security;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.LoginRateLimitProperties;
+import com.yxoct.mail.monitoring.MailOperationalMetrics;
 import java.time.Duration;
 import java.util.List;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,16 +22,25 @@ public class LoginRateLimiter {
   private final StringRedisTemplate redisTemplate;
   private final int maxFailures;
   private final Duration window;
+  private final MailOperationalMetrics metrics;
 
-  public LoginRateLimiter(StringRedisTemplate redisTemplate, LoginRateLimitProperties properties) {
+  public LoginRateLimiter(
+      StringRedisTemplate redisTemplate,
+      LoginRateLimitProperties properties,
+      MailOperationalMetrics metrics) {
     this.redisTemplate = redisTemplate;
     this.maxFailures = properties.maxFailures();
     this.window = properties.window();
+    this.metrics = metrics;
   }
 
   public void check(String emailAddress, String ipAddress) {
-    if (increment(key("email", emailAddress)) > maxFailures
-        || increment(key("ip", ipAddress)) > maxFailures) {
+    if (increment(key("email", emailAddress)) > maxFailures) {
+      metrics.recordLoginRateLimited("email");
+      throw new BusinessException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
+    }
+    if (increment(key("ip", ipAddress)) > maxFailures) {
+      metrics.recordLoginRateLimited("ip");
       throw new BusinessException(ErrorCode.INVALID_LOGIN_CREDENTIALS);
     }
   }

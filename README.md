@@ -55,6 +55,7 @@ With the `dev` profile running:
 
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- Prometheus metrics: `http://localhost:8080/actuator/prometheus` (`ADMIN` only)
 
 All responses use `{ "code", "message", "data" }`. Use the generated OpenAPI document for the complete endpoint and schema list.
 
