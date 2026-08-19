@@ -3,18 +3,14 @@ package com.yxoct.mail.client.stalwart;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
-import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.persistence.MailAccountCredential;
 import com.yxoct.mail.persistence.MailAccountCredentialRepository;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.service.MailCredentialCipher;
-import java.net.URI;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -40,15 +36,7 @@ class CurrentStalwartCredentialsProviderTest {
 
   @BeforeEach
   void setUp() {
-    provider =
-        new CurrentStalwartCredentialsProvider(
-            new StalwartProperties(
-                URI.create("https://mail.example.com"),
-                "health@example.com",
-                "health-password",
-                Duration.ofMinutes(5)),
-            repository,
-            credentialCipher);
+    provider = new CurrentStalwartCredentialsProvider(repository, credentialCipher);
     RequestContextHolder.setRequestAttributes(
         new ServletRequestAttributes(new MockHttpServletRequest()));
   }
@@ -123,15 +111,15 @@ class CurrentStalwartCredentialsProviderTest {
   }
 
   @Test
-  void usesConfiguredCredentialsOutsideJwtRequests() {
+  void rejectsCredentialsOutsideJwtRequests() {
     SecurityContextHolder.getContext()
         .setAuthentication(new UsernamePasswordAuthenticationToken("health", "password"));
 
-    assertThat(provider.getCredentials())
-        .isEqualTo(
-            new StalwartCredentials(
-                "configured:health@example.com", "health@example.com", "health-password"));
-    verifyNoInteractions(repository, credentialCipher);
+    assertThatThrownBy(provider::getCredentials)
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTHENTICATION_FAILED));
   }
 
   private void authenticateAs(String subject) {

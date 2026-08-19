@@ -1,8 +1,8 @@
 package com.yxoct.mail;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,7 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yxoct.mail.client.stalwart.JmapClient;
 import com.yxoct.mail.client.stalwart.JmapSessionCache;
-import com.yxoct.mail.client.stalwart.dto.JmapSession;
+import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.persistence.AuthenticatedUser;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
@@ -40,6 +40,7 @@ class MailBackendApplicationTests {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private JmapClient jmapClient;
+  @MockitoBean private StalwartManagementClient managementClient;
 
   @Autowired private JmapSessionCache sessionCache;
 
@@ -112,12 +113,12 @@ class MailBackendApplicationTests {
 
   @Test
   void readinessIncludesStalwart() throws Exception {
-    when(jmapClient.getSession()).thenReturn(org.mockito.Mockito.mock(JmapSession.class));
-
     mockMvc
         .perform(get("/actuator/health/readiness"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("UP"));
+
+    verify(managementClient).checkAvailability();
   }
 
   @Test

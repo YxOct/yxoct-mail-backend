@@ -22,9 +22,9 @@ public record StalwartProvisioningProperties(
 
   private static final String BASE64_URL_256_BIT_PATTERN = "[A-Za-z0-9_-]{43}";
 
-  @AssertTrue(message = "management-api-key is required when provisioning is enabled")
+  @AssertTrue(message = "management-api-key is required")
   public boolean isManagementApiKeyValid() {
-    return !enabled || (managementApiKey != null && !managementApiKey.isBlank());
+    return managementApiKey != null && !managementApiKey.isBlank();
   }
 
   @AssertTrue(

@@ -17,30 +17,27 @@ class StalwartPropertiesTest {
   @Test
   void acceptsCompleteConfiguration() {
     StalwartProperties properties =
-        new StalwartProperties(
-            URI.create("https://mail.example.com"), "user", "password", Duration.ofMinutes(1));
+        new StalwartProperties(URI.create("https://mail.example.com"), Duration.ofMinutes(1));
 
     assertThat(validator.validate(properties)).isEmpty();
   }
 
   @Test
   void rejectsMissingRequiredConfiguration() {
-    StalwartProperties properties = new StalwartProperties(null, " ", "", null);
+    StalwartProperties properties = new StalwartProperties(null, null);
 
     Set<String> invalidProperties =
         validator.validate(properties).stream()
             .map(violation -> violation.getPropertyPath().toString())
             .collect(Collectors.toSet());
 
-    assertThat(invalidProperties)
-        .containsExactlyInAnyOrder("baseUrl", "username", "password", "sessionCacheTtl");
+    assertThat(invalidProperties).containsExactlyInAnyOrder("baseUrl", "sessionCacheTtl");
   }
 
   @Test
   void rejectsRelativeBaseUrl() {
     StalwartProperties properties =
-        new StalwartProperties(
-            URI.create("mail.example.com"), "user", "password", Duration.ofMinutes(1));
+        new StalwartProperties(URI.create("mail.example.com"), Duration.ofMinutes(1));
 
     assertThat(validator.validate(properties))
         .singleElement()
@@ -52,8 +49,7 @@ class StalwartPropertiesTest {
   @Test
   void rejectsNonPositiveSessionCacheTtl() {
     StalwartProperties properties =
-        new StalwartProperties(
-            URI.create("https://mail.example.com"), "user", "password", Duration.ZERO);
+        new StalwartProperties(URI.create("https://mail.example.com"), Duration.ZERO);
 
     assertThat(validator.validate(properties))
         .singleElement()

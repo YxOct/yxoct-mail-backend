@@ -6,8 +6,8 @@ spring:
 
 stalwart:
   base-url: http://localhost
-  username: test-user
-  password: test-password
+  provisioning:
+    management-api-key: test-management-key
 
 app:
   authentication:

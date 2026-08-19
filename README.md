@@ -14,12 +14,12 @@ The `dev` profile loads `.env` from the project root and requires:
 - `JWT_SECRET`: unpadded Base64URL-encoded 256-bit key used to sign access tokens.
 - `MAIL_DOMAIN`: domain appended to the local part selected during registration.
 - `STALWART_BASE_URL`: Stalwart server base URL.
-- `STALWART_TEST_USERNAME`: Development mailbox username.
-- `STALWART_TEST_PASSWORD`: Development mailbox password.
+- `STALWART_MANAGEMENT_API_KEY`: API key used for readiness checks and account management.
+
+The management API key should belong to a dedicated Stalwart automation account. Assign that account a custom role which extends the built-in `User` role and explicitly enables only `sysDomainQuery`, `sysDomainGet`, `sysAccountQuery`, `sysAccountGet`, `sysAccountCreate`, and `sysAccountUpdate`. Create the key with `Same permissions as account`. The `User` role inheritance is required because provisioning grants the built-in `User` role to each new mailbox and Stalwart rejects attempts to grant permissions the caller does not hold. `sysAccountUpdate` is required for synchronizing display names and aliases.
 
 When account provisioning is enabled, also set:
 
-- `STALWART_MANAGEMENT_API_KEY`: API key owned by a dedicated Stalwart provisioning account. Assign that account a custom role which extends the built-in `User` role and explicitly enables only `sysDomainQuery`, `sysDomainGet`, `sysAccountQuery`, `sysAccountGet`, `sysAccountCreate`, and `sysAccountUpdate`. Create the key with `Same permissions as account`. The `User` role inheritance is required because provisioning grants the built-in `User` role to each new mailbox and Stalwart rejects attempts to grant permissions the caller does not hold. `sysAccountUpdate` is required only for synchronizing user-visible display name changes.
 - `STALWART_CREDENTIAL_ENCRYPTION_KEY`: unpadded Base64URL-encoded 256-bit key used to encrypt internal mailbox credentials.
 
 The provisioning account should be used only for automation. After validating its API key, its password credential can be removed. Do not grant account destroy permissions during normal operation. In production, restrict the API key to the backend server's fixed egress IP when possible.
@@ -39,7 +39,7 @@ Flyway applies versioned migrations from `src/main/resources/db/migration` when 
 
 `APP_TIME_ZONE` defaults to `Asia/Shanghai` and should match the MySQL session time zone. The optional timeout, cache, invitation, and provisioning interval values use Spring Boot duration syntax. Account provisioning is disabled by default in development. Enable it only after setting both provisioning secrets. Generate the credential encryption key from 32 cryptographically random bytes, encode it as Base64URL without padding (43 characters), and keep it stable; changing or losing it makes existing internal mailbox credentials unreadable.
 
-The `prod` profile does not load `.env`. Supply the database variables together with `JWT_SECRET`, `STALWART_BASE_URL`, `STALWART_USERNAME`, `STALWART_PASSWORD`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a required authentication or provisioning secret is missing or invalid.
+The `prod` profile does not load `.env`. Supply the database variables together with `JWT_SECRET`, `STALWART_BASE_URL`, `STALWART_MANAGEMENT_API_KEY`, and `STALWART_CREDENTIAL_ENCRYPTION_KEY` through the deployment environment. Provisioning is enabled by default in production, and the application fails during startup when a required authentication or provisioning secret is missing or invalid.
 
 ## Run
 
@@ -106,7 +106,7 @@ An attachment is marked as inline only when its MIME disposition is `inline`; a 
 
 Batch status updates return both `updatedIds` and `failed` items because JMAP may apply only part of a request. Duplicate IDs are rejected.
 
-Authentication uses the primary email address and the password chosen during registration. Send the access token as `Authorization: Bearer <token>`. `GET /api/auth/me` returns the authenticated user's identity, role, primary email address, display name, and mail account provisioning status so clients can wait for `ACTIVE` before opening the mailbox. `PATCH /api/mail/accounts/{mailAccountId}` updates the display name of an owned active account in both Stalwart and MySQL. `POST /api/mail/accounts/{mailAccountId}/aliases` consumes a single-use `EMAIL_ADDRESS` invitation and adds the submitted local part as an alias of an owned active account in Stalwart and MySQL. Refreshing rotates the refresh token, so clients must replace both stored tokens with the returned pair. Logging out requires only the submitted refresh token and remains available after an access token expires. Mail requests resolve the authenticated user's active owned mail account and decrypt its internal Stalwart credential for that request; the configured development mailbox is not used for authenticated user mail operations.
+Authentication uses the primary email address and the password chosen during registration. Send the access token as `Authorization: Bearer <token>`. `GET /api/auth/me` returns the authenticated user's identity, role, primary email address, display name, and mail account provisioning status so clients can wait for `ACTIVE` before opening the mailbox. `PATCH /api/mail/accounts/{mailAccountId}` updates the display name of an owned active account in both Stalwart and MySQL. `POST /api/mail/accounts/{mailAccountId}/aliases` consumes a single-use `EMAIL_ADDRESS` invitation and adds the submitted local part as an alias of an owned active account in Stalwart and MySQL. Refreshing rotates the refresh token, so clients must replace both stored tokens with the returned pair. Logging out requires only the submitted refresh token and remains available after an access token expires. Every mail request resolves the authenticated user's active owned mail account and decrypts its internal Stalwart credential for that request; there is no configured mailbox credential fallback. Stalwart readiness uses the management API key instead of a mailbox login.
 
 Invitation management under `/api/admin/invitations` requires the `ADMIN` role. Administrators can create single-use `REGISTRATION` or `EMAIL_ADDRESS` invitations, list invitation metadata, and revoke pending invitations. The plaintext token is returned only by the create operation. Creation and revocation actor IDs are retained for audit purposes.
 

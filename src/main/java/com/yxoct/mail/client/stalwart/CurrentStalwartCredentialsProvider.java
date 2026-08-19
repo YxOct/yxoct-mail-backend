@@ -2,7 +2,6 @@ package com.yxoct.mail.client.stalwart;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
-import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.persistence.MailAccountCredential;
 import com.yxoct.mail.persistence.MailAccountCredentialRepository;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
@@ -21,15 +20,11 @@ public class CurrentStalwartCredentialsProvider implements StalwartCredentialsPr
   private static final String REQUEST_ATTRIBUTE =
       CurrentStalwartCredentialsProvider.class.getName() + ".credentials";
 
-  private final StalwartProperties properties;
   private final MailAccountCredentialRepository repository;
   private final MailCredentialCipher credentialCipher;
 
   public CurrentStalwartCredentialsProvider(
-      StalwartProperties properties,
-      MailAccountCredentialRepository repository,
-      MailCredentialCipher credentialCipher) {
-    this.properties = properties;
+      MailAccountCredentialRepository repository, MailCredentialCipher credentialCipher) {
     this.repository = repository;
     this.credentialCipher = credentialCipher;
   }
@@ -54,8 +49,7 @@ public class CurrentStalwartCredentialsProvider implements StalwartCredentialsPr
   private StalwartCredentials resolveCredentials() {
     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
     if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
-      return new StalwartCredentials(
-          "configured:" + properties.username(), properties.username(), properties.password());
+      throw new BusinessException(ErrorCode.AUTHENTICATION_FAILED);
     }
 
     long userId;

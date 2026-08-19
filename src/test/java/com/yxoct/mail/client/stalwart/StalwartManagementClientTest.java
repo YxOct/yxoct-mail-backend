@@ -35,8 +35,7 @@ class StalwartManagementClientTest {
     client =
         new StalwartManagementClient(
             builder,
-            new StalwartProperties(
-                URI.create("http://localhost"), "test", "test", Duration.ofMinutes(1)),
+            new StalwartProperties(URI.create("http://localhost"), Duration.ofMinutes(1)),
             provisioningProperties());
   }
 
@@ -105,6 +104,29 @@ class StalwartManagementClientTest {
             StalwartProvisioningException.class,
             exception ->
                 assertThat(exception.failureCode()).isEqualTo("MANAGEMENT_REQUEST_FAILED"));
+  }
+
+  @Test
+  void checksManagementApiAvailabilityWithTheApiKey() {
+    server
+        .expect(requestTo("http://localhost/api/account"))
+        .andExpect(header("Authorization", "Bearer API-key"))
+        .andRespond(withSuccess());
+
+    client.checkAvailability();
+  }
+
+  @Test
+  void classifiesRejectedManagementApiCredentials() {
+    server
+        .expect(requestTo("http://localhost/api/account"))
+        .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+
+    assertThatThrownBy(client::checkAvailability)
+        .isInstanceOfSatisfying(
+            StalwartProvisioningException.class,
+            exception ->
+                assertThat(exception.failureCode()).isEqualTo("MANAGEMENT_AUTHENTICATION_FAILED"));
   }
 
   @Test

@@ -52,6 +52,26 @@ public class StalwartManagementClient {
     return createAccount(address.localPart(), domainId, password, displayName);
   }
 
+  public void checkAvailability() {
+    try {
+      restClient
+          .get()
+          .uri("/api/account")
+          .headers(this::setRequestHeaders)
+          .retrieve()
+          .toBodilessEntity();
+    } catch (RestClientResponseException exception) {
+      String failureCode =
+          exception.getStatusCode().equals(HttpStatus.UNAUTHORIZED)
+                  || exception.getStatusCode().equals(HttpStatus.FORBIDDEN)
+              ? "MANAGEMENT_AUTHENTICATION_FAILED"
+              : "MANAGEMENT_REQUEST_FAILED";
+      throw new StalwartProvisioningException(failureCode, exception);
+    } catch (RestClientException exception) {
+      throw new StalwartProvisioningException("MANAGEMENT_REQUEST_FAILED", exception);
+    }
+  }
+
   public void updateAccountDisplayName(String accountId, String displayName) {
     JsonNode result =
         invoke(

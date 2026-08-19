@@ -18,8 +18,8 @@ class StalwartProvisioningPropertiesTest {
   private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
   @Test
-  void acceptsDisabledProvisioningWithoutSecrets() {
-    assertThat(validator.validate(properties(false, "", ""))).isEmpty();
+  void acceptsDisabledProvisioningWithOnlyManagementApiKey() {
+    assertThat(validator.validate(properties(false, "API-secret", ""))).isEmpty();
   }
 
   @Test
@@ -31,7 +31,7 @@ class StalwartProvisioningPropertiesTest {
   }
 
   @Test
-  void rejectsMissingOrInvalidEnabledSecrets() {
+  void rejectsMissingManagementApiKeyAndInvalidEnabledEncryptionKey() {
     StalwartProvisioningProperties properties = properties(true, "", "too-short");
 
     Set<String> invalidProperties =
