@@ -212,10 +212,15 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/admin/users'].get").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}'].get").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/disable'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/enable'].post").exists())
         .andExpect(
             jsonPath(
                     "$.components.responses.UserDisableConflict.content['application/json'].examples['code-5000'].value.code")
                 .value(5000))
+        .andExpect(
+            jsonPath(
+                    "$.components.responses.UserEnableConflict.content['application/json'].examples['code-5002'].value.code")
+                .value(5002))
         .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
         .andExpect(
             jsonPath("$.paths['/api/auth/register'].post.responses['409'].['$ref']")

@@ -100,10 +100,53 @@ public class AdminUserService {
             }
             statusRepository.disableOwnedMailAccounts(userId, now);
             statusRepository.revokeRefreshTokens(userId, now);
-            statusRepository.saveAudit(audit(userId, operatedByUserId, normalizedReason, now));
+            statusRepository.saveAudit(
+                audit(
+                    userId,
+                    operatedByUserId,
+                    UserStatusAuditAction.DISABLED,
+                    normalizedReason,
+                    now));
           });
     } catch (RuntimeException exception) {
       compensateRemoteAccounts(disabledRemoteAccounts);
+      throw exception;
+    }
+  }
+
+  public void enable(long operatedByUserId, long userId) {
+    if (operatedByUserId == userId) {
+      throw new BusinessException(ErrorCode.CANNOT_ENABLE_SELF);
+    }
+    List<String> enabledRemoteAccounts = new ArrayList<>();
+    try {
+      transactionTemplate.executeWithoutResult(
+          status -> {
+            UserStatusTarget target =
+                statusRepository
+                    .findUserForUpdate(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            if (target.status() == UserStatus.ACTIVE) {
+              return;
+            }
+            List<UserStatusMailAccount> accounts =
+                statusRepository.findOwnedMailAccountsForUpdate(userId);
+            for (UserStatusMailAccount account : accounts) {
+              if (account.stalwartAccountId() != null && !account.stalwartAccountId().isBlank()) {
+                enableRemoteAccount(account, enabledRemoteAccounts);
+              }
+            }
+
+            LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
+            if (!statusRepository.enableUser(userId, now)) {
+              throw new IllegalStateException("Locked disabled user could not be enabled");
+            }
+            statusRepository.enableOwnedMailAccounts(userId, now);
+            statusRepository.saveAudit(
+                audit(userId, operatedByUserId, UserStatusAuditAction.ENABLED, null, now));
+          });
+    } catch (RuntimeException exception) {
+      compensateEnabledRemoteAccounts(enabledRemoteAccounts);
       throw exception;
     }
   }
@@ -138,11 +181,45 @@ public class AdminUserService {
     }
   }
 
+  private void enableRemoteAccount(
+      UserStatusMailAccount account, List<String> enabledRemoteAccounts) {
+    try {
+      managementClient.setAccountEnabled(account.stalwartAccountId(), true);
+      enabledRemoteAccounts.add(account.stalwartAccountId());
+    } catch (StalwartProvisioningException exception) {
+      log.warn(
+          "Stalwart account enable failed mailAccountId={} failureCode={} diagnostic={}",
+          account.mailAccountId(),
+          exception.failureCode(),
+          exception.diagnostic());
+      throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
+    }
+  }
+
+  private void compensateEnabledRemoteAccounts(List<String> enabledRemoteAccounts) {
+    for (int index = enabledRemoteAccounts.size() - 1; index >= 0; index--) {
+      String accountId = enabledRemoteAccounts.get(index);
+      try {
+        managementClient.setAccountEnabled(accountId, false);
+      } catch (StalwartProvisioningException exception) {
+        log.error(
+            "Could not compensate Stalwart account enable accountId={} failureCode={} diagnostic={}",
+            accountId,
+            exception.failureCode(),
+            exception.diagnostic());
+      }
+    }
+  }
+
   private UserStatusAuditEntity audit(
-      long userId, long operatedByUserId, String reason, LocalDateTime createdAt) {
+      long userId,
+      long operatedByUserId,
+      UserStatusAuditAction action,
+      String reason,
+      LocalDateTime createdAt) {
     UserStatusAuditEntity audit = new UserStatusAuditEntity();
     audit.setUserId(userId);
-    audit.setAction(UserStatusAuditAction.DISABLED);
+    audit.setAction(action);
     audit.setReason(reason);
     audit.setOperatedByUserId(operatedByUserId);
     audit.setCreatedAt(createdAt);

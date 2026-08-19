@@ -109,6 +109,16 @@ class AdminUserControllerTest {
         .andExpect(status().isBadRequest());
   }
 
+  @Test
+  void enablesAUserWithTheAuthenticatedAdministratorId() throws Exception {
+    mockMvc
+        .perform(post("/api/admin/users/7/enable").principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(userService).enable(42, 7);
+  }
+
   private AdminUserSummary user() {
     return new AdminUserSummary(
         7,

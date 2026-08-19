@@ -46,6 +46,14 @@ public class UserStatusManagementRepository {
     statusMapper.disableOwnedMailAccounts(userId, disabledAt);
   }
 
+  public boolean enableUser(long userId, LocalDateTime enabledAt) {
+    return statusMapper.enableUser(userId, enabledAt) == 1;
+  }
+
+  public void enableOwnedMailAccounts(long userId, LocalDateTime enabledAt) {
+    statusMapper.enableOwnedMailAccounts(userId, enabledAt);
+  }
+
   public void revokeRefreshTokens(long userId, LocalDateTime revokedAt) {
     refreshTokenMapper.revokeByUserId(userId, revokedAt);
   }

@@ -74,4 +74,40 @@ public interface UserStatusManagementMapper {
       """)
   int disableOwnedMailAccounts(
       @Param("userId") long userId, @Param("disabledAt") LocalDateTime disabledAt);
+
+  @Update(
+      """
+      UPDATE app_user
+      SET status = 'ACTIVE',
+          disabled_at = NULL,
+          disabled_by_user_id = NULL,
+          disabled_reason = NULL,
+          version = version + 1,
+          updated_at = #{enabledAt}
+      WHERE id = #{userId} AND status = 'DISABLED'
+      """)
+  int enableUser(@Param("userId") long userId, @Param("enabledAt") LocalDateTime enabledAt);
+
+  @Update(
+      """
+      UPDATE mail_account ma
+      JOIN user_mail_account uma ON uma.mail_account_id = ma.id
+      SET ma.status = CASE
+              WHEN ma.stalwart_account_id IS NULL THEN 'PROVISIONING'
+              ELSE 'ACTIVE'
+          END,
+          ma.provisioning_lease_until = NULL,
+          ma.next_provisioning_at = CASE
+              WHEN ma.stalwart_account_id IS NULL THEN #{enabledAt}
+              ELSE ma.next_provisioning_at
+          END,
+          ma.last_provisioning_error = NULL,
+          ma.version = ma.version + 1,
+          ma.updated_at = #{enabledAt}
+      WHERE uma.user_id = #{userId}
+        AND uma.account_role = 'OWNER'
+        AND ma.status = 'DISABLED'
+      """)
+  int enableOwnedMailAccounts(
+      @Param("userId") long userId, @Param("enabledAt") LocalDateTime enabledAt);
 }

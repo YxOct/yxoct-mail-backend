@@ -82,6 +82,28 @@ public class AdminUserController {
     return ApiResponse.success();
   }
 
+  @PostMapping("/{userId}/enable")
+  @Operation(summary = "Enable a disabled application user")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        ref = "#/components/responses/BadRequest"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        ref = "#/components/responses/ResourceNotFound"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        ref = "#/components/responses/UserEnableConflict"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "502",
+        ref = "#/components/responses/MailServiceUnavailable")
+  })
+  public ApiResponse<Void> enable(
+      Authentication authentication, @PathVariable @Min(1) long userId) {
+    userService.enable(userId(authentication), userId);
+    return ApiResponse.success();
+  }
+
   private long userId(Authentication authentication) {
     Jwt jwt = (Jwt) authentication.getPrincipal();
     return Long.parseLong(jwt.getSubject());

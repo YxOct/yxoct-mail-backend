@@ -200,7 +200,9 @@ class MySqlUserPersistenceIT {
     AppUserEntity operator = insertUser();
     AppUserEntity user = insertUser();
     MailAccountEntity account = insertAccount("stalwart-account-1");
+    MailAccountEntity pendingAccount = insertAccount(null);
     insertOwnership(user.getId(), account.getId());
+    insertOwnership(user.getId(), pendingAccount.getId());
     jdbcTemplate.update(
         "INSERT INTO refresh_token_session "
             + "(user_id, token_hash, expires_at, created_at) VALUES (?, ?, ?, ?)",
@@ -213,7 +215,7 @@ class MySqlUserPersistenceIT {
     assertThat(statusManagementRepository.findUserForUpdate(user.getId())).isPresent();
     assertThat(statusManagementRepository.findOwnedMailAccountsForUpdate(user.getId()))
         .extracting(UserStatusMailAccount::mailAccountId)
-        .containsExactly(account.getId());
+        .containsExactly(account.getId(), pendingAccount.getId());
     assertThat(
             statusManagementRepository.disableUser(
                 user.getId(), operator.getId(), "Policy violation", disabledAt))
@@ -224,6 +226,26 @@ class MySqlUserPersistenceIT {
     assertThat(appUserMapper.selectById(user.getId()).getStatus()).isEqualTo(UserStatus.DISABLED);
     assertThat(mailAccountMapper.selectById(account.getId()).getStatus())
         .isEqualTo(MailAccountStatus.DISABLED);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM refresh_token_session WHERE user_id = "
+                    + user.getId()
+                    + " AND revoked_at IS NOT NULL"))
+        .isEqualTo(1);
+
+    LocalDateTime enabledAt = LocalDateTime.of(2026, 8, 19, 22, 0);
+    assertThat(statusManagementRepository.enableUser(user.getId(), enabledAt)).isTrue();
+    statusManagementRepository.enableOwnedMailAccounts(user.getId(), enabledAt);
+
+    AppUserEntity enabledUser = appUserMapper.selectById(user.getId());
+    assertThat(enabledUser.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    assertThat(enabledUser.getDisabledAt()).isNull();
+    assertThat(enabledUser.getDisabledByUserId()).isNull();
+    assertThat(enabledUser.getDisabledReason()).isNull();
+    assertThat(mailAccountMapper.selectById(account.getId()).getStatus())
+        .isEqualTo(MailAccountStatus.ACTIVE);
+    assertThat(mailAccountMapper.selectById(pendingAccount.getId()).getStatus())
+        .isEqualTo(MailAccountStatus.PROVISIONING);
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM refresh_token_session WHERE user_id = "

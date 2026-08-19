@@ -98,7 +98,10 @@ public class OpenApiConfig {
             errorResponse(
                 "User cannot be disabled",
                 ErrorCode.CANNOT_DISABLE_SELF,
-                ErrorCode.CANNOT_DISABLE_LAST_ADMIN));
+                ErrorCode.CANNOT_DISABLE_LAST_ADMIN))
+        .addResponses(
+            "UserEnableConflict",
+            errorResponse("User cannot be enabled", ErrorCode.CANNOT_ENABLE_SELF));
   }
 
   private ApiResponse errorResponse(String description, ErrorCode... errorCodes) {

@@ -59,7 +59,9 @@ public enum ErrorCode {
   // 用户管理错误
   CANNOT_DISABLE_SELF(5000, HttpStatus.CONFLICT, "不能禁用当前管理员账号"),
 
-  CANNOT_DISABLE_LAST_ADMIN(5001, HttpStatus.CONFLICT, "不能禁用最后一个可用管理员账号");
+  CANNOT_DISABLE_LAST_ADMIN(5001, HttpStatus.CONFLICT, "不能禁用最后一个可用管理员账号"),
+
+  CANNOT_ENABLE_SELF(5002, HttpStatus.CONFLICT, "不能解禁当前管理员账号");
 
   private final int code;
   private final HttpStatus httpStatus;

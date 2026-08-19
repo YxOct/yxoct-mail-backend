@@ -179,6 +179,75 @@ class AdminUserServiceTest {
     verify(managementClient).setAccountEnabled("stalwart-9", true);
   }
 
+  @Test
+  void enablesAUserLocallyAndRemotelyAndWritesAnAudit() {
+    when(statusRepository.findUserForUpdate(7))
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+    when(statusRepository.findOwnedMailAccountsForUpdate(7))
+        .thenReturn(
+            List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.DISABLED)));
+    when(statusRepository.enableUser(7, NOW)).thenReturn(true);
+
+    service.enable(42, 7);
+
+    verify(managementClient).setAccountEnabled("stalwart-9", true);
+    verify(statusRepository).enableOwnedMailAccounts(7, NOW);
+    ArgumentCaptor<UserStatusAuditEntity> audit =
+        ArgumentCaptor.forClass(UserStatusAuditEntity.class);
+    verify(statusRepository).saveAudit(audit.capture());
+    assertThat(audit.getValue().getUserId()).isEqualTo(7);
+    assertThat(audit.getValue().getAction()).isEqualTo(UserStatusAuditAction.ENABLED);
+    assertThat(audit.getValue().getReason()).isNull();
+    assertThat(audit.getValue().getOperatedByUserId()).isEqualTo(42);
+    assertThat(audit.getValue().getCreatedAt()).isEqualTo(NOW);
+  }
+
+  @Test
+  void treatsAnAlreadyActiveUserAsAnIdempotentEnableSuccess() {
+    when(statusRepository.findUserForUpdate(7))
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE)));
+
+    service.enable(42, 7);
+
+    verify(statusRepository, never()).enableUser(anyLong(), any());
+    verify(managementClient, never()).setAccountEnabled(any(), any(Boolean.class));
+  }
+
+  @Test
+  void rejectsEnablingTheCurrentAdministrator() {
+    assertBusinessError(() -> service.enable(42, 42), ErrorCode.CANNOT_ENABLE_SELF);
+  }
+
+  @Test
+  void mapsARejectedRemoteEnableToMailServiceUnavailable() {
+    when(statusRepository.findUserForUpdate(7))
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+    when(statusRepository.findOwnedMailAccountsForUpdate(7))
+        .thenReturn(
+            List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.DISABLED)));
+    doThrow(new StalwartProvisioningException("ACCOUNT_STATUS_UPDATE_REJECTED"))
+        .when(managementClient)
+        .setAccountEnabled("stalwart-9", true);
+
+    assertBusinessError(() -> service.enable(42, 7), ErrorCode.MAIL_SERVICE_UNAVAILABLE);
+    verify(statusRepository, never()).enableOwnedMailAccounts(anyLong(), any());
+  }
+
+  @Test
+  void disablesTheRemoteAccountAgainWhenLocalEnableFails() {
+    when(statusRepository.findUserForUpdate(7))
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+    when(statusRepository.findOwnedMailAccountsForUpdate(7))
+        .thenReturn(
+            List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.DISABLED)));
+    when(statusRepository.enableUser(7, NOW))
+        .thenThrow(new IllegalStateException("database failure"));
+
+    assertThatThrownBy(() -> service.enable(42, 7)).isInstanceOf(IllegalStateException.class);
+    verify(managementClient).setAccountEnabled("stalwart-9", true);
+    verify(managementClient).setAccountEnabled("stalwart-9", false);
+  }
+
   private void assertBusinessError(Runnable action, ErrorCode expected) {
     assertThatThrownBy(action::run)
         .isInstanceOfSatisfying(
