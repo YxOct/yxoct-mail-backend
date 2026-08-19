@@ -16,10 +16,12 @@ import com.yxoct.mail.persistence.AuthenticatedUser;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.security.JwtTokenService;
+import com.yxoct.mail.security.UserAuthVersionStore;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.OptionalLong;
 import javax.sql.DataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,7 @@ class MailBackendApplicationTests {
 
   @MockitoBean private JmapClient jmapClient;
   @MockitoBean private StalwartManagementClient managementClient;
+  @MockitoBean private UserAuthVersionStore authVersionStore;
 
   @Autowired private JmapSessionCache sessionCache;
 
@@ -188,6 +191,17 @@ class MailBackendApplicationTests {
   }
 
   @Test
+  void rejectsAnAccessTokenAfterTheUserVersionChanges() throws Exception {
+    String token = tokenFor(UserRole.ADMIN);
+    org.mockito.Mockito.when(authVersionStore.currentVersion(42L)).thenReturn(OptionalLong.of(4L));
+
+    mockMvc
+        .perform(get("/api/admin/users").header("Authorization", "Bearer " + token))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value(4000));
+  }
+
+  @Test
   void openApiDocumentationDescribesMailEndpoints() throws Exception {
     mockMvc
         .perform(get("/v3/api-docs"))
@@ -260,8 +274,9 @@ class MailBackendApplicationTests {
   }
 
   private String tokenFor(UserRole role) {
+    org.mockito.Mockito.when(authVersionStore.currentVersion(42L)).thenReturn(OptionalLong.of(3L));
     return jwtTokenService
-        .issue(new AuthenticatedUser(42, "admin@yxoct.com", "unused", UserStatus.ACTIVE, role))
+        .issue(new AuthenticatedUser(42, "admin@yxoct.com", "unused", UserStatus.ACTIVE, role, 3L))
         .accessToken();
   }
 

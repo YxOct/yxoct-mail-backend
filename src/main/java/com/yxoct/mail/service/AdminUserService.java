@@ -16,6 +16,7 @@ import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.persistence.entity.UserStatusAuditAction;
 import com.yxoct.mail.persistence.entity.UserStatusAuditEntity;
+import com.yxoct.mail.security.UserAuthVersionStore;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ public class AdminUserService {
   private final UserStatusManagementRepository statusRepository;
   private final StalwartManagementClient managementClient;
   private final TransactionTemplate transactionTemplate;
+  private final UserAuthVersionStore authVersionStore;
   private final Clock clock;
 
   public AdminUserService(
@@ -41,11 +43,13 @@ public class AdminUserService {
       UserStatusManagementRepository statusRepository,
       StalwartManagementClient managementClient,
       TransactionTemplate transactionTemplate,
+      UserAuthVersionStore authVersionStore,
       Clock clock) {
     this.repository = repository;
     this.statusRepository = statusRepository;
     this.managementClient = managementClient;
     this.transactionTemplate = transactionTemplate;
+    this.authVersionStore = authVersionStore;
     this.clock = clock;
   }
 
@@ -70,6 +74,8 @@ public class AdminUserService {
     }
     String normalizedReason = reason.strip();
     List<String> disabledRemoteAccounts = new ArrayList<>();
+    long[] previousAuthVersion = new long[1];
+    boolean[] authVersionChanged = new boolean[1];
     try {
       transactionTemplate.executeWithoutResult(
           status -> {
@@ -95,6 +101,9 @@ public class AdminUserService {
             }
 
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
+            previousAuthVersion[0] = target.version();
+            authVersionStore.setVersion(userId, target.version() + 1);
+            authVersionChanged[0] = true;
             if (!statusRepository.disableUser(userId, operatedByUserId, normalizedReason, now)) {
               throw new IllegalStateException("Locked active user could not be disabled");
             }
@@ -109,6 +118,7 @@ public class AdminUserService {
                     now));
           });
     } catch (RuntimeException exception) {
+      restoreAuthVersion(userId, previousAuthVersion[0], authVersionChanged[0]);
       compensateRemoteAccounts(disabledRemoteAccounts);
       throw exception;
     }
@@ -119,6 +129,8 @@ public class AdminUserService {
       throw new BusinessException(ErrorCode.CANNOT_ENABLE_SELF);
     }
     List<String> enabledRemoteAccounts = new ArrayList<>();
+    long[] previousAuthVersion = new long[1];
+    boolean[] authVersionChanged = new boolean[1];
     try {
       transactionTemplate.executeWithoutResult(
           status -> {
@@ -138,6 +150,9 @@ public class AdminUserService {
             }
 
             LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
+            previousAuthVersion[0] = target.version();
+            authVersionStore.setVersion(userId, target.version() + 1);
+            authVersionChanged[0] = true;
             if (!statusRepository.enableUser(userId, now)) {
               throw new IllegalStateException("Locked disabled user could not be enabled");
             }
@@ -146,8 +161,20 @@ public class AdminUserService {
                 audit(userId, operatedByUserId, UserStatusAuditAction.ENABLED, null, now));
           });
     } catch (RuntimeException exception) {
+      restoreAuthVersion(userId, previousAuthVersion[0], authVersionChanged[0]);
       compensateEnabledRemoteAccounts(enabledRemoteAccounts);
       throw exception;
+    }
+  }
+
+  private void restoreAuthVersion(long userId, long previousVersion, boolean changed) {
+    if (!changed) {
+      return;
+    }
+    try {
+      authVersionStore.setVersion(userId, previousVersion);
+    } catch (RuntimeException exception) {
+      log.error("Could not restore user authentication version userId={}", userId, exception);
     }
   }
 

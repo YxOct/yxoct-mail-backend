@@ -5,6 +5,16 @@ spring:
     password: ""
     driver-class-name: org.h2.Driver
 
+management:
+  health:
+    redis:
+      enabled: false
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: readinessState,db,stalwart
+
 stalwart:
   base-url: ${STALWART_BASE_URL:http://localhost}
   provisioning:

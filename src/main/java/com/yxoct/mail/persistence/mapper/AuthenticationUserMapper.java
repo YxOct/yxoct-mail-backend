@@ -14,7 +14,8 @@ public interface AuthenticationUserMapper {
              ea.normalized_address AS email_address,
              au.password_hash,
              au.status,
-             au.role
+             au.role,
+             au.version
       FROM app_user au
       JOIN user_mail_account uma
         ON uma.user_id = au.id
@@ -33,7 +34,8 @@ public interface AuthenticationUserMapper {
              ea.normalized_address AS email_address,
              au.password_hash,
              au.status,
-             au.role
+             au.role,
+             au.version
       FROM app_user au
       JOIN user_mail_account uma
         ON uma.user_id = au.id

@@ -5,6 +5,7 @@ import com.yxoct.mail.domain.user.AccessTokenResponse;
 import com.yxoct.mail.persistence.AuthenticatedUser;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.UUID;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
@@ -31,9 +32,11 @@ public class JwtTokenService {
             .issuer(properties.issuer())
             .issuedAt(issuedAt)
             .expiresAt(expiresAt)
+            .id(UUID.randomUUID().toString())
             .subject(Long.toString(user.userId()))
             .claim("email", user.emailAddress())
             .claim("role", user.role().name())
+            .claim("userVersion", user.version())
             .build();
     String token = jwtEncoder.encode(JwtEncoderParameters.from(claims)).getTokenValue();
     return new AccessTokenResponse(token, "Bearer", properties.accessTokenTtl().toSeconds());

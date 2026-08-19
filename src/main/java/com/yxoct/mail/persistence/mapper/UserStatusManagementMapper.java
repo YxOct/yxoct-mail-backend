@@ -14,7 +14,7 @@ public interface UserStatusManagementMapper {
 
   @Select(
       """
-      SELECT id AS user_id, role, status
+      SELECT id AS user_id, role, status, version
       FROM app_user
       WHERE id = #{userId}
       FOR UPDATE

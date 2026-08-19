@@ -70,7 +70,7 @@ class LoginServiceTest {
   void rejectsDisabledUserAfterPasswordVerification() {
     AuthenticatedUser user =
         new AuthenticatedUser(
-            1L, "alice@yxoct.com", PASSWORD_HASH, UserStatus.DISABLED, UserRole.USER);
+            1L, "alice@yxoct.com", PASSWORD_HASH, UserStatus.DISABLED, UserRole.USER, 3L);
     when(userRepository.findByEmailAddress("alice@yxoct.com")).thenReturn(Optional.of(user));
     when(passwordEncoder.matches(PASSWORD, PASSWORD_HASH)).thenReturn(true);
 
@@ -83,7 +83,7 @@ class LoginServiceTest {
 
   private AuthenticatedUser activeUser() {
     return new AuthenticatedUser(
-        1L, "alice@yxoct.com", PASSWORD_HASH, UserStatus.ACTIVE, UserRole.USER);
+        1L, "alice@yxoct.com", PASSWORD_HASH, UserStatus.ACTIVE, UserRole.USER, 3L);
   }
 
   private void assertInvalidLoginCredentials(Runnable action) {

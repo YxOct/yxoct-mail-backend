@@ -25,6 +25,7 @@ import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.persistence.entity.UserStatusAuditAction;
 import com.yxoct.mail.persistence.entity.UserStatusAuditEntity;
+import com.yxoct.mail.security.UserAuthVersionStore;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -52,6 +53,7 @@ class AdminUserServiceTest {
   @Mock private StalwartManagementClient managementClient;
   @Mock private TransactionTemplate transactionTemplate;
   @Mock private TransactionStatus transactionStatus;
+  @Mock private UserAuthVersionStore authVersionStore;
 
   private AdminUserService service;
 
@@ -69,7 +71,12 @@ class AdminUserServiceTest {
     Clock clock = Clock.fixed(Instant.parse("2026-08-19T14:00:00Z"), ZoneId.of("Asia/Shanghai"));
     service =
         new AdminUserService(
-            repository, statusRepository, managementClient, transactionTemplate, clock);
+            repository,
+            statusRepository,
+            managementClient,
+            transactionTemplate,
+            authVersionStore,
+            clock);
   }
 
   @Test
@@ -102,7 +109,7 @@ class AdminUserServiceTest {
   @Test
   void disablesAUserLocallyAndRemotelyAndWritesAnAudit() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE, 3L)));
     when(statusRepository.findOwnedMailAccountsForUpdate(7))
         .thenReturn(List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.ACTIVE)));
     when(statusRepository.disableUser(7, 42, "Policy violation", NOW)).thenReturn(true);
@@ -110,6 +117,7 @@ class AdminUserServiceTest {
     service.disable(42, 7, "  Policy violation  ");
 
     verify(managementClient).setAccountEnabled("stalwart-9", false);
+    verify(authVersionStore).setVersion(7, 4L);
     verify(statusRepository).disableOwnedMailAccounts(7, NOW);
     verify(statusRepository).revokeRefreshTokens(7, NOW);
     ArgumentCaptor<UserStatusAuditEntity> audit =
@@ -125,7 +133,7 @@ class AdminUserServiceTest {
   @Test
   void treatsAnAlreadyDisabledUserAsAnIdempotentSuccess() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED, 3L)));
 
     service.disable(42, 7, "Policy violation");
 
@@ -142,7 +150,7 @@ class AdminUserServiceTest {
   @Test
   void rejectsDisablingTheLastActiveAdministrator() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.ADMIN, UserStatus.ACTIVE)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.ADMIN, UserStatus.ACTIVE, 3L)));
     when(statusRepository.findActiveAdministratorIdsForUpdate()).thenReturn(List.of(7L));
 
     assertBusinessError(
@@ -152,7 +160,7 @@ class AdminUserServiceTest {
   @Test
   void mapsARejectedRemoteDisableToMailServiceUnavailable() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE, 3L)));
     when(statusRepository.findOwnedMailAccountsForUpdate(7))
         .thenReturn(List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.ACTIVE)));
     doThrow(new StalwartProvisioningException("ACCOUNT_STATUS_UPDATE_REJECTED"))
@@ -167,7 +175,7 @@ class AdminUserServiceTest {
   @Test
   void restoresTheRemoteAccountWhenLocalPersistenceFails() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE, 3L)));
     when(statusRepository.findOwnedMailAccountsForUpdate(7))
         .thenReturn(List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.ACTIVE)));
     when(statusRepository.disableUser(7, 42, "Policy violation", NOW))
@@ -177,12 +185,14 @@ class AdminUserServiceTest {
         .isInstanceOf(IllegalStateException.class);
     verify(managementClient).setAccountEnabled("stalwart-9", false);
     verify(managementClient).setAccountEnabled("stalwart-9", true);
+    verify(authVersionStore).setVersion(7, 4L);
+    verify(authVersionStore).setVersion(7, 3L);
   }
 
   @Test
   void enablesAUserLocallyAndRemotelyAndWritesAnAudit() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED, 3L)));
     when(statusRepository.findOwnedMailAccountsForUpdate(7))
         .thenReturn(
             List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.DISABLED)));
@@ -191,6 +201,7 @@ class AdminUserServiceTest {
     service.enable(42, 7);
 
     verify(managementClient).setAccountEnabled("stalwart-9", true);
+    verify(authVersionStore).setVersion(7, 4L);
     verify(statusRepository).enableOwnedMailAccounts(7, NOW);
     ArgumentCaptor<UserStatusAuditEntity> audit =
         ArgumentCaptor.forClass(UserStatusAuditEntity.class);
@@ -205,7 +216,7 @@ class AdminUserServiceTest {
   @Test
   void treatsAnAlreadyActiveUserAsAnIdempotentEnableSuccess() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE, 3L)));
 
     service.enable(42, 7);
 
@@ -221,7 +232,7 @@ class AdminUserServiceTest {
   @Test
   void mapsARejectedRemoteEnableToMailServiceUnavailable() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED, 3L)));
     when(statusRepository.findOwnedMailAccountsForUpdate(7))
         .thenReturn(
             List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.DISABLED)));
@@ -236,7 +247,7 @@ class AdminUserServiceTest {
   @Test
   void disablesTheRemoteAccountAgainWhenLocalEnableFails() {
     when(statusRepository.findUserForUpdate(7))
-        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED)));
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.DISABLED, 3L)));
     when(statusRepository.findOwnedMailAccountsForUpdate(7))
         .thenReturn(
             List.of(new UserStatusMailAccount(9, "stalwart-9", MailAccountStatus.DISABLED)));
@@ -246,6 +257,8 @@ class AdminUserServiceTest {
     assertThatThrownBy(() -> service.enable(42, 7)).isInstanceOf(IllegalStateException.class);
     verify(managementClient).setAccountEnabled("stalwart-9", true);
     verify(managementClient).setAccountEnabled("stalwart-9", false);
+    verify(authVersionStore).setVersion(7, 4L);
+    verify(authVersionStore).setVersion(7, 3L);
   }
 
   private void assertBusinessError(Runnable action, ErrorCode expected) {

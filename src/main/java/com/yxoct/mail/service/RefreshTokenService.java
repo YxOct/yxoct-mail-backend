@@ -11,6 +11,7 @@ import com.yxoct.mail.persistence.RefreshTokenSessionRepository;
 import com.yxoct.mail.persistence.entity.RefreshTokenSessionEntity;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.security.JwtTokenService;
+import com.yxoct.mail.security.UserAuthVersionStore;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import org.springframework.stereotype.Service;
@@ -23,6 +24,7 @@ public class RefreshTokenService {
   private final AuthenticationUserRepository userRepository;
   private final RefreshTokenCodec tokenCodec;
   private final JwtTokenService jwtTokenService;
+  private final UserAuthVersionStore authVersionStore;
   private final AuthenticationProperties properties;
   private final Clock clock;
 
@@ -31,12 +33,14 @@ public class RefreshTokenService {
       AuthenticationUserRepository userRepository,
       RefreshTokenCodec tokenCodec,
       JwtTokenService jwtTokenService,
+      UserAuthVersionStore authVersionStore,
       AuthenticationProperties properties,
       Clock clock) {
     this.sessionRepository = sessionRepository;
     this.userRepository = userRepository;
     this.tokenCodec = tokenCodec;
     this.jwtTokenService = jwtTokenService;
+    this.authVersionStore = authVersionStore;
     this.properties = properties;
     this.clock = clock;
   }
@@ -73,6 +77,7 @@ public class RefreshTokenService {
   }
 
   private TokenPairResponse createTokenPair(AuthenticatedUser user, LocalDateTime now) {
+    authVersionStore.setVersionIfGreater(user.userId(), user.version());
     String refreshToken = tokenCodec.generate();
     RefreshTokenSessionEntity session = new RefreshTokenSessionEntity();
     session.setUserId(user.userId());

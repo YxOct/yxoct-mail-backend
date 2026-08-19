@@ -1,4 +1,24 @@
 services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: yxoct-mail-redis
+    restart: unless-stopped
+
+    ports:
+      - "127.0.0.1:6379:6379"
+
+    volumes:
+      - redis-data:/data
+
+    command: ["redis-server", "--appendonly", "yes"]
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   mysql:
     image: mysql:8.4
     container_name: yxoct-mail-mysql
@@ -35,3 +55,4 @@ services:
 
 volumes:
   mysql-data:
+  redis-data:

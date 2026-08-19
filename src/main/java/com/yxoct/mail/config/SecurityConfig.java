@@ -2,6 +2,9 @@ package com.yxoct.mail.config;
 
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.security.ApiSecurityErrorWriter;
+import com.yxoct.mail.security.UserAuthVersionFilter;
+import com.yxoct.mail.security.UserAuthVersionStore;
+import java.util.Optional;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.context.annotation.Bean;
@@ -16,16 +19,24 @@ import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration(proxyBeanMethods = false)
 public class SecurityConfig {
 
   @Bean
+  UserAuthVersionFilter userAuthVersionFilter(
+      Optional<UserAuthVersionStore> versionStore, ApiSecurityErrorWriter errorWriter) {
+    return new UserAuthVersionFilter(versionStore, errorWriter);
+  }
+
+  @Bean
   SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       ApiSecurityErrorWriter errorWriter,
-      JwtAuthenticationConverter jwtAuthenticationConverter)
+      JwtAuthenticationConverter jwtAuthenticationConverter,
+      UserAuthVersionFilter userAuthVersionFilter)
       throws Exception {
     return http.csrf(csrf -> csrf.disable())
         .sessionManagement(
@@ -63,6 +74,7 @@ public class SecurityConfig {
                     .authenticationEntryPoint(
                         (request, response, exception) ->
                             errorWriter.write(response, ErrorCode.AUTHENTICATION_FAILED)))
+        .addFilterAfter(userAuthVersionFilter, BearerTokenAuthenticationFilter.class)
         .build();
   }
 

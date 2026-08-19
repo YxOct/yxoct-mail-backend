@@ -17,6 +17,7 @@ import com.yxoct.mail.persistence.entity.RefreshTokenSessionEntity;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.security.JwtTokenService;
+import com.yxoct.mail.security.UserAuthVersionStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -40,6 +41,7 @@ class RefreshTokenServiceTest {
   @Mock private AuthenticationUserRepository userRepository;
   @Mock private RefreshTokenCodec tokenCodec;
   @Mock private JwtTokenService jwtTokenService;
+  @Mock private UserAuthVersionStore authVersionStore;
 
   private RefreshTokenService service;
 
@@ -52,7 +54,13 @@ class RefreshTokenServiceTest {
             "issuer", "A".repeat(43), Duration.ofMinutes(15), Duration.ofDays(30));
     service =
         new RefreshTokenService(
-            sessionRepository, userRepository, tokenCodec, jwtTokenService, properties, clock);
+            sessionRepository,
+            userRepository,
+            tokenCodec,
+            jwtTokenService,
+            authVersionStore,
+            properties,
+            clock);
   }
 
   @Test
@@ -72,6 +80,7 @@ class RefreshTokenServiceTest {
 
     assertThat(result.refreshToken()).isEqualTo(NEW_TOKEN);
     assertThat(result.refreshExpiresIn()).isEqualTo(Duration.ofDays(30).toSeconds());
+    verify(authVersionStore).setVersionIfGreater(1L, 3L);
     ArgumentCaptor<RefreshTokenSessionEntity> saved =
         ArgumentCaptor.forClass(RefreshTokenSessionEntity.class);
     verify(sessionRepository).save(saved.capture());
@@ -108,7 +117,8 @@ class RefreshTokenServiceTest {
   }
 
   private AuthenticatedUser activeUser() {
-    return new AuthenticatedUser(1L, "alice@yxoct.com", "hash", UserStatus.ACTIVE, UserRole.USER);
+    return new AuthenticatedUser(
+        1L, "alice@yxoct.com", "hash", UserStatus.ACTIVE, UserRole.USER, 3L);
   }
 
   private void assertInvalid(Runnable action) {

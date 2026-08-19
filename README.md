@@ -24,9 +24,9 @@ When account provisioning is enabled, also set:
 
 The provisioning account should be used only for automation. After validating its API key, its password credential can be removed. Do not grant account destroy permissions during normal operation. In production, restrict the API key to the backend server's fixed egress IP when possible.
 
-`JWT_SECRET` must also remain stable. Changing it immediately invalidates every access token. Access tokens expire after 15 minutes by default; opaque refresh tokens expire after 30 days, are stored only as SHA-256 hashes, and are rotated whenever they are used.
+`JWT_SECRET` must also remain stable. Changing it immediately invalidates every access token. Access tokens expire after 15 minutes by default; opaque refresh tokens expire after 30 days, are stored only as SHA-256 hashes, and are rotated whenever they are used. Access tokens carry the user's authentication version. Redis caches the current version for each user, with MySQL as the persistent source of truth, so a status change invalidates previously issued access tokens immediately. Protected requests fail closed while Redis is unavailable.
 
-For local development, start MySQL and wait for it to become healthy before starting the application:
+For local development, start MySQL and Redis and wait for them to become healthy before starting the application:
 
 ```powershell
 docker compose up -d
@@ -110,7 +110,7 @@ Authentication uses the primary email address and the password chosen during reg
 
 Invitation management under `/api/admin/invitations` requires the `ADMIN` role. Administrators can create single-use `REGISTRATION` or `EMAIL_ADDRESS` invitations, list invitation metadata, and revoke pending invitations. The plaintext token is returned only by the create operation. Creation and revocation actor IDs are retained for audit purposes.
 
-User management under `/api/admin/users` also requires the `ADMIN` role. `GET /api/admin/users?page=1&size=20` returns users in descending ID order with their primary owned mail account, while `GET /api/admin/users/{userId}` returns one user. These responses intentionally exclude password hashes, Stalwart account IDs, encrypted mailbox credentials, and authentication tokens. `POST /api/admin/users/{userId}/disable` requires a non-blank reason, disables every owned mail account locally and in Stalwart, revokes all active refresh tokens, and writes an audit event. `POST /api/admin/users/{userId}/enable` restores Stalwart access and local mail account operation and writes a second audit event; the user must log in again because revoked refresh tokens are not restored. Both operations are idempotent. Administrators cannot disable or enable themselves, and cannot disable the last active administrator. Existing access tokens expire normally, but disabled local mail accounts reject mailbox access immediately.
+User management under `/api/admin/users` also requires the `ADMIN` role. `GET /api/admin/users?page=1&size=20` returns users in descending ID order with their primary owned mail account, while `GET /api/admin/users/{userId}` returns one user. These responses intentionally exclude password hashes, Stalwart account IDs, encrypted mailbox credentials, and authentication tokens. `POST /api/admin/users/{userId}/disable` requires a non-blank reason, disables every owned mail account locally and in Stalwart, revokes all active refresh tokens, increments the user's authentication version, and writes an audit event. `POST /api/admin/users/{userId}/enable` restores Stalwart access and local mail account operation, increments the authentication version again, and writes a second audit event; the user must log in again because revoked refresh tokens are not restored. Both operations are idempotent. Administrators cannot disable or enable themselves, and cannot disable the last active administrator. The version change invalidates previously issued access tokens immediately.
 
 All API endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
 
