@@ -28,6 +28,13 @@ The `yxoct-mail-backend` target should report `UP`. Alert definitions are stored
 
 ## Production
 
-Prometheus is not published by `compose.prod.yaml`. Access it through an SSH tunnel or a protected administrator integration. Do not expose Prometheus or unrestricted actuator endpoints publicly.
+Prometheus is not published by `compose.prod.yaml`, so its UI is not reachable from the host by default. Routine health can be checked inside the container:
+
+```bash
+docker compose --env-file deploy/.env.prod -f compose.prod.yaml exec -T prometheus \
+  wget -qO- http://127.0.0.1:9090/-/ready
+```
+
+If temporary UI access is required, add a Compose override that binds `127.0.0.1:9090:9090`, recreate only Prometheus, and then use an SSH tunnel to the server loopback port. Remove the override when investigation is complete. Never publish Prometheus or unrestricted actuator endpoints on a public interface.
 
 Add Alertmanager only after choosing a delivery channel such as email, webhook, or another incident system. Keep receiver credentials in the server environment, not in Git.

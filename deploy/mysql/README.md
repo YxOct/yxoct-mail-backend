@@ -9,13 +9,13 @@ Production should use both copies: keep short local retention for fast recovery 
 ```bash
 sudo install -d -m 700 /etc/yxoct-mail
 sudo install -d -m 700 /var/backups/yxoct-mail/mysql
-sudo install -m 700 deploy/backup/backup-yxoct-mail-mysql.sh /usr/local/sbin/
-sudo install -m 700 deploy/backup/restore-yxoct-mail-mysql.sh /usr/local/sbin/
-sudo install -m 644 deploy/systemd/yxoct-mail-mysql-backup.service /etc/systemd/system/
-sudo install -m 644 deploy/systemd/yxoct-mail-mysql-backup.timer /etc/systemd/system/
+sudo install -m 700 deploy/mysql/backup-yxoct-mail-mysql.sh /usr/local/sbin/
+sudo install -m 700 deploy/mysql/restore-yxoct-mail-mysql.sh /usr/local/sbin/
+sudo install -m 644 deploy/mysql/systemd/yxoct-mail-mysql-backup.service /etc/systemd/system/
+sudo install -m 644 deploy/mysql/systemd/yxoct-mail-mysql-backup.timer /etc/systemd/system/
 ```
 
-If `/etc/yxoct-mail/mysql-backup.conf` does not exist, create it from `deploy/backup/mysql-backup.conf.example`; deployment must never overwrite an existing real configuration. Fill in the project path, Compose environment file, remote host, restricted SSH key, and retention. Keep `REMOTE_ENABLED=true` in production. The database password remains only in the server's production environment file and is never passed on the command line.
+If `/etc/yxoct-mail/mysql-backup.conf` does not exist, create it from `deploy/mysql/mysql-backup.conf.example`; deployment must never overwrite an existing real configuration. Fill in the project path, Compose environment file, remote host, restricted SSH key, and retention. Keep `REMOTE_ENABLED=true` in production. The database password remains only in the server's production environment file and is never passed on the command line.
 
 Create the remote `mysql` subdirectory inside the forced `rrsync` root, then test one manual backup:
 
@@ -25,7 +25,7 @@ sudo find /var/backups/yxoct-mail/mysql -maxdepth 1 -type f -printf '%TY-%Tm-%Td
 sudo gzip -t /var/backups/yxoct-mail/mysql/yxoct-mail-mysql-*.sql.gz
 ```
 
-The backup server must have the unified cleanup task from `deploy/remote-backup/` installed. It retains both Stalwart archives and MySQL dumps for 30 days by default.
+The backup server must have the [remote retention cleanup task](../remote-backup/README.md) installed. It retains both Stalwart archives and MySQL dumps for 30 days by default.
 
 Enable the daily 05:30 timer only after the manual backup and remote copy succeed:
 

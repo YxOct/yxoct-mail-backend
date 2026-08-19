@@ -8,7 +8,7 @@ Spring Boot backend for YxOct Mail. It manages users, invitations, Stalwart mail
 - Docker Desktop
 - MySQL 8.4
 - Redis 7.4
-- Stalwart with a management API key
+- A reachable Stalwart instance for manual end-to-end mail testing
 
 ## Configuration
 
@@ -27,14 +27,21 @@ Important settings include:
 
 ## Local development
 
-Start Redis and verify it:
+Start the local MySQL and Redis dependencies:
 
 ```powershell
-docker compose up -d redis
+docker compose up -d mysql redis
+docker compose ps mysql redis
+```
+
+Both services should become `healthy`. Verify them directly if needed:
+
+```powershell
+docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysqladmin ping -h 127.0.0.1 -uroot --silent'
 docker compose exec -T redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping'
 ```
 
-Keep the existing MySQL container running if it owns the development database. Do not run `docker compose down -v`, because named volumes contain persistent data.
+The commands should report `mysqld is alive` and `PONG`. Flyway creates or updates the application schema when the backend starts.
 
 Start the backend:
 
@@ -43,6 +50,16 @@ Start the backend:
 ```
 
 Alternatively, open `MailBackendApplication.java` in VS Code and use `Run Java`.
+
+Do not run `docker compose down -v`; the named volumes contain persistent MySQL, Redis, and Prometheus data.
+
+### Stalwart end-to-end testing
+
+Unit tests and MySQL integration tests do not require an external Stalwart server; the Management API and JMAP clients are mocked. Running the backend with provisioning disabled also does not require a local Stalwart container.
+
+Manual end-to-end testing of registration provisioning, aliases, account settings, reconciliation, mailboxes, and messages requires a deployed Stalwart instance reachable through `STALWART_BASE_URL`. Configure a dedicated test domain and automation account, set `STALWART_MANAGEMENT_API_KEY` and `STALWART_CREDENTIAL_ENCRYPTION_KEY`, then enable `STALWART_PROVISIONING_ENABLED=true`.
+
+The Stalwart instance may run in a local container or on a separate test server. Prefer a non-production instance so test registration, alias, disable, and reconciliation operations cannot alter production mail accounts.
 
 ## API and operations
 
@@ -58,8 +75,9 @@ Operational documentation:
 
 - [Production deployment](deploy/README.md)
 - [First administrator bootstrap](deploy/BOOTSTRAP_ADMIN.md)
-- [MySQL backup and restore](deploy/backup/README.md)
-- [Stalwart and off-host backup](deploy/MAIL_INFRASTRUCTURE.md)
+- [MySQL backup and restore](deploy/mysql/README.md)
+- [Stalwart deployment and backup](deploy/stalwart/README.md)
+- [Off-host backup retention](deploy/remote-backup/README.md)
 - [Monitoring and alerts](monitoring/README.md)
 
 ## Testing
