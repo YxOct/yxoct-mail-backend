@@ -91,6 +91,11 @@ public class EmailAliasService {
               remoteAliasAdded.set(
                   managementClient.addAccountAlias(account.stalwartAccountId(), normalizedAddress));
             } catch (StalwartProvisioningException exception) {
+              log.warn(
+                  "Stalwart alias update failed mailAccountId={} failureCode={} diagnostic={}",
+                  mailAccountId,
+                  exception.failureCode(),
+                  exception.diagnostic());
               throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
             }
             aliasRepository.insert(mailAccountId, normalizedAddress, now);

@@ -6,10 +6,12 @@ import com.yxoct.mail.common.web.RequestIdContext;
 import com.yxoct.mail.config.StalwartProperties;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -76,25 +78,26 @@ public class StalwartManagementClient {
   private boolean updateAccountAlias(String accountId, AddressParts address, boolean add) {
     String domainId = findDomainId(address.domain());
     JsonNode account = getAccount(accountId);
-    List<JsonNode> aliases = elements(account.path("aliases"));
-    int matchingIndex = -1;
-    for (int index = 0; index < aliases.size(); index++) {
-      JsonNode alias = aliases.get(index);
+    Map<String, JsonNode> aliases = indexedObject(account.path("aliases"));
+    String matchingKey = null;
+    for (Map.Entry<String, JsonNode> entry : aliases.entrySet()) {
+      JsonNode alias = entry.getValue();
       if (address.localPart().equalsIgnoreCase(nullableText(alias, "name"))
           && domainId.equals(nullableText(alias, "domainId"))) {
-        matchingIndex = index;
+        matchingKey = entry.getKey();
         break;
       }
     }
-    if ((add && matchingIndex >= 0) || (!add && matchingIndex < 0)) {
+    if ((add && matchingKey != null) || (!add && matchingKey == null)) {
       return false;
     }
     Map<String, Object> patch = new LinkedHashMap<>();
     if (add) {
       patch.put(
-          "aliases/" + aliases.size(), Map.of("name", address.localPart(), "domainId", domainId));
+          "aliases/" + nextIndex(aliases.keySet()),
+          Map.of("name", address.localPart(), "domainId", domainId));
     } else {
-      patch.put("aliases/" + matchingIndex, null);
+      patch.put("aliases/" + matchingKey, null);
     }
     JsonNode result = invoke("x:Account/set", Map.of("update", Map.of(accountId, patch)));
     JsonNode rejected = result.path("notUpdated").path(accountId);
@@ -269,6 +272,38 @@ public class StalwartManagementClient {
       throw new StalwartProvisioningException("INVALID_GET_RESPONSE");
     }
     return values;
+  }
+
+  private Map<String, JsonNode> indexedObject(JsonNode node) {
+    if (!node.isObject()) {
+      throw new StalwartProvisioningException("INVALID_GET_RESPONSE");
+    }
+    Map<String, JsonNode> values = new LinkedHashMap<>();
+    node.properties()
+        .forEach(
+            entry -> {
+              if (!entry.getKey().matches("0|[1-9][0-9]*") || !entry.getValue().isObject()) {
+                throw new StalwartProvisioningException("INVALID_GET_RESPONSE");
+              }
+              values.put(entry.getKey(), entry.getValue());
+            });
+    return values;
+  }
+
+  private int nextIndex(Set<String> keys) {
+    Set<Integer> indexes = new HashSet<>();
+    try {
+      for (String key : keys) {
+        indexes.add(Integer.parseInt(key));
+      }
+    } catch (NumberFormatException exception) {
+      throw new StalwartProvisioningException("INVALID_GET_RESPONSE", exception);
+    }
+    int index = 0;
+    while (indexes.contains(index)) {
+      index++;
+    }
+    return index;
   }
 
   private String requiredText(JsonNode node, String field, String failureCode) {

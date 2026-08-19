@@ -144,7 +144,7 @@ class StalwartManagementClientTest {
   @Test
   void addsAnAccountAlias() {
     expectDomainLookup();
-    expectAccountAliases("[]");
+    expectAccountAliases("{}");
     server
         .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
@@ -161,7 +161,7 @@ class StalwartManagementClientTest {
   @Test
   void removesAnAccountAlias() {
     expectDomainLookup();
-    expectAccountAliases("[{\"name\":\"hello\",\"domainId\":\"domain-1\"}]");
+    expectAccountAliases("{\"0\":{\"name\":\"hello\",\"domainId\":\"domain-1\"}}");
     server
         .expect(requestTo("http://localhost/jmap"))
         .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
@@ -174,9 +174,24 @@ class StalwartManagementClientTest {
   @Test
   void treatsAnExistingAliasAsAnIdempotentSuccess() {
     expectDomainLookup();
-    expectAccountAliases("[{\"name\":\"hello\",\"domainId\":\"domain-1\"}]");
+    expectAccountAliases("{\"0\":{\"name\":\"hello\",\"domainId\":\"domain-1\"}}");
 
     assertThat(client.addAccountAlias("account-1", "hello@yxoct.com")).isFalse();
+  }
+
+  @Test
+  void fillsTheFirstAvailableAliasIndex() {
+    expectDomainLookup();
+    expectAccountAliases(
+        "{\"0\":{\"name\":\"first\",\"domainId\":\"domain-1\"},"
+            + "\"2\":{\"name\":\"third\",\"domainId\":\"domain-1\"}}");
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1['aliases/1'].name").value("hello"))
+        .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
+
+    assertThat(client.addAccountAlias("account-1", "hello@yxoct.com")).isTrue();
   }
 
   @Test
