@@ -4,6 +4,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.yxoct.mail.client.stalwart.StalwartAccountMetadata;
 import com.yxoct.mail.client.stalwart.StalwartAccountSnapshot;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
@@ -58,7 +59,6 @@ class MailAccountReconciliationServiceTest {
     when(repository.findCandidates(20)).thenReturn(List.of(candidate));
     when(managementClient.inspectAccount("account-9"))
         .thenReturn(Optional.of(new StalwartAccountSnapshot("account-9", true)));
-
     service.reconcileAccounts();
 
     verify(repository).saveResult(9, MailAccountDriftType.ENABLED_STATE_MISMATCH, null, NOW);
@@ -70,10 +70,42 @@ class MailAccountReconciliationServiceTest {
     when(repository.findCandidates(20)).thenReturn(List.of(candidate));
     when(managementClient.inspectAccount("account-9"))
         .thenReturn(Optional.of(new StalwartAccountSnapshot("account-9", true)));
+    when(managementClient.inspectAccountMetadata("account-9", "yxoct.com"))
+        .thenReturn(new StalwartAccountMetadata("Alice", java.util.Set.of()));
+    when(repository.findExpectedAliases(9)).thenReturn(List.of());
 
     service.reconcileAccounts();
 
     verify(repository).saveResult(9, null, null, NOW);
+  }
+
+  @Test
+  void recordsDisplayNameMismatch() {
+    var candidate = candidate(MailAccountStatus.ACTIVE);
+    when(repository.findCandidates(20)).thenReturn(List.of(candidate));
+    when(managementClient.inspectAccount("account-9"))
+        .thenReturn(Optional.of(new StalwartAccountSnapshot("account-9", true)));
+    when(managementClient.inspectAccountMetadata("account-9", "yxoct.com"))
+        .thenReturn(new StalwartAccountMetadata("Wrong", java.util.Set.of()));
+
+    service.reconcileAccounts();
+
+    verify(repository).saveResult(9, MailAccountDriftType.DISPLAY_NAME_MISMATCH, null, NOW);
+  }
+
+  @Test
+  void recordsAliasMismatch() {
+    var candidate = candidate(MailAccountStatus.ACTIVE);
+    when(repository.findCandidates(20)).thenReturn(List.of(candidate));
+    when(managementClient.inspectAccount("account-9"))
+        .thenReturn(Optional.of(new StalwartAccountSnapshot("account-9", true)));
+    when(managementClient.inspectAccountMetadata("account-9", "yxoct.com"))
+        .thenReturn(new StalwartAccountMetadata("Alice", java.util.Set.of("old@yxoct.com")));
+    when(repository.findExpectedAliases(9)).thenReturn(List.of("alias@yxoct.com"));
+
+    service.reconcileAccounts();
+
+    verify(repository).saveResult(9, MailAccountDriftType.ALIAS_MISMATCH, null, NOW);
   }
 
   @Test
@@ -115,6 +147,7 @@ class MailAccountReconciliationServiceTest {
   }
 
   private MailAccountReconciliationCandidate candidate(MailAccountStatus status) {
-    return new MailAccountReconciliationCandidate(9, 7, "alice@yxoct.com", "account-9", status);
+    return new MailAccountReconciliationCandidate(
+        9, 7, "alice@yxoct.com", "Alice", "account-9", status);
   }
 }

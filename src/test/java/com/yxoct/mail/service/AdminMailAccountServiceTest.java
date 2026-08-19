@@ -6,6 +6,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yxoct.mail.client.stalwart.StalwartAccountMetadata;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.common.exception.BusinessException;
@@ -104,6 +105,8 @@ class AdminMailAccountServiceTest {
                 new AdminMailAccountDriftTarget(
                     9,
                     7,
+                    "alice@yxoct.com",
+                    "Alice",
                     "account-9",
                     MailAccountStatus.ACTIVE,
                     MailAccountDriftType.REMOTE_ACCOUNT_MISSING)));
@@ -124,6 +127,8 @@ class AdminMailAccountServiceTest {
                 new AdminMailAccountDriftTarget(
                     9,
                     7,
+                    "alice@yxoct.com",
+                    "Alice",
                     "account-9",
                     MailAccountStatus.DISABLED,
                     MailAccountDriftType.ENABLED_STATE_MISMATCH)));
@@ -142,6 +147,8 @@ class AdminMailAccountServiceTest {
                 new AdminMailAccountDriftTarget(
                     9,
                     7,
+                    "alice@yxoct.com",
+                    "Alice",
                     "account-9",
                     MailAccountStatus.ACTIVE,
                     MailAccountDriftType.ENABLED_STATE_MISMATCH)));
@@ -165,6 +172,8 @@ class AdminMailAccountServiceTest {
                 new AdminMailAccountDriftTarget(
                     9,
                     7,
+                    "alice@yxoct.com",
+                    "Alice",
                     "account-9",
                     MailAccountStatus.ACTIVE,
                     MailAccountDriftType.INSPECTION_FAILED)));
@@ -175,6 +184,38 @@ class AdminMailAccountServiceTest {
             exception ->
                 assertThat(exception.getErrorCode())
                     .isEqualTo(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT));
+  }
+
+  @Test
+  void repairsDisplayNameMismatch() {
+    when(repository.findDriftForUpdate(9))
+        .thenReturn(Optional.of(driftTarget(MailAccountDriftType.DISPLAY_NAME_MISMATCH)));
+
+    service.repairDrift(42, 9);
+
+    verify(managementClient).updateAccountDisplayName("account-9", "Alice");
+  }
+
+  @Test
+  void repairsAliasesWithoutTouchingOtherDomains() {
+    when(repository.findDriftForUpdate(9))
+        .thenReturn(Optional.of(driftTarget(MailAccountDriftType.ALIAS_MISMATCH)));
+    when(managementClient.inspectAccountMetadata("account-9", "yxoct.com"))
+        .thenReturn(
+            new StalwartAccountMetadata(
+                "Alice", java.util.Set.of("old@yxoct.com", "keep@yxoct.com")));
+    when(reconciliationRepository.findExpectedAliases(9))
+        .thenReturn(List.of("keep@yxoct.com", "new@yxoct.com"));
+
+    service.repairDrift(42, 9);
+
+    verify(managementClient).addAccountAlias("account-9", "new@yxoct.com");
+    verify(managementClient).removeAccountAlias("account-9", "old@yxoct.com");
+  }
+
+  private AdminMailAccountDriftTarget driftTarget(MailAccountDriftType driftType) {
+    return new AdminMailAccountDriftTarget(
+        9, 7, "alice@yxoct.com", "Alice", "account-9", MailAccountStatus.ACTIVE, driftType);
   }
 
   @Test

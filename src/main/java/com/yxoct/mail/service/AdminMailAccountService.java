@@ -50,12 +50,52 @@ public class AdminMailAccountService {
     switch (target.driftType()) {
       case REMOTE_ACCOUNT_MISSING -> repairMissingAccount(target, now);
       case ENABLED_STATE_MISMATCH -> repairEnabledState(target);
+      case DISPLAY_NAME_MISMATCH -> repairDisplayName(target);
+      case ALIAS_MISMATCH -> repairAliases(target);
       case INSPECTION_FAILED ->
           throw new BusinessException(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT);
     }
     reconciliationRepository.clearResult(mailAccountId);
     repository.saveDriftRepairAudit(
         target.userId(), operatedByUserId, mailAccountId, target.driftType().name(), now);
+  }
+
+  private void repairDisplayName(AdminMailAccountDriftTarget target) {
+    requireRemoteAccount(target);
+    try {
+      managementClient.updateAccountDisplayName(target.stalwartAccountId(), target.displayName());
+    } catch (StalwartProvisioningException exception) {
+      throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
+    }
+  }
+
+  private void repairAliases(AdminMailAccountDriftTarget target) {
+    requireRemoteAccount(target);
+    String domain = target.emailAddress().substring(target.emailAddress().lastIndexOf('@') + 1);
+    try {
+      var remote = managementClient.inspectAccountMetadata(target.stalwartAccountId(), domain);
+      var expected =
+          java.util.Set.copyOf(
+              reconciliationRepository.findExpectedAliases(target.mailAccountId()));
+      for (String alias : expected) {
+        if (!remote.aliases().contains(alias)) {
+          managementClient.addAccountAlias(target.stalwartAccountId(), alias);
+        }
+      }
+      for (String alias : remote.aliases()) {
+        if (!expected.contains(alias)) {
+          managementClient.removeAccountAlias(target.stalwartAccountId(), alias);
+        }
+      }
+    } catch (StalwartProvisioningException exception) {
+      throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
+    }
+  }
+
+  private void requireRemoteAccount(AdminMailAccountDriftTarget target) {
+    if (target.stalwartAccountId() == null || target.stalwartAccountId().isBlank()) {
+      throw new BusinessException(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT);
+    }
   }
 
   private void repairMissingAccount(AdminMailAccountDriftTarget target, LocalDateTime now) {

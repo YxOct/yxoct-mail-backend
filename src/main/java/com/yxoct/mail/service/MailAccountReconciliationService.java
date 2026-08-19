@@ -1,5 +1,6 @@
 package com.yxoct.mail.service;
 
+import com.yxoct.mail.client.stalwart.StalwartAccountMetadata;
 import com.yxoct.mail.client.stalwart.StalwartAccountSnapshot;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
@@ -11,6 +12,7 @@ import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -66,6 +68,9 @@ public class MailAccountReconciliationService {
           remote.get().enabled() == expectedEnabled
               ? null
               : MailAccountDriftType.ENABLED_STATE_MISMATCH;
+      if (driftType == null) {
+        driftType = detectMetadataDrift(candidate);
+      }
       repository.saveResult(candidate.mailAccountId(), driftType, null, checkedAt);
     } catch (StalwartProvisioningException exception) {
       repository.saveResult(
@@ -78,5 +83,18 @@ public class MailAccountReconciliationService {
           candidate.mailAccountId(),
           exception.failureCode());
     }
+  }
+
+  private MailAccountDriftType detectMetadataDrift(MailAccountReconciliationCandidate candidate) {
+    String domain =
+        candidate.emailAddress().substring(candidate.emailAddress().lastIndexOf('@') + 1);
+    StalwartAccountMetadata metadata =
+        managementClient.inspectAccountMetadata(candidate.stalwartAccountId(), domain);
+    if (!java.util.Objects.equals(candidate.displayName(), metadata.displayName())) {
+      return MailAccountDriftType.DISPLAY_NAME_MISMATCH;
+    }
+    Set<String> expectedAliases =
+        Set.copyOf(repository.findExpectedAliases(candidate.mailAccountId()));
+    return expectedAliases.equals(metadata.aliases()) ? null : MailAccountDriftType.ALIAS_MISMATCH;
   }
 }

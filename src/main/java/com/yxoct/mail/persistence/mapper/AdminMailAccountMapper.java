@@ -94,6 +94,8 @@ public interface AdminMailAccountMapper {
       """
       SELECT ma.id AS mail_account_id,
              uma.user_id,
+             ea.normalized_address AS email_address,
+             ma.display_name,
              ma.stalwart_account_id,
              ma.status AS local_status,
              r.drift_type
@@ -102,6 +104,9 @@ public interface AdminMailAccountMapper {
       JOIN user_mail_account uma
         ON uma.mail_account_id = ma.id
        AND uma.account_role = 'OWNER'
+      JOIN email_address ea
+        ON ea.mail_account_id = ma.id
+       AND ea.address_type = 'PRIMARY'
       WHERE ma.id = #{mailAccountId}
         AND r.drift_type <> 'NONE'
       FOR UPDATE

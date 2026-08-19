@@ -245,6 +245,22 @@ class StalwartManagementClientTest {
   }
 
   @Test
+  void inspectsDisplayNameAndAliasesForTheManagedDomain() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            methodResponse(
+                "x:Account/get",
+                "{\"list\":[{\"id\":\"account-1\",\"description\":\"Alice\","
+                    + "\"aliases\":{\"0\":{\"name\":\"hello\","
+                    + "\"domainId\":\"domain-1\"}}}]}"));
+    expectDomainLookup();
+
+    assertThat(client.inspectAccountMetadata("account-1", "yxoct.com"))
+        .isEqualTo(new StalwartAccountMetadata("Alice", java.util.Set.of("hello@yxoct.com")));
+  }
+
+  @Test
   void addsAnAccountAlias() {
     expectDomainLookup();
     expectAccountAliases("{}");

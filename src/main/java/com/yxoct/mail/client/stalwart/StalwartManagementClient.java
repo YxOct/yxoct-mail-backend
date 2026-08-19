@@ -133,6 +133,19 @@ public class StalwartManagementClient {
         new StalwartAccountSnapshot(accountId, isAccountEnabled(accounts.getFirst())));
   }
 
+  public StalwartAccountMetadata inspectAccountMetadata(String accountId, String domain) {
+    JsonNode account = getAccount(accountId);
+    String domainId = findDomainId(domain);
+    Set<String> aliases = new HashSet<>();
+    for (JsonNode alias : indexedObject(account.path("aliases")).values()) {
+      if (domainId.equals(nullableText(alias, "domainId"))) {
+        String name = requiredText(alias, "name", "INVALID_ACCOUNT_RESPONSE");
+        aliases.add((name + "@" + domain).toLowerCase());
+      }
+    }
+    return new StalwartAccountMetadata(nullableText(account, "description"), Set.copyOf(aliases));
+  }
+
   public boolean addAccountAlias(String accountId, String emailAddress) {
     return updateAccountAlias(accountId, AddressParts.parse(emailAddress), true);
   }

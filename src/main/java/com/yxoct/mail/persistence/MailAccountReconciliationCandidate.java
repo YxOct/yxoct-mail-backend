@@ -6,5 +6,6 @@ public record MailAccountReconciliationCandidate(
     long mailAccountId,
     long userId,
     String emailAddress,
+    String displayName,
     String stalwartAccountId,
     MailAccountStatus status) {}

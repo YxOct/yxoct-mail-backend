@@ -20,6 +20,10 @@ public class MailAccountReconciliationRepository {
     return mapper.findCandidates(limit);
   }
 
+  public List<String> findExpectedAliases(long mailAccountId) {
+    return mapper.findExpectedAliases(mailAccountId);
+  }
+
   @Transactional
   public void saveResult(
       long mailAccountId,

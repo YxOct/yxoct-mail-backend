@@ -18,6 +18,7 @@ public interface MailAccountReconciliationMapper {
       SELECT ma.id AS mail_account_id,
              uma.user_id,
              ea.normalized_address AS email_address,
+             ma.display_name,
              ma.stalwart_account_id,
              ma.status
       FROM mail_account ma
@@ -38,6 +39,16 @@ public interface MailAccountReconciliationMapper {
       LIMIT #{limit}
       """)
   List<MailAccountReconciliationCandidate> findCandidates(@Param("limit") int limit);
+
+  @Select(
+      """
+      SELECT normalized_address
+      FROM email_address
+      WHERE mail_account_id = #{mailAccountId}
+        AND address_type = 'ALIAS'
+      ORDER BY normalized_address
+      """)
+  List<String> findExpectedAliases(@Param("mailAccountId") long mailAccountId);
 
   @Delete("DELETE FROM mail_account_reconciliation WHERE mail_account_id = #{mailAccountId}")
   int deleteResult(@Param("mailAccountId") long mailAccountId);
