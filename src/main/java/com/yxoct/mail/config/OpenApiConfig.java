@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -32,6 +33,37 @@ public class OpenApiConfig {
                     "REST API for user access and receiving and managing email through Stalwart JMAP."));
   }
 
+  @Bean
+  OpenApiCustomizer securedOperationResponses() {
+    return openApi ->
+        openApi
+            .getPaths()
+            .values()
+            .forEach(
+                pathItem ->
+                    pathItem
+                        .readOperations()
+                        .forEach(
+                            operation -> {
+                              if (operation.getSecurity() == null
+                                  || operation.getSecurity().isEmpty()) {
+                                return;
+                              }
+                              operation
+                                  .getResponses()
+                                  .putIfAbsent(
+                                      "401",
+                                      new ApiResponse()
+                                          .$ref("#/components/responses/AuthenticationFailed"));
+                              operation
+                                  .getResponses()
+                                  .putIfAbsent(
+                                      "403",
+                                      new ApiResponse()
+                                          .$ref("#/components/responses/AccessDenied"));
+                            }));
+  }
+
   private Components errorComponents() {
     Components components = new Components();
     ModelConverters.getInstance().read(ApiErrorResponse.class).forEach(components::addSchemas);
@@ -43,6 +75,12 @@ public class OpenApiConfig {
                 .scheme("bearer")
                 .bearerFormat("JWT"))
         .addResponses("BadRequest", errorResponse("Invalid request", ErrorCode.BAD_REQUEST))
+        .addResponses(
+            "AuthenticationFailed",
+            errorResponse("Authentication is required or invalid", ErrorCode.AUTHENTICATION_FAILED))
+        .addResponses(
+            "AccessDenied",
+            errorResponse("The authenticated user is not allowed", ErrorCode.ACCESS_DENIED))
         .addResponses(
             "InternalError", errorResponse("Unexpected server error", ErrorCode.INTERNAL_ERROR))
         .addResponses(

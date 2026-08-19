@@ -20,6 +20,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -45,6 +46,7 @@ import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBo
 @RestController
 @RequestMapping("/api/mail")
 @Tag(name = "Mail", description = "Receive and manage mail through Stalwart JMAP")
+@SecurityRequirement(name = "bearerAuth")
 @ApiResponses({
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "500",

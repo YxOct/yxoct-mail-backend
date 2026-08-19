@@ -71,6 +71,10 @@ With the `dev` profile running:
 
 API responses use `{ "code", "message", "data" }`. Use OpenAPI for the complete endpoint and schema list.
 
+To use Apifox, start the backend with the `dev` profile, create an HTTP project, and import OpenAPI from `http://localhost:8080/v3/api-docs`. Treat the running OpenAPI document as the source of truth and update the Apifox project from that URL after backend contract changes instead of maintaining endpoints manually. Configure separate local and production environments in Apifox, and keep tokens and credentials in private environment variables.
+
+OpenAPI and Swagger UI are enabled only for the `dev` and `test` profiles. They remain disabled by default in production.
+
 Operational documentation:
 
 - [Production deployment](deploy/README.md)
