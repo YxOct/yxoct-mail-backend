@@ -16,8 +16,8 @@ public interface CurrentUserMapper {
              ma.display_name,
              au.role,
              au.status,
-             au.must_change_password,
-             ma.status AS mail_account_status
+             ma.status AS mail_account_status,
+             au.must_change_password
       FROM app_user au
       JOIN user_mail_account uma
         ON uma.user_id = au.id
