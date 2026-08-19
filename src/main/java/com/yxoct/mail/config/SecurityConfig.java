@@ -2,6 +2,7 @@ package com.yxoct.mail.config;
 
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.security.ApiSecurityErrorWriter;
+import com.yxoct.mail.security.PrometheusScrapeAuthenticationFilter;
 import com.yxoct.mail.security.UserAuthVersionFilter;
 import com.yxoct.mail.security.UserAuthVersionStore;
 import java.util.Optional;
@@ -32,10 +33,17 @@ public class SecurityConfig {
   }
 
   @Bean
+  PrometheusScrapeAuthenticationFilter prometheusScrapeAuthenticationFilter(
+      PrometheusProperties properties) {
+    return new PrometheusScrapeAuthenticationFilter(properties);
+  }
+
+  @Bean
   SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       ApiSecurityErrorWriter errorWriter,
       JwtAuthenticationConverter jwtAuthenticationConverter,
+      PrometheusScrapeAuthenticationFilter prometheusScrapeAuthenticationFilter,
       UserAuthVersionFilter userAuthVersionFilter)
       throws Exception {
     return http.csrf(csrf -> csrf.disable())
@@ -76,6 +84,8 @@ public class SecurityConfig {
                     .authenticationEntryPoint(
                         (request, response, exception) ->
                             errorWriter.write(response, ErrorCode.AUTHENTICATION_FAILED)))
+        .addFilterBefore(
+            prometheusScrapeAuthenticationFilter, BearerTokenAuthenticationFilter.class)
         .addFilterAfter(userAuthVersionFilter, BearerTokenAuthenticationFilter.class)
         .build();
   }

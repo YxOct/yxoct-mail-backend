@@ -59,6 +59,24 @@ With the `dev` profile running:
 
 All responses use `{ "code", "message", "data" }`. Use the generated OpenAPI document for the complete endpoint and schema list.
 
+## Local monitoring
+
+Generate a dedicated scrape token and add it to `.env` as `PROMETHEUS_SCRAPE_TOKEN`:
+
+```powershell
+$bytes = [byte[]]::new(32)
+[Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+[Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+```
+
+Restart the backend after adding the token, then start Prometheus:
+
+```powershell
+docker compose --profile monitoring up -d prometheus
+```
+
+Open `http://localhost:9090/targets` to verify that `yxoct-mail-backend` is `UP`, and open `http://localhost:9090/alerts` to inspect alert state. Prometheus stores alert state locally but does not send notifications; Alertmanager can be added later when a notification channel is selected.
+
 Important flows:
 
 - `POST /api/auth/register`: register with a single-use invitation.

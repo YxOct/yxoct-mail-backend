@@ -17,10 +17,12 @@ import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.security.JwtTokenService;
 import com.yxoct.mail.security.UserAuthVersionStore;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.OptionalLong;
 import javax.sql.DataSource;
 import org.apache.ibatis.session.SqlSessionFactory;
@@ -141,6 +143,17 @@ class MailBackendApplicationTests {
         .andExpect(status().isForbidden());
     mockMvc
         .perform(get("/actuator/prometheus").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  void allowsPrometheusScrapeToken() throws Exception {
+    String credentials =
+        Base64.getEncoder()
+            .encodeToString(
+                "prometheus:test-prometheus-scrape-token".getBytes(StandardCharsets.UTF_8));
+    mockMvc
+        .perform(get("/actuator/prometheus").header("Authorization", "Basic " + credentials))
         .andExpect(status().isOk());
   }
 

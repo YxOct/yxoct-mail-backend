@@ -1,4 +1,35 @@
 services:
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: yxoct-mail-prometheus
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    environment:
+      PROMETHEUS_SCRAPE_TOKEN: ${PROMETHEUS_SCRAPE_TOKEN:-}
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        test -n "$${PROMETHEUS_SCRAPE_TOKEN}" || {
+          echo "PROMETHEUS_SCRAPE_TOKEN is required" >&2
+          exit 1
+        }
+        umask 077
+        printf '%s' "$${PROMETHEUS_SCRAPE_TOKEN}" > /tmp/prometheus-scrape-token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus \
+          --web.console.libraries=/usr/share/prometheus/console_libraries \
+          --web.console.templates=/usr/share/prometheus/consoles
+
   redis:
     image: redis:7.4-alpine
     container_name: yxoct-mail-redis
@@ -68,3 +99,4 @@ services:
 volumes:
   mysql-data:
   redis-data:
+  prometheus-data:

@@ -36,3 +36,6 @@ springdoc:
 app:
   authentication:
     jwt-secret: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+  monitoring:
+    prometheus:
+      scrape-token: test-prometheus-scrape-token

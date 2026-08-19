@@ -29,6 +29,9 @@ spring:
 
 app:
   time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
+  monitoring:
+    prometheus:
+      scrape-token: ${PROMETHEUS_SCRAPE_TOKEN:}
   security:
     login-rate-limit:
       max-failures: ${LOGIN_RATE_LIMIT_MAX_FAILURES:5}

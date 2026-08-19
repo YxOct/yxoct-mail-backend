@@ -1,0 +1,67 @@
+groups:
+  - name: yxoct-mail-backend
+    rules:
+      - alert: YxOctMailBackendDown
+        expr: up{job="yxoct-mail-backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: YxOct Mail backend is unavailable
+          description: Prometheus has been unable to scrape the backend for 2 minutes.
+
+      - alert: MailReconciliationRepeatedlyFailing
+        expr: yxoct_mail_reconciliation_consecutive_failures{job="yxoct-mail-backend"} >= 3
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Stalwart reconciliation is repeatedly failing
+          description: The reconciliation task has failed at least 3 consecutive times.
+
+      - alert: MailReconciliationStale
+        expr: |
+          (
+            yxoct_mail_reconciliation_last_completed_epoch_seconds{job="yxoct-mail-backend"} > 0
+            and
+            time() - yxoct_mail_reconciliation_last_completed_epoch_seconds{job="yxoct-mail-backend"} > 900
+          )
+          or
+          (
+            yxoct_mail_reconciliation_last_completed_epoch_seconds{job="yxoct-mail-backend"} == 0
+            and on(job, instance)
+            time() - process_start_time_seconds{job="yxoct-mail-backend"} > 900
+          )
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Stalwart reconciliation has not completed recently
+          description: No successful reconciliation has been recorded for more than 15 minutes.
+
+      - alert: MailAccountDriftDetected
+        expr: yxoct_mail_reconciliation_drifts{job="yxoct-mail-backend"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Stalwart and MySQL mail-account state differ
+          description: At least one reconciliation drift has remained unresolved for 10 minutes.
+
+      - alert: MailProvisioningIssueDetected
+        expr: yxoct_mail_provisioning_issues{job="yxoct-mail-backend"} > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Mail-account provisioning requires attention
+          description: At least one mail account has remained pending or failed for 10 minutes.
+
+      - alert: LoginRateLimitSpike
+        expr: sum(increase(yxoct_mail_authentication_login_rate_limited_total{job="yxoct-mail-backend"}[5m])) >= 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Login rate limiting increased sharply
+          description: Login rate limiting was triggered at least 10 times within 5 minutes.
