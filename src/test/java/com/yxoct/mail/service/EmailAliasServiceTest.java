@@ -3,8 +3,10 @@ package com.yxoct.mail.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
@@ -58,8 +60,10 @@ class EmailAliasServiceTest {
 
   @BeforeEach
   void setUp() {
-    when(transactionManager.getTransaction(
-            org.mockito.ArgumentMatchers.any(TransactionDefinition.class)))
+    lenient()
+        .when(
+            transactionManager.getTransaction(
+                org.mockito.ArgumentMatchers.any(TransactionDefinition.class)))
         .thenReturn(new SimpleTransactionStatus());
     tokenCodec = new InvitationTokenCodec(new SecureRandom());
     service =
@@ -69,7 +73,7 @@ class EmailAliasServiceTest {
             new RegistrationInvitationValidator(),
             tokenCodec,
             new EmailAddressNormalizer(
-                new RegistrationProperties("yxoct.com", Duration.ofHours(24), Set.of("admin"))),
+                new RegistrationProperties("yxoct.com", Duration.ofHours(24), Set.of("billing"))),
             accountRepository,
             aliasRepository,
             managementClient,
@@ -92,6 +96,19 @@ class EmailAliasServiceTest {
     verify(managementClient).addAccountAlias("stalwart-2", "hello@yxoct.com");
     verify(aliasRepository).insert(2, "hello@yxoct.com", NOW_LOCAL);
     verify(invitationRepository).markUsed(7, 1, NOW_LOCAL);
+  }
+
+  @Test
+  void rejectsCoreAndConfiguredReservedAliasesBeforeUsingTheInvitation() {
+    assertBusinessError("OWNER", ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
+    assertBusinessError("billing", ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
+
+    verifyNoInteractions(
+        transactionManager,
+        invitationRepository,
+        accountRepository,
+        aliasRepository,
+        managementClient);
   }
 
   @Test
@@ -143,7 +160,11 @@ class EmailAliasServiceTest {
   }
 
   private void assertBusinessError(ErrorCode errorCode) {
-    assertThatThrownBy(() -> service.create("1", 2, "yxi-token", "hello"))
+    assertBusinessError("hello", errorCode);
+  }
+
+  private void assertBusinessError(String localPart, ErrorCode errorCode) {
+    assertThatThrownBy(() -> service.create("1", 2, "yxi-token", localPart))
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception -> assertThat(exception.getErrorCode()).isEqualTo(errorCode));

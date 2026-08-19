@@ -181,7 +181,9 @@ class RegistrationServiceTest {
   void rejectsReservedAndMalformedEmailNames() {
     CreatedRegistrationInvitation invitation = invitationService.create();
 
-    assertRegistrationError(invitation.token(), "admin", ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
+    assertRegistrationError(invitation.token(), "OWNER", ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
+    assertRegistrationError(
+        invitation.token(), "notifications", ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
     assertRegistrationError(invitation.token(), "a..b", ErrorCode.BAD_REQUEST);
 
     assertThat(invitationMapper.selectById(invitation.id()).getStatus())

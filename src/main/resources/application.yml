@@ -36,26 +36,30 @@ app:
     mail-domain: ${MAIL_DOMAIN:yxoct.com}
     invitation-ttl: ${REGISTRATION_INVITATION_TTL:7d}
     reserved-local-parts:
-      - abuse
-      - admin
-      - administrator
+      - accounts
+      - alerts
       - billing
+      - careers
+      - compliance
       - contact
-      - hostmaster
-      - info
+      - copyright
+      - feedback
+      - finance
+      - help
+      - helpdesk
+      - hr
+      - jobs
       - legal
-      - mailer-daemon
-      - marketing
-      - no-reply
-      - noc
-      - noreply
-      - postmaster
+      - media
+      - newsletter
+      - notifications
+      - partners
+      - payments
+      - press
       - privacy
-      - root
-      - sales
-      - security
-      - support
-      - webmaster
+      - recruitment
+      - service
+      - status
   authentication:
     issuer: ${JWT_ISSUER:yxoct-mail-backend}
     jwt-secret: ${JWT_SECRET:}
