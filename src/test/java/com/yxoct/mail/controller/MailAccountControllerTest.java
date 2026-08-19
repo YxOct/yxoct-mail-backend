@@ -3,10 +3,14 @@ package com.yxoct.mail.controller;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yxoct.mail.domain.mail.EmailAliasResult;
 import com.yxoct.mail.domain.mail.MailAccountSettings;
+import com.yxoct.mail.persistence.entity.EmailAddressType;
+import com.yxoct.mail.service.EmailAliasService;
 import com.yxoct.mail.service.MailAccountSettingsService;
 import java.time.Instant;
 import org.junit.jupiter.api.Test;
@@ -25,6 +29,27 @@ class MailAccountControllerTest {
 
   @Autowired private MockMvc mockMvc;
   @MockitoBean private MailAccountSettingsService settingsService;
+  @MockitoBean private EmailAliasService aliasService;
+
+  @Test
+  void addsAnAliasToAnOwnedMailAccount() throws Exception {
+    when(aliasService.create("1", 2, "yxi-token", "hello"))
+        .thenReturn(new EmailAliasResult(2, "hello@yxoct.com", EmailAddressType.ALIAS));
+
+    mockMvc
+        .perform(
+            post("/api/mail/accounts/2/aliases")
+                .principal(authentication(1))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"invitationCode\":\"yxi-token\",\"emailLocalPart\":\"hello\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.data.mailAccountId").value(2))
+        .andExpect(jsonPath("$.data.emailAddress").value("hello@yxoct.com"))
+        .andExpect(jsonPath("$.data.addressType").value("ALIAS"));
+
+    verify(aliasService).create("1", 2, "yxi-token", "hello");
+  }
 
   @Test
   void updatesAnOwnedMailAccountDisplayName() throws Exception {

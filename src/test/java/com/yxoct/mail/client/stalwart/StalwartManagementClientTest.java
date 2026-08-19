@@ -142,6 +142,44 @@ class StalwartManagementClientTest {
   }
 
   @Test
+  void addsAnAccountAlias() {
+    expectDomainLookup();
+    expectAccountAliases("[]");
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1['aliases/0'].name").value("hello"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1['aliases/0'].domainId")
+                .value("domain-1"))
+        .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
+
+    assertThat(client.addAccountAlias("account-1", "hello@yxoct.com")).isTrue();
+  }
+
+  @Test
+  void removesAnAccountAlias() {
+    expectDomainLookup();
+    expectAccountAliases("[{\"name\":\"hello\",\"domainId\":\"domain-1\"}]");
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
+        .andExpect(jsonPath("$.methodCalls[0][1].update.account-1['aliases/0']").doesNotExist())
+        .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
+
+    client.removeAccountAlias("account-1", "hello@yxoct.com");
+  }
+
+  @Test
+  void treatsAnExistingAliasAsAnIdempotentSuccess() {
+    expectDomainLookup();
+    expectAccountAliases("[{\"name\":\"hello\",\"domainId\":\"domain-1\"}]");
+
+    assertThat(client.addAccountAlias("account-1", "hello@yxoct.com")).isFalse();
+  }
+
+  @Test
   void exposesOnlySetErrorTypeAndPropertyNamesWhenCreationIsRejected() {
     expectDomainLookup();
     server
@@ -193,6 +231,16 @@ class StalwartManagementClientTest {
             methodResponse(
                 "x:Account/get",
                 "{\"list\":[{\"id\":\"account-1\",\"emailAddress\":\"alice@yxoct.com\"}]}"));
+  }
+
+  private void expectAccountAliases(String aliases) {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/get"))
+        .andRespond(
+            methodResponse(
+                "x:Account/get",
+                "{\"list\":[{\"id\":\"account-1\",\"aliases\":" + aliases + "}]}"));
   }
 
   private void expectCredentialVerification(ResponseCreator response) {

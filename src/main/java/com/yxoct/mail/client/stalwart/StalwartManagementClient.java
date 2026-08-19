@@ -65,6 +65,58 @@ public class StalwartManagementClient {
     }
   }
 
+  public boolean addAccountAlias(String accountId, String emailAddress) {
+    return updateAccountAlias(accountId, AddressParts.parse(emailAddress), true);
+  }
+
+  public void removeAccountAlias(String accountId, String emailAddress) {
+    updateAccountAlias(accountId, AddressParts.parse(emailAddress), false);
+  }
+
+  private boolean updateAccountAlias(String accountId, AddressParts address, boolean add) {
+    String domainId = findDomainId(address.domain());
+    JsonNode account = getAccount(accountId);
+    List<JsonNode> aliases = elements(account.path("aliases"));
+    int matchingIndex = -1;
+    for (int index = 0; index < aliases.size(); index++) {
+      JsonNode alias = aliases.get(index);
+      if (address.localPart().equalsIgnoreCase(nullableText(alias, "name"))
+          && domainId.equals(nullableText(alias, "domainId"))) {
+        matchingIndex = index;
+        break;
+      }
+    }
+    if ((add && matchingIndex >= 0) || (!add && matchingIndex < 0)) {
+      return false;
+    }
+    Map<String, Object> patch = new LinkedHashMap<>();
+    if (add) {
+      patch.put(
+          "aliases/" + aliases.size(), Map.of("name", address.localPart(), "domainId", domainId));
+    } else {
+      patch.put("aliases/" + matchingIndex, null);
+    }
+    JsonNode result = invoke("x:Account/set", Map.of("update", Map.of(accountId, patch)));
+    JsonNode rejected = result.path("notUpdated").path(accountId);
+    if (rejected.isObject()) {
+      throw new StalwartProvisioningException(
+          "ACCOUNT_ALIAS_UPDATE_REJECTED", setErrorDiagnostic(rejected));
+    }
+    if (!result.path("updated").has(accountId)) {
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+    return true;
+  }
+
+  private JsonNode getAccount(String accountId) {
+    JsonNode result = invoke("x:Account/get", Map.of("ids", List.of(accountId)));
+    List<JsonNode> accounts = elements(result.path("list"));
+    if (accounts.size() != 1 || !accountId.equals(nullableText(accounts.getFirst(), "id"))) {
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+    return accounts.getFirst();
+  }
+
   private String findDomainId(String domain) {
     List<String> ids = queryIds("x:Domain/query", Map.of("name", domain));
     JsonNode result = invoke("x:Domain/get", Map.of("ids", ids));
