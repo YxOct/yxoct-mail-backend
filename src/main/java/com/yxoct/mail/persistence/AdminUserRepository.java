@@ -25,4 +25,12 @@ public class AdminUserRepository {
   public Optional<AdminUserRecord> findById(long userId) {
     return Optional.ofNullable(mapper.findUser(userId));
   }
+
+  public long countAudits(long userId) {
+    return mapper.countUserAudits(userId);
+  }
+
+  public List<UserAuditRecord> findAudits(long userId, int page, int size) {
+    return mapper.findUserAudits(userId, (long) (page - 1) * size, size);
+  }
 }

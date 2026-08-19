@@ -7,12 +7,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yxoct.mail.domain.user.AdminUserAuditEntry;
+import com.yxoct.mail.domain.user.AdminUserAuditPage;
 import com.yxoct.mail.domain.user.AdminUserPage;
 import com.yxoct.mail.domain.user.AdminUserSummary;
 import com.yxoct.mail.domain.user.TemporaryPasswordResponse;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
+import com.yxoct.mail.persistence.entity.UserStatusAuditAction;
 import com.yxoct.mail.service.AdminUserService;
 import com.yxoct.mail.service.PasswordService;
 import java.time.Instant;
@@ -86,6 +89,36 @@ class AdminUserControllerTest {
         .andExpect(jsonPath("$.data.mailAccountStatus").value("ACTIVE"));
 
     verify(userService).get(7);
+  }
+
+  @Test
+  void listsAUsersAuditHistory() throws Exception {
+    AdminUserAuditEntry entry =
+        new AdminUserAuditEntry(
+            12,
+            UserStatusAuditAction.PASSWORD_RESET_BY_ADMIN,
+            null,
+            42L,
+            "owner@yxoct.com",
+            LocalDateTime.of(2026, 8, 19, 22, 0));
+    when(userService.listAudits(7, 2, 25))
+        .thenReturn(new AdminUserAuditPage(2, 25, 1, List.of(entry)));
+
+    mockMvc
+        .perform(
+            get("/api/admin/users/7/audits")
+                .param("page", "2")
+                .param("size", "25")
+                .principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].action").value("PASSWORD_RESET_BY_ADMIN"))
+        .andExpect(jsonPath("$.data.items[0].operatedByUserId").value(42))
+        .andExpect(jsonPath("$.data.items[0].operatedByEmailAddress").value("owner@yxoct.com"))
+        .andExpect(jsonPath("$.data.items[0].password").doesNotExist())
+        .andExpect(jsonPath("$.data.items[0].passwordHash").doesNotExist());
+
+    verify(userService).listAudits(7, 2, 25);
   }
 
   @Test

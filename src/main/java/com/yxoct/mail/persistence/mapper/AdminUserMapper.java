@@ -1,6 +1,7 @@
 package com.yxoct.mail.persistence.mapper;
 
 import com.yxoct.mail.persistence.AdminUserRecord;
+import com.yxoct.mail.persistence.UserAuditRecord;
 import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -43,4 +44,35 @@ public interface AdminUserMapper {
 
   @Select(USER_SELECT + " WHERE au.id = #{userId}")
   AdminUserRecord findUser(@Param("userId") long userId);
+
+  @Select("SELECT COUNT(*) FROM user_status_audit WHERE user_id = #{userId}")
+  long countUserAudits(@Param("userId") long userId);
+
+  @Select(
+      """
+      SELECT audit.id AS audit_id,
+             audit.action,
+             audit.reason,
+             audit.operated_by_user_id,
+             operator_address.normalized_address AS operated_by_email_address,
+             audit.created_at
+      FROM user_status_audit audit
+      LEFT JOIN user_mail_account operator_account
+        ON operator_account.user_id = audit.operated_by_user_id
+       AND operator_account.account_role = 'OWNER'
+       AND operator_account.mail_account_id = (
+           SELECT MIN(owned.mail_account_id)
+           FROM user_mail_account owned
+           WHERE owned.user_id = audit.operated_by_user_id
+             AND owned.account_role = 'OWNER'
+       )
+      LEFT JOIN email_address operator_address
+        ON operator_address.mail_account_id = operator_account.mail_account_id
+       AND operator_address.address_type = 'PRIMARY'
+      WHERE audit.user_id = #{userId}
+      ORDER BY audit.created_at DESC, audit.id DESC
+      LIMIT #{limit} OFFSET #{offset}
+      """)
+  List<UserAuditRecord> findUserAudits(
+      @Param("userId") long userId, @Param("offset") long offset, @Param("limit") int limit);
 }

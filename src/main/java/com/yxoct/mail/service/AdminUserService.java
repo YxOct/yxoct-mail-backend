@@ -4,10 +4,13 @@ import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.user.AdminUserAuditEntry;
+import com.yxoct.mail.domain.user.AdminUserAuditPage;
 import com.yxoct.mail.domain.user.AdminUserPage;
 import com.yxoct.mail.domain.user.AdminUserSummary;
 import com.yxoct.mail.persistence.AdminUserRecord;
 import com.yxoct.mail.persistence.AdminUserRepository;
+import com.yxoct.mail.persistence.UserAuditRecord;
 import com.yxoct.mail.persistence.UserStatusMailAccount;
 import com.yxoct.mail.persistence.UserStatusManagementRepository;
 import com.yxoct.mail.persistence.UserStatusTarget;
@@ -66,6 +69,17 @@ public class AdminUserService {
         .findById(userId)
         .map(this::map)
         .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+  }
+
+  public AdminUserAuditPage listAudits(long userId, int page, int size) {
+    if (repository.findById(userId).isEmpty()) {
+      throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND);
+    }
+    return new AdminUserAuditPage(
+        page,
+        size,
+        repository.countAudits(userId),
+        repository.findAudits(userId, page, size).stream().map(this::mapAudit).toList());
   }
 
   public void disable(long operatedByUserId, long userId, String reason) {
@@ -291,5 +305,15 @@ public class AdminUserService {
         user.mailAccountId(),
         user.mailAccountStatus(),
         user.createdAt());
+  }
+
+  private AdminUserAuditEntry mapAudit(UserAuditRecord audit) {
+    return new AdminUserAuditEntry(
+        audit.auditId(),
+        audit.action(),
+        audit.reason(),
+        audit.operatedByUserId(),
+        audit.operatedByEmailAddress(),
+        audit.createdAt());
   }
 }

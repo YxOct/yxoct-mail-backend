@@ -1,6 +1,7 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import com.yxoct.mail.domain.user.AdminUserAuditPage;
 import com.yxoct.mail.domain.user.AdminUserPage;
 import com.yxoct.mail.domain.user.AdminUserSummary;
 import com.yxoct.mail.domain.user.DisableUserRequest;
@@ -60,6 +61,15 @@ public class AdminUserController {
   })
   public ApiResponse<AdminUserSummary> get(@PathVariable @Min(1) long userId) {
     return ApiResponse.success(userService.get(userId));
+  }
+
+  @GetMapping("/{userId}/audits")
+  @Operation(summary = "List an application user's administrative audit history")
+  public ApiResponse<AdminUserAuditPage> listAudits(
+      @PathVariable @Min(1) long userId,
+      @RequestParam(defaultValue = "1") @Min(1) int page,
+      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+    return ApiResponse.success(userService.listAudits(userId, page, size));
   }
 
   @PostMapping("/{userId}/disable")

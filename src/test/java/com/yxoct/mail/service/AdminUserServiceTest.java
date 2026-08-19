@@ -17,6 +17,7 @@ import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.user.AdminUserSummary;
 import com.yxoct.mail.persistence.AdminUserRecord;
 import com.yxoct.mail.persistence.AdminUserRepository;
+import com.yxoct.mail.persistence.UserAuditRecord;
 import com.yxoct.mail.persistence.UserStatusMailAccount;
 import com.yxoct.mail.persistence.UserStatusManagementRepository;
 import com.yxoct.mail.persistence.UserStatusTarget;
@@ -86,6 +87,40 @@ class AdminUserServiceTest {
     when(repository.findPage(2, 20)).thenReturn(List.of(record));
 
     assertThat(service.list(2, 20).items()).containsExactly(summary());
+  }
+
+  @Test
+  void returnsAUsersAuditPage() {
+    when(repository.findById(7)).thenReturn(Optional.of(userRecord()));
+    when(repository.countAudits(7)).thenReturn(1L);
+    when(repository.findAudits(7, 1, 20))
+        .thenReturn(
+            List.of(
+                new UserAuditRecord(
+                    12,
+                    UserStatusAuditAction.DISABLED,
+                    "Policy violation",
+                    42L,
+                    "owner@yxoct.com",
+                    NOW)));
+
+    var page = service.listAudits(7, 1, 20);
+
+    assertThat(page.total()).isEqualTo(1);
+    assertThat(page.items()).hasSize(1);
+    assertThat(page.items().getFirst().operatedByEmailAddress()).isEqualTo("owner@yxoct.com");
+    assertThat(page.items().getFirst().action()).isEqualTo(UserStatusAuditAction.DISABLED);
+  }
+
+  @Test
+  void rejectsAuditHistoryForAnUnknownUser() {
+    when(repository.findById(7)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> service.listAudits(7, 1, 20))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
   }
 
   @Test
