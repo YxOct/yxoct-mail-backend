@@ -1,5 +1,7 @@
 package com.yxoct.mail.service;
 
+import com.yxoct.mail.client.stalwart.StalwartManagementClient;
+import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.AdminMailAccountDriftEntry;
@@ -7,6 +9,7 @@ import com.yxoct.mail.domain.mail.AdminMailAccountDriftPage;
 import com.yxoct.mail.domain.mail.AdminMailAccountProvisioningEntry;
 import com.yxoct.mail.domain.mail.AdminMailAccountProvisioningPage;
 import com.yxoct.mail.persistence.AdminMailAccountDriftRecord;
+import com.yxoct.mail.persistence.AdminMailAccountDriftTarget;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningTarget;
 import com.yxoct.mail.persistence.AdminMailAccountRepository;
@@ -24,14 +27,57 @@ public class AdminMailAccountService {
   private final AdminMailAccountRepository repository;
   private final MailAccountReconciliationRepository reconciliationRepository;
   private final Clock clock;
+  private final StalwartManagementClient managementClient;
 
   public AdminMailAccountService(
       AdminMailAccountRepository repository,
       MailAccountReconciliationRepository reconciliationRepository,
+      StalwartManagementClient managementClient,
       Clock clock) {
     this.repository = repository;
     this.reconciliationRepository = reconciliationRepository;
+    this.managementClient = managementClient;
     this.clock = clock;
+  }
+
+  @Transactional
+  public void repairDrift(long operatedByUserId, long mailAccountId) {
+    LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
+    AdminMailAccountDriftTarget target =
+        repository
+            .findDriftForUpdate(mailAccountId)
+            .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+    switch (target.driftType()) {
+      case REMOTE_ACCOUNT_MISSING -> repairMissingAccount(target, now);
+      case ENABLED_STATE_MISMATCH -> repairEnabledState(target);
+      case INSPECTION_FAILED ->
+          throw new BusinessException(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT);
+    }
+    reconciliationRepository.clearResult(mailAccountId);
+    repository.saveDriftRepairAudit(
+        target.userId(), operatedByUserId, mailAccountId, target.driftType().name(), now);
+  }
+
+  private void repairMissingAccount(AdminMailAccountDriftTarget target, LocalDateTime now) {
+    if (target.localStatus() != MailAccountStatus.ACTIVE
+        || !repository.scheduleMissingAccountReprovisioning(target.mailAccountId(), now)) {
+      throw new BusinessException(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT);
+    }
+  }
+
+  private void repairEnabledState(AdminMailAccountDriftTarget target) {
+    if (target.stalwartAccountId() == null || target.stalwartAccountId().isBlank()) {
+      throw new BusinessException(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT);
+    }
+    boolean expectedEnabled = target.localStatus() == MailAccountStatus.ACTIVE;
+    if (!expectedEnabled && target.localStatus() != MailAccountStatus.DISABLED) {
+      throw new BusinessException(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT);
+    }
+    try {
+      managementClient.setAccountEnabled(target.stalwartAccountId(), expectedEnabled);
+    } catch (StalwartProvisioningException exception) {
+      throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
+    }
   }
 
   public AdminMailAccountDriftPage listDrifts(int page, int size) {

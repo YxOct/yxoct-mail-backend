@@ -40,4 +40,8 @@ public class MailAccountReconciliationRepository {
   public List<AdminMailAccountDriftRecord> findDrifts(int page, int size) {
     return mapper.findDrifts((long) (page - 1) * size, size);
   }
+
+  public void clearResult(long mailAccountId) {
+    mapper.deleteResult(mailAccountId);
+  }
 }

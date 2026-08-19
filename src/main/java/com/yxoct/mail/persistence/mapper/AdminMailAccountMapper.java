@@ -1,5 +1,6 @@
 package com.yxoct.mail.persistence.mapper;
 
+import com.yxoct.mail.persistence.AdminMailAccountDriftTarget;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningTarget;
 import java.time.LocalDateTime;
@@ -84,6 +85,54 @@ public interface AdminMailAccountMapper {
            #{operatedByUserId}, #{now})
       """)
   int saveRetryAudit(
+      @Param("userId") long userId,
+      @Param("operatedByUserId") long operatedByUserId,
+      @Param("reason") String reason,
+      @Param("now") LocalDateTime now);
+
+  @Select(
+      """
+      SELECT ma.id AS mail_account_id,
+             uma.user_id,
+             ma.stalwart_account_id,
+             ma.status AS local_status,
+             r.drift_type
+      FROM mail_account_reconciliation r
+      JOIN mail_account ma ON ma.id = r.mail_account_id
+      JOIN user_mail_account uma
+        ON uma.mail_account_id = ma.id
+       AND uma.account_role = 'OWNER'
+      WHERE ma.id = #{mailAccountId}
+        AND r.drift_type <> 'NONE'
+      FOR UPDATE
+      """)
+  AdminMailAccountDriftTarget findDriftForUpdate(@Param("mailAccountId") long mailAccountId);
+
+  @Update(
+      """
+      UPDATE mail_account
+      SET stalwart_account_id = NULL,
+          status = 'FAILED',
+          provisioning_lease_until = NULL,
+          next_provisioning_at = #{now},
+          last_provisioning_error = 'REMOTE_ACCOUNT_MISSING',
+          version = version + 1,
+          updated_at = #{now}
+      WHERE id = #{mailAccountId}
+        AND status = 'ACTIVE'
+      """)
+  int scheduleMissingAccountReprovisioning(
+      @Param("mailAccountId") long mailAccountId, @Param("now") LocalDateTime now);
+
+  @Insert(
+      """
+      INSERT INTO user_status_audit
+          (user_id, action, reason, operated_by_user_id, created_at)
+      VALUES
+          (#{userId}, 'MAIL_ACCOUNT_DRIFT_REPAIR_REQUESTED', #{reason},
+           #{operatedByUserId}, #{now})
+      """)
+  int saveDriftRepairAudit(
       @Param("userId") long userId,
       @Param("operatedByUserId") long operatedByUserId,
       @Param("reason") String reason,

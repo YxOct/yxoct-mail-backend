@@ -73,6 +73,7 @@ Important flows:
 - `GET /api/admin/mail-accounts/provisioning`: list mail accounts awaiting or failing provisioning.
 - `POST /api/admin/mail-accounts/{mailAccountId}/retry-provisioning`: schedule an immediate provisioning retry.
 - `GET /api/admin/mail-accounts/drifts`: inspect detected local/Stalwart account-state drift.
+- `POST /api/admin/mail-accounts/{mailAccountId}/repair-drift`: repair a detected account-state difference.
 - `POST /api/admin/users/{userId}/disable`: disable a user and owned mail accounts.
 - `POST /api/admin/users/{userId}/enable`: re-enable a disabled user.
 - `POST /api/admin/users/{userId}/logout`: revoke all sessions without changing account status.

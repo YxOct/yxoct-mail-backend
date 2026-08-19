@@ -104,6 +104,15 @@ class AdminMailAccountControllerTest {
   }
 
   @Test
+  void repairsDriftWithAdministratorId() throws Exception {
+    mockMvc
+        .perform(post("/api/admin/mail-accounts/9/repair-drift").principal(authentication()))
+        .andExpect(status().isOk());
+
+    verify(service).repairDrift(42, 9);
+  }
+
+  @Test
   void validatesPaginationAndMailAccountId() throws Exception {
     mockMvc
         .perform(

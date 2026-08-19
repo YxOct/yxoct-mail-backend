@@ -38,4 +38,20 @@ public class AdminMailAccountRepository {
       throw new IllegalStateException("Could not save provisioning retry audit");
     }
   }
+
+  public Optional<AdminMailAccountDriftTarget> findDriftForUpdate(long mailAccountId) {
+    return Optional.ofNullable(mapper.findDriftForUpdate(mailAccountId));
+  }
+
+  public boolean scheduleMissingAccountReprovisioning(long mailAccountId, LocalDateTime now) {
+    return mapper.scheduleMissingAccountReprovisioning(mailAccountId, now) == 1;
+  }
+
+  public void saveDriftRepairAudit(
+      long userId, long operatedByUserId, long mailAccountId, String driftType, LocalDateTime now) {
+    String reason = "mailAccountId=" + mailAccountId + "; driftType=" + driftType;
+    if (mapper.saveDriftRepairAudit(userId, operatedByUserId, reason, now) != 1) {
+      throw new IllegalStateException("Could not save mail account drift repair audit");
+    }
+  }
 }

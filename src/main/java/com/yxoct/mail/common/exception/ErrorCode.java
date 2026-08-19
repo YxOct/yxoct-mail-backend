@@ -71,7 +71,9 @@ public enum ErrorCode {
 
   CANNOT_RESET_OWN_PASSWORD(5003, HttpStatus.CONFLICT, "不能通过管理员接口重置自己的密码"),
 
-  MAIL_ACCOUNT_RETRY_CONFLICT(5004, HttpStatus.CONFLICT, "邮箱账户当前状态不能重新供应");
+  MAIL_ACCOUNT_RETRY_CONFLICT(5004, HttpStatus.CONFLICT, "邮箱账户当前状态不能重新供应"),
+
+  MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT(5005, HttpStatus.CONFLICT, "当前邮箱账户差异不能自动修复");
 
   private final int code;
   private final HttpStatus httpStatus;

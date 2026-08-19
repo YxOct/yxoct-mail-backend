@@ -57,4 +57,13 @@ public class AdminMailAccountController {
         Long.parseLong(Objects.requireNonNull(jwt.getSubject())), mailAccountId);
     return ApiResponse.success();
   }
+
+  @PostMapping("/{mailAccountId}/repair-drift")
+  @Operation(summary = "Repair detected Stalwart account state drift")
+  public ApiResponse<Void> repairDrift(
+      Authentication authentication, @PathVariable @Min(1) long mailAccountId) {
+    Jwt jwt = (Jwt) authentication.getPrincipal();
+    service.repairDrift(Long.parseLong(Objects.requireNonNull(jwt.getSubject())), mailAccountId);
+    return ApiResponse.success();
+  }
 }

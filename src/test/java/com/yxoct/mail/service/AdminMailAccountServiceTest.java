@@ -6,9 +6,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yxoct.mail.client.stalwart.StalwartManagementClient;
+import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.persistence.AdminMailAccountDriftRecord;
+import com.yxoct.mail.persistence.AdminMailAccountDriftTarget;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningTarget;
 import com.yxoct.mail.persistence.AdminMailAccountRepository;
@@ -36,13 +39,14 @@ class AdminMailAccountServiceTest {
 
   @Mock private AdminMailAccountRepository repository;
   @Mock private MailAccountReconciliationRepository reconciliationRepository;
+  @Mock private StalwartManagementClient managementClient;
   private AdminMailAccountService service;
 
   @BeforeEach
   void setUp() {
     service =
         new AdminMailAccountService(
-            repository, reconciliationRepository, Clock.fixed(INSTANT, ZONE));
+            repository, reconciliationRepository, managementClient, Clock.fixed(INSTANT, ZONE));
   }
 
   @Test
@@ -90,6 +94,87 @@ class AdminMailAccountServiceTest {
     assertThat(page.total()).isEqualTo(1);
     assertThat(page.items().getFirst().driftType())
         .isEqualTo(MailAccountDriftType.REMOTE_ACCOUNT_MISSING);
+  }
+
+  @Test
+  void repairsMissingRemoteAccountBySchedulingReprovisioning() {
+    when(repository.findDriftForUpdate(9))
+        .thenReturn(
+            Optional.of(
+                new AdminMailAccountDriftTarget(
+                    9,
+                    7,
+                    "account-9",
+                    MailAccountStatus.ACTIVE,
+                    MailAccountDriftType.REMOTE_ACCOUNT_MISSING)));
+    when(repository.scheduleMissingAccountReprovisioning(9, NOW)).thenReturn(true);
+
+    service.repairDrift(42, 9);
+
+    verify(repository).scheduleMissingAccountReprovisioning(9, NOW);
+    verify(reconciliationRepository).clearResult(9);
+    verify(repository).saveDriftRepairAudit(7, 42, 9, "REMOTE_ACCOUNT_MISSING", NOW);
+  }
+
+  @Test
+  void repairsEnabledStateMismatchUsingLocalState() {
+    when(repository.findDriftForUpdate(9))
+        .thenReturn(
+            Optional.of(
+                new AdminMailAccountDriftTarget(
+                    9,
+                    7,
+                    "account-9",
+                    MailAccountStatus.DISABLED,
+                    MailAccountDriftType.ENABLED_STATE_MISMATCH)));
+
+    service.repairDrift(42, 9);
+
+    verify(managementClient).setAccountEnabled("account-9", false);
+    verify(reconciliationRepository).clearResult(9);
+  }
+
+  @Test
+  void reportsRemoteRepairFailure() {
+    when(repository.findDriftForUpdate(9))
+        .thenReturn(
+            Optional.of(
+                new AdminMailAccountDriftTarget(
+                    9,
+                    7,
+                    "account-9",
+                    MailAccountStatus.ACTIVE,
+                    MailAccountDriftType.ENABLED_STATE_MISMATCH)));
+    org.mockito.Mockito.doThrow(new StalwartProvisioningException("ACCOUNT_STATUS_UPDATE_REJECTED"))
+        .when(managementClient)
+        .setAccountEnabled("account-9", true);
+
+    assertThatThrownBy(() -> service.repairDrift(42, 9))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MAIL_SERVICE_UNAVAILABLE));
+    verify(reconciliationRepository, never()).clearResult(9);
+  }
+
+  @Test
+  void doesNotBlindlyRepairInspectionFailure() {
+    when(repository.findDriftForUpdate(9))
+        .thenReturn(
+            Optional.of(
+                new AdminMailAccountDriftTarget(
+                    9,
+                    7,
+                    "account-9",
+                    MailAccountStatus.ACTIVE,
+                    MailAccountDriftType.INSPECTION_FAILED)));
+
+    assertThatThrownBy(() -> service.repairDrift(42, 9))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode())
+                    .isEqualTo(ErrorCode.MAIL_ACCOUNT_DRIFT_REPAIR_CONFLICT));
   }
 
   @Test

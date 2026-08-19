@@ -232,6 +232,9 @@ class MailBackendApplicationTests {
         .andExpect(
             jsonPath("$.paths['/api/admin/mail-accounts/{mailAccountId}/retry-provisioning'].post")
                 .exists())
+        .andExpect(
+            jsonPath("$.paths['/api/admin/mail-accounts/{mailAccountId}/repair-drift'].post")
+                .exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/disable'].post").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/enable'].post").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/logout'].post").exists())
