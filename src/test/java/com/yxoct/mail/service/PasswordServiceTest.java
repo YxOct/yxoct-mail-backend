@@ -137,7 +137,7 @@ class PasswordServiceTest {
     TemporaryPasswordResponse response = service.resetByAdministrator(1, 7);
 
     assertThat(response.mustChangePassword()).isTrue();
-    assertThat(response.temporaryPassword()).matches("[A-Za-z0-9_-]{22}");
+    assertThat(response.temporaryPassword()).matches("[A-Za-z0-9_-]{43}");
     verify(authVersionStore).setVersion(7, 4);
     verify(repository).revokeRefreshTokens(7, NOW);
     ArgumentCaptor<UserStatusAuditEntity> audit =

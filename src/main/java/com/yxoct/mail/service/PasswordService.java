@@ -84,7 +84,7 @@ public class PasswordService {
     if (operatedByUserId == userId) {
       throw new BusinessException(ErrorCode.CANNOT_RESET_OWN_PASSWORD);
     }
-    byte[] randomBytes = new byte[16];
+    byte[] randomBytes = new byte[32];
     secureRandom.nextBytes(randomBytes);
     String temporaryPassword = Base64.getUrlEncoder().withoutPadding().encodeToString(randomBytes);
     resetByAdministrator(operatedByUserId, userId, temporaryPassword);
