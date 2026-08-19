@@ -170,6 +170,23 @@ class MailBackendApplicationTests {
   }
 
   @Test
+  void restrictsUserManagementToAdministrators() throws Exception {
+    String userToken = tokenFor(UserRole.USER);
+    String adminToken = tokenFor(UserRole.ADMIN);
+
+    mockMvc
+        .perform(get("/api/admin/users").header("Authorization", "Bearer " + userToken))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value(4002));
+
+    mockMvc
+        .perform(get("/api/admin/users").header("Authorization", "Bearer " + adminToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.page").value(1))
+        .andExpect(jsonPath("$.data.size").value(20));
+  }
+
+  @Test
   void openApiDocumentationDescribesMailEndpoints() throws Exception {
     mockMvc
         .perform(get("/v3/api-docs"))
@@ -191,6 +208,8 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
         .andExpect(jsonPath("$.paths['/api/admin/invitations'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/admin/users'].get").exists())
+        .andExpect(jsonPath("$.paths['/api/admin/users/{userId}'].get").exists())
         .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
         .andExpect(
             jsonPath("$.paths['/api/auth/register'].post.responses['409'].['$ref']")

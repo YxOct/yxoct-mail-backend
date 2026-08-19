@@ -110,6 +110,8 @@ Authentication uses the primary email address and the password chosen during reg
 
 Invitation management under `/api/admin/invitations` requires the `ADMIN` role. Administrators can create single-use `REGISTRATION` or `EMAIL_ADDRESS` invitations, list invitation metadata, and revoke pending invitations. The plaintext token is returned only by the create operation. Creation and revocation actor IDs are retained for audit purposes.
 
+User inspection under `/api/admin/users` also requires the `ADMIN` role. `GET /api/admin/users?page=1&size=20` returns users in descending ID order with their primary owned mail account, while `GET /api/admin/users/{userId}` returns one user. These responses intentionally exclude password hashes, Stalwart account IDs, encrypted mailbox credentials, and authentication tokens.
+
 All API endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
 
 - `1000`: invalid request (`400`).
