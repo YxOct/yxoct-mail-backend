@@ -275,6 +275,14 @@ class MailBackendApplicationTests {
                     "$.components.responses.UserEnableConflict.content['application/json'].examples['code-5002'].value.code")
                 .value(5002))
         .andExpect(jsonPath("$.components.securitySchemes.bearerAuth.scheme").value("bearer"))
+        .andExpect(jsonPath("$.paths['/api/mail/mailboxes'].get.security[0].bearerAuth").isArray())
+        .andExpect(
+            jsonPath("$.paths['/api/mail/mailboxes'].get.responses['401'].['$ref']")
+                .value("#/components/responses/AuthenticationFailed"))
+        .andExpect(
+            jsonPath("$.paths['/api/mail/mailboxes'].get.responses['403'].['$ref']")
+                .value("#/components/responses/AccessDenied"))
+        .andExpect(jsonPath("$.paths['/api/auth/login'].post.responses['401']").doesNotExist())
         .andExpect(
             jsonPath("$.paths['/api/auth/register'].post.responses['409'].['$ref']")
                 .value("#/components/responses/RegistrationConflict"))
