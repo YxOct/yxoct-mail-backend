@@ -9,6 +9,7 @@ import com.yxoct.mail.client.stalwart.StalwartAccountSnapshot;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
+import com.yxoct.mail.config.StalwartReconciliationProperties;
 import com.yxoct.mail.persistence.MailAccountReconciliationCandidate;
 import com.yxoct.mail.persistence.MailAccountReconciliationRepository;
 import com.yxoct.mail.persistence.entity.MailAccountDriftType;
@@ -51,6 +52,16 @@ class MailAccountReconciliationServiceTest {
     service.reconcileAccounts();
 
     verify(repository).saveResult(9, MailAccountDriftType.REMOTE_ACCOUNT_MISSING, null, NOW);
+  }
+
+  @Test
+  void usesConfiguredBatchSize() {
+    service = service(true, 37);
+    when(repository.findCandidates(37)).thenReturn(List.of());
+
+    service.reconcileAccounts();
+
+    verify(repository).findCandidates(37);
   }
 
   @Test
@@ -131,6 +142,10 @@ class MailAccountReconciliationServiceTest {
   }
 
   private MailAccountReconciliationService service(boolean enabled) {
+    return service(enabled, 20);
+  }
+
+  private MailAccountReconciliationService service(boolean enabled, int batchSize) {
     return new MailAccountReconciliationService(
         repository,
         managementClient,
@@ -143,6 +158,8 @@ class MailAccountReconciliationServiceTest {
             Duration.ofSeconds(30),
             Duration.ofHours(1),
             20),
+        new StalwartReconciliationProperties(
+            Duration.ofMinutes(5), Duration.ofMinutes(10), batchSize),
         Clock.fixed(INSTANT, ZONE));
   }
 

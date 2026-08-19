@@ -77,6 +77,10 @@ stalwart:
     initial-retry-delay: ${STALWART_PROVISIONING_INITIAL_RETRY_DELAY:30s}
     max-retry-delay: ${STALWART_PROVISIONING_MAX_RETRY_DELAY:1h}
     batch-size: ${STALWART_PROVISIONING_BATCH_SIZE:20}
+  reconciliation:
+    scan-interval: ${STALWART_RECONCILIATION_SCAN_INTERVAL:5m}
+    lease-duration: ${STALWART_RECONCILIATION_LEASE_DURATION:10m}
+    batch-size: ${STALWART_RECONCILIATION_BATCH_SIZE:20}
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

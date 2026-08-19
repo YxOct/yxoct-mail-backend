@@ -5,6 +5,7 @@ import com.yxoct.mail.client.stalwart.StalwartAccountSnapshot;
 import com.yxoct.mail.client.stalwart.StalwartManagementClient;
 import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.config.StalwartProvisioningProperties;
+import com.yxoct.mail.config.StalwartReconciliationProperties;
 import com.yxoct.mail.persistence.MailAccountReconciliationCandidate;
 import com.yxoct.mail.persistence.MailAccountReconciliationRepository;
 import com.yxoct.mail.persistence.entity.MailAccountDriftType;
@@ -22,30 +23,32 @@ import org.springframework.stereotype.Service;
 public class MailAccountReconciliationService {
 
   private static final Logger log = LoggerFactory.getLogger(MailAccountReconciliationService.class);
-  private static final int BATCH_SIZE = 20;
-
   private final MailAccountReconciliationRepository repository;
   private final StalwartManagementClient managementClient;
-  private final StalwartProvisioningProperties properties;
+  private final StalwartProvisioningProperties provisioningProperties;
+  private final StalwartReconciliationProperties reconciliationProperties;
   private final Clock clock;
 
   public MailAccountReconciliationService(
       MailAccountReconciliationRepository repository,
       StalwartManagementClient managementClient,
-      StalwartProvisioningProperties properties,
+      StalwartProvisioningProperties provisioningProperties,
+      StalwartReconciliationProperties reconciliationProperties,
       Clock clock) {
     this.repository = repository;
     this.managementClient = managementClient;
-    this.properties = properties;
+    this.provisioningProperties = provisioningProperties;
+    this.reconciliationProperties = reconciliationProperties;
     this.clock = clock;
   }
 
-  @Scheduled(fixedDelayString = "${stalwart.reconciliation.scan-interval:5m}")
+  @Scheduled(fixedDelayString = "${stalwart.reconciliation.scan-interval}")
   public void reconcileAccounts() {
-    if (!properties.enabled()) {
+    if (!provisioningProperties.enabled()) {
       return;
     }
-    for (MailAccountReconciliationCandidate candidate : repository.findCandidates(BATCH_SIZE)) {
+    for (MailAccountReconciliationCandidate candidate :
+        repository.findCandidates(reconciliationProperties.batchSize())) {
       reconcile(candidate);
     }
   }
