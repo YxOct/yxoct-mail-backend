@@ -20,10 +20,13 @@ import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.UserMailAccountEntity;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
+import com.yxoct.mail.persistence.entity.UserStatusAuditAction;
+import com.yxoct.mail.persistence.entity.UserStatusAuditEntity;
 import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
 import com.yxoct.mail.persistence.mapper.MailAccountMapper;
 import com.yxoct.mail.persistence.mapper.UserMailAccountMapper;
+import com.yxoct.mail.persistence.mapper.UserStatusAuditMapper;
 import com.yxoct.mail.service.MailCredentialCipher;
 import com.yxoct.mail.service.RegistrationInvitationService;
 import com.yxoct.mail.service.RegistrationService;
@@ -76,6 +79,7 @@ class MySqlUserPersistenceIT {
   @Autowired private MailAccountMapper mailAccountMapper;
   @Autowired private EmailAddressMapper emailAddressMapper;
   @Autowired private UserMailAccountMapper userMailAccountMapper;
+  @Autowired private UserStatusAuditMapper userStatusAuditMapper;
   @Autowired private RegistrationInvitationService invitationService;
   @Autowired private RegistrationService registrationService;
   @Autowired private CurrentUserRepository currentUserRepository;
@@ -88,6 +92,7 @@ class MySqlUserPersistenceIT {
     SecurityContextHolder.clearContext();
     RequestContextHolder.resetRequestAttributes();
     jdbcTemplate.update("DELETE FROM registration_invitation");
+    jdbcTemplate.update("DELETE FROM user_status_audit");
     jdbcTemplate.update("DELETE FROM user_mail_account");
     jdbcTemplate.update("DELETE FROM email_address");
     jdbcTemplate.update("DELETE FROM mail_account");
@@ -100,7 +105,7 @@ class MySqlUserPersistenceIT {
       assertThat(connection.getMetaData().getDatabaseProductName()).isEqualTo("MySQL");
     }
 
-    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '9'"))
+    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '10'"))
         .isEqualTo(1);
     assertThat(
             queryForInt(
@@ -108,8 +113,8 @@ class MySqlUserPersistenceIT {
                     + "WHERE table_schema = DATABASE() "
                     + "AND table_name IN "
                     + "('app_user', 'mail_account', 'email_address', 'user_mail_account', "
-                    + "'registration_invitation')"))
-        .isEqualTo(5);
+                    + "'registration_invitation', 'user_status_audit')"))
+        .isEqualTo(6);
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM information_schema.statistics "
@@ -141,6 +146,52 @@ class MySqlUserPersistenceIT {
                     + "AND column_name = 'display_name' "
                     + "AND is_nullable = 'NO'"))
         .isEqualTo(1);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                    + "WHERE table_schema = DATABASE() "
+                    + "AND table_name = 'app_user' "
+                    + "AND column_name IN ('disabled_at', 'disabled_by_user_id', "
+                    + "'disabled_reason')"))
+        .isEqualTo(3);
+    assertThat(
+            queryForInt(
+                "SELECT COUNT(*) FROM information_schema.statistics "
+                    + "WHERE table_schema = DATABASE() "
+                    + "AND table_name = 'user_status_audit' "
+                    + "AND index_name = 'idx_user_status_audit_user_created'"))
+        .isEqualTo(3);
+  }
+
+  @Test
+  void storesCurrentDisableStateAndUserStatusAuditHistory() {
+    AppUserEntity operator = insertUser();
+    AppUserEntity user = insertUser();
+    LocalDateTime disabledAt = LocalDateTime.of(2026, 8, 19, 20, 0);
+
+    user.setStatus(UserStatus.DISABLED);
+    user.setDisabledAt(disabledAt);
+    user.setDisabledByUserId(operator.getId());
+    user.setDisabledReason("Terms violation");
+    assertThat(appUserMapper.updateById(user)).isEqualTo(1);
+
+    UserStatusAuditEntity audit = new UserStatusAuditEntity();
+    audit.setUserId(user.getId());
+    audit.setAction(UserStatusAuditAction.DISABLED);
+    audit.setReason("Terms violation");
+    audit.setOperatedByUserId(operator.getId());
+    audit.setCreatedAt(disabledAt);
+    assertThat(userStatusAuditMapper.insert(audit)).isEqualTo(1);
+
+    AppUserEntity storedUser = appUserMapper.selectById(user.getId());
+    UserStatusAuditEntity storedAudit = userStatusAuditMapper.selectById(audit.getId());
+    assertThat(storedUser.getStatus()).isEqualTo(UserStatus.DISABLED);
+    assertThat(storedUser.getDisabledAt()).isEqualTo(disabledAt);
+    assertThat(storedUser.getDisabledByUserId()).isEqualTo(operator.getId());
+    assertThat(storedUser.getDisabledReason()).isEqualTo("Terms violation");
+    assertThat(storedAudit.getAction()).isEqualTo(UserStatusAuditAction.DISABLED);
+    assertThat(storedAudit.getReason()).isEqualTo("Terms violation");
+    assertThat(storedAudit.getOperatedByUserId()).isEqualTo(operator.getId());
   }
 
   @Test

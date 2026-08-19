@@ -11,19 +11,15 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@TableName("app_user")
-public class AppUserEntity {
+@TableName("user_status_audit")
+public class UserStatusAuditEntity {
 
   @TableId(type = IdType.AUTO)
   private Long id;
 
-  private String passwordHash;
-  private UserStatus status;
-  private UserRole role;
-  private LocalDateTime disabledAt;
-  private Long disabledByUserId;
-  private String disabledReason;
-  private Long version;
+  private Long userId;
+  private UserStatusAuditAction action;
+  private String reason;
+  private Long operatedByUserId;
   private LocalDateTime createdAt;
-  private LocalDateTime updatedAt;
 }

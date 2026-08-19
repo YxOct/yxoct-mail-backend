@@ -87,14 +87,15 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8', '9') "
+                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10') "
                     + "AND success = TRUE"))
-        .isEqualTo(9);
+        .isEqualTo(10);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM user_mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM registration_invitation")).isZero();
+    assertThat(queryForInt("SELECT COUNT(*) FROM user_status_audit")).isZero();
   }
 
   private int queryForInt(String sql) throws Exception {
