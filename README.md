@@ -34,10 +34,10 @@ Start Redis:
 ```powershell
 docker compose up -d redis
 docker compose ps
-docker compose exec -T redis redis-cli ping
+docker compose exec -T redis sh -c 'REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping'
 ```
 
-The last command should return `PONG`. Keep an existing MySQL container running if it already owns the project's database. Do not run `docker compose down -v`, because that removes database and Redis volumes.
+The last command should return `PONG`. Compose refuses to start Redis when `REDIS_PASSWORD` is empty or missing. Keep an existing MySQL container running if it already owns the project's database. Do not run `docker compose down -v`, because that removes database and Redis volumes.
 
 Start the application:
 
