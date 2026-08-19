@@ -20,6 +20,7 @@ public class RegistrationService {
   private final RegistrationInvitationValidator invitationValidator;
   private final PasswordEncoder passwordEncoder;
   private final LocalRegistrationTransaction registrationTransaction;
+  private final DisplayNameNormalizer displayNameNormalizer;
   private final Clock clock;
 
   public RegistrationService(
@@ -29,6 +30,7 @@ public class RegistrationService {
       RegistrationInvitationValidator invitationValidator,
       PasswordEncoder passwordEncoder,
       LocalRegistrationTransaction registrationTransaction,
+      DisplayNameNormalizer displayNameNormalizer,
       Clock clock) {
     this.emailAddressNormalizer = emailAddressNormalizer;
     this.invitationTokenCodec = invitationTokenCodec;
@@ -36,13 +38,15 @@ public class RegistrationService {
     this.invitationValidator = invitationValidator;
     this.passwordEncoder = passwordEncoder;
     this.registrationTransaction = registrationTransaction;
+    this.displayNameNormalizer = displayNameNormalizer;
     this.clock = clock;
   }
 
   public RegistrationResult register(RegisterRequest request) {
     validateRequest(request);
     String normalizedAddress = emailAddressNormalizer.normalize(request.emailLocalPart());
-    String displayName = normalizeDisplayName(request.displayName(), request.emailLocalPart());
+    String displayName =
+        displayNameNormalizer.normalizeOptional(request.displayName(), request.emailLocalPart());
     String invitationTokenHash = invitationTokenCodec.hash(request.invitationCode());
     invitationValidator.validate(
         invitationRepository
@@ -65,18 +69,5 @@ public class RegistrationService {
         || request.password().length() > 128) {
       throw new BusinessException(ErrorCode.BAD_REQUEST);
     }
-  }
-
-  private String normalizeDisplayName(String requestedDisplayName, String emailLocalPart) {
-    if (requestedDisplayName == null || requestedDisplayName.isBlank()) {
-      return emailLocalPart;
-    }
-    String displayName = requestedDisplayName.strip();
-    if (displayName.isEmpty()
-        || displayName.length() > 100
-        || displayName.codePoints().anyMatch(Character::isISOControl)) {
-      throw new BusinessException(ErrorCode.BAD_REQUEST);
-    }
-    return displayName;
   }
 }

@@ -108,6 +108,40 @@ class StalwartManagementClientTest {
   }
 
   @Test
+  void updatesAnAccountDisplayName() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(header("Authorization", "Bearer API-key"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1.description").value("Alice Zhang"))
+        .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
+
+    client.updateAccountDisplayName("account-1", "Alice Zhang");
+  }
+
+  @Test
+  void reportsARejectedDisplayNameUpdateWithoutLeakingTheDescription() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            methodResponse(
+                "x:Account/set",
+                "{\"notUpdated\":{\"account-1\":{\"type\":\"forbidden\","
+                    + "\"description\":\"must not be logged\"}}}"));
+
+    assertThatThrownBy(() -> client.updateAccountDisplayName("account-1", "Alice Zhang"))
+        .isInstanceOfSatisfying(
+            StalwartProvisioningException.class,
+            exception -> {
+              assertThat(exception.failureCode()).isEqualTo("ACCOUNT_UPDATE_REJECTED");
+              assertThat(exception.diagnostic())
+                  .isEqualTo("type=forbidden")
+                  .doesNotContain("must not be logged", "Alice Zhang");
+            });
+  }
+
+  @Test
   void exposesOnlySetErrorTypeAndPropertyNamesWhenCreationIsRejected() {
     expectDomainLookup();
     server

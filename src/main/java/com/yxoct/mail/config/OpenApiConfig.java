@@ -45,6 +45,9 @@ public class OpenApiConfig {
         .addResponses("BadRequest", errorResponse("Invalid request", ErrorCode.BAD_REQUEST))
         .addResponses(
             "InternalError", errorResponse("Unexpected server error", ErrorCode.INTERNAL_ERROR))
+        .addResponses(
+            "ResourceNotFound",
+            errorResponse("Requested resource not found", ErrorCode.RESOURCE_NOT_FOUND))
         .addResponses("EmailNotFound", errorResponse("Email not found", ErrorCode.EMAIL_NOT_FOUND))
         .addResponses(
             "InvalidInvitationOrRequest",
@@ -80,7 +83,10 @@ public class OpenApiConfig {
                 ErrorCode.MAIL_SERVICE_AUTHENTICATION_FAILED))
         .addResponses(
             "MailServiceTimeout",
-            errorResponse("Stalwart request timed out", ErrorCode.MAIL_SERVICE_TIMEOUT));
+            errorResponse("Stalwart request timed out", ErrorCode.MAIL_SERVICE_TIMEOUT))
+        .addResponses(
+            "MailAccountNotReady",
+            errorResponse("Mail account is not active", ErrorCode.MAIL_ACCOUNT_NOT_READY));
   }
 
   private ApiResponse errorResponse(String description, ErrorCode... errorCodes) {

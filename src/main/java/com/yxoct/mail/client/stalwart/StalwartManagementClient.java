@@ -50,6 +50,21 @@ public class StalwartManagementClient {
     return createAccount(address.localPart(), domainId, password, displayName);
   }
 
+  public void updateAccountDisplayName(String accountId, String displayName) {
+    JsonNode result =
+        invoke(
+            "x:Account/set",
+            Map.of("update", Map.of(accountId, Map.of("description", displayName))));
+    JsonNode rejected = result.path("notUpdated").path(accountId);
+    if (rejected.isObject()) {
+      throw new StalwartProvisioningException(
+          "ACCOUNT_UPDATE_REJECTED", setErrorDiagnostic(rejected));
+    }
+    if (!result.path("updated").has(accountId)) {
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+  }
+
   private String findDomainId(String domain) {
     List<String> ids = queryIds("x:Domain/query", Map.of("name", domain));
     JsonNode result = invoke("x:Domain/get", Map.of("ids", ids));

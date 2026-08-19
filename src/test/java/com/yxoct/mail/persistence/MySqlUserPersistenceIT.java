@@ -31,6 +31,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -80,6 +81,7 @@ class MySqlUserPersistenceIT {
   @Autowired private CurrentUserRepository currentUserRepository;
   @Autowired private CurrentStalwartCredentialsProvider credentialsProvider;
   @Autowired private MailCredentialCipher credentialCipher;
+  @Autowired private MailAccountSettingsRepository settingsRepository;
 
   @AfterEach
   void cleanUp() {
@@ -215,6 +217,26 @@ class MySqlUserPersistenceIT {
                 "user:" + bob.getId() + ":account:" + bobAccount.getId(),
                 "bob@yxoct.com",
                 "bob-mail-secret"));
+  }
+
+  @Test
+  void updatesOnlyAnOwnedMailAccountDisplayName() {
+    AppUserEntity alice = insertUser();
+    AppUserEntity bob = insertUser();
+    MailAccountEntity account = insertAccount("stalwart-alice");
+    insertOwnership(alice.getId(), account.getId());
+
+    assertThat(settingsRepository.findOwnedForUpdate(bob.getId(), account.getId())).isEmpty();
+    assertThat(settingsRepository.findOwnedForUpdate(alice.getId(), account.getId()))
+        .contains(
+            new OwnedMailAccount(
+                account.getId(), "stalwart-alice", "Test Account", MailAccountStatus.ACTIVE));
+
+    LocalDateTime updatedAt = LocalDateTime.of(2026, 8, 19, 19, 0);
+    assertThat(settingsRepository.updateDisplayName(account.getId(), "Alice Zhang", updatedAt))
+        .isTrue();
+    assertThat(mailAccountMapper.selectById(account.getId()).getDisplayName())
+        .isEqualTo("Alice Zhang");
   }
 
   @Test
