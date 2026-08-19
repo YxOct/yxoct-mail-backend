@@ -59,9 +59,9 @@ The image runs as a non-root user and checks `/actuator/health/readiness`. Confi
 
 ## Production deployment
 
-`compose.prod.yaml` runs Caddy, the backend, MySQL, Redis, and Prometheus on private Compose networks. Only Caddy publishes ports `80` and `443`; database, cache, backend, Actuator, and Prometheus ports are not published.
+`compose.prod.yaml` runs the backend, MySQL, Redis, and Prometheus. MySQL, Redis, and Prometheus do not publish ports. The backend is bound only to server loopback at `127.0.0.1:8080`, so the server's existing Nginx can reach it without exposing it to the internet.
 
-On the server, copy `deploy/.env.prod.example` to a file outside Git, fill every secret, point `WEBMAIL_DOMAIN` to the server, and make sure its DNS records resolve correctly. Then validate and start the stack:
+On the server, copy `deploy/.env.prod.example` to a file outside Git and fill every secret. Then validate and start the stack:
 
 ```bash
 docker compose --env-file deploy/.env.prod -f compose.prod.yaml config --quiet
@@ -69,7 +69,7 @@ docker compose --env-file deploy/.env.prod -f compose.prod.yaml up -d --build
 docker compose --env-file deploy/.env.prod -f compose.prod.yaml ps
 ```
 
-Caddy terminates HTTPS, preserves `/api/*` when proxying to the backend, and blocks public `/actuator/*` access. Until the webmail frontend is deployed, non-API paths intentionally return `404`. Do not run `down -v`; the named volumes contain database, Redis, Prometheus, and TLS data.
+Add the locations from `deploy/nginx/webmail-api.conf` to the existing `webmail.yxoct.com` Nginx `server` block. The snippet preserves `/api/*`, forwards the real client IP and protocol, and blocks public `/actuator/*` access. Validate with `nginx -t` before reloading Nginx. Do not run `down -v`; the named volumes contain database, Redis, and Prometheus data.
 
 ## API documentation
 
