@@ -25,6 +25,8 @@ import org.apache.ibatis.session.SqlSessionFactory;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.logging.LogLevel;
+import org.springframework.boot.logging.LoggingSystem;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
@@ -50,15 +52,13 @@ class MailBackendApplicationTests {
 
   @Autowired private JwtTokenService jwtTokenService;
 
+  @Autowired private LoggingSystem loggingSystem;
+
   @Value("${spring.http.clients.connect-timeout}")
   private Duration connectTimeout;
 
   @Value("${spring.http.clients.read-timeout}")
   private Duration readTimeout;
-
-  @Value(
-      "${logging.level.org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver}")
-  private String exceptionResolverLogLevel;
 
   @Test
   void contextLoads() {
@@ -66,7 +66,12 @@ class MailBackendApplicationTests {
     assertThat(readTimeout).isEqualTo(Duration.ofSeconds(10));
     assertThat(sessionCache).isNotNull();
     assertThat(sqlSessionFactory).isNotNull();
-    assertThat(exceptionResolverLogLevel).isEqualTo("ERROR");
+    assertThat(
+            loggingSystem
+                .getLoggerConfiguration(
+                    "org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExceptionResolver")
+                .getConfiguredLevel())
+        .isEqualTo(LogLevel.ERROR);
   }
 
   @Test
