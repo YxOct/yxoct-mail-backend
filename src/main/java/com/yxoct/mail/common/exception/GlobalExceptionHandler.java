@@ -2,6 +2,7 @@ package com.yxoct.mail.common.exception;
 
 import com.yxoct.mail.common.response.ApiResponse;
 import jakarta.validation.ConstraintViolationException;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -36,7 +37,13 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponse<Void>> handleValidationException(
       MethodArgumentNotValidException exception) {
 
-    log.warn("Request validation failed: {}", exception.getMessage());
+    List<String> fields =
+        exception.getBindingResult().getFieldErrors().stream()
+            .map(error -> error.getField())
+            .distinct()
+            .sorted()
+            .toList();
+    log.warn("Request validation failed: fields={}", fields);
 
     return ResponseEntity.status(ErrorCode.BAD_REQUEST.getHttpStatus())
         .body(ApiResponse.error(ErrorCode.BAD_REQUEST));
@@ -49,7 +56,7 @@ public class GlobalExceptionHandler {
   })
   public ResponseEntity<ApiResponse<Void>> handleRequestParameterException(Exception exception) {
 
-    log.warn("Request parameter validation failed: {}", exception.getMessage());
+    log.warn("Request parameter validation failed: type={}", exception.getClass().getSimpleName());
 
     return ResponseEntity.status(ErrorCode.BAD_REQUEST.getHttpStatus())
         .body(ApiResponse.error(ErrorCode.BAD_REQUEST));
