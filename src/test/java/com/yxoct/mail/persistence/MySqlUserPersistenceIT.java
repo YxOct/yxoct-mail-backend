@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.yxoct.mail.client.stalwart.CurrentStalwartCredentialsProvider;
+import com.yxoct.mail.client.stalwart.StalwartCredentials;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.user.CreatedRegistrationInvitation;
@@ -22,11 +24,13 @@ import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
 import com.yxoct.mail.persistence.mapper.MailAccountMapper;
 import com.yxoct.mail.persistence.mapper.UserMailAccountMapper;
+import com.yxoct.mail.service.MailCredentialCipher;
 import com.yxoct.mail.service.RegistrationInvitationService;
 import com.yxoct.mail.service.RegistrationService;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -40,7 +44,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.mysql.MySQLContainer;
@@ -68,9 +78,13 @@ class MySqlUserPersistenceIT {
   @Autowired private RegistrationInvitationService invitationService;
   @Autowired private RegistrationService registrationService;
   @Autowired private CurrentUserRepository currentUserRepository;
+  @Autowired private CurrentStalwartCredentialsProvider credentialsProvider;
+  @Autowired private MailCredentialCipher credentialCipher;
 
   @AfterEach
   void cleanUp() {
+    SecurityContextHolder.clearContext();
+    RequestContextHolder.resetRequestAttributes();
     jdbcTemplate.update("DELETE FROM registration_invitation");
     jdbcTemplate.update("DELETE FROM user_mail_account");
     jdbcTemplate.update("DELETE FROM email_address");
@@ -173,6 +187,37 @@ class MySqlUserPersistenceIT {
   }
 
   @Test
+  void isolatesMailCredentialsBetweenAuthenticatedUsers() {
+    AppUserEntity alice = insertUser();
+    AppUserEntity bob = insertUser();
+    MailAccountEntity aliceAccount = insertAccount("stalwart-alice");
+    MailAccountEntity bobAccount = insertAccount("stalwart-bob");
+    setCredential(aliceAccount, "alice-mail-secret");
+    setCredential(bobAccount, "bob-mail-secret");
+    insertOwnership(alice.getId(), aliceAccount.getId());
+    insertOwnership(bob.getId(), bobAccount.getId());
+    insertAddress(
+        aliceAccount.getId(), "alice@yxoct.com", "alice@yxoct.com", EmailAddressType.PRIMARY);
+    insertAddress(bobAccount.getId(), "bob@yxoct.com", "bob@yxoct.com", EmailAddressType.PRIMARY);
+
+    authenticateAs(alice.getId());
+    assertThat(credentialsProvider.getCredentials())
+        .isEqualTo(
+            new StalwartCredentials(
+                "user:" + alice.getId() + ":account:" + aliceAccount.getId(),
+                "alice@yxoct.com",
+                "alice-mail-secret"));
+
+    authenticateAs(bob.getId());
+    assertThat(credentialsProvider.getCredentials())
+        .isEqualTo(
+            new StalwartCredentials(
+                "user:" + bob.getId() + ":account:" + bobAccount.getId(),
+                "bob@yxoct.com",
+                "bob-mail-secret"));
+  }
+
+  @Test
   void rejectsDuplicateNormalizedEmailAddresses() {
     AppUserEntity user = insertUser();
     MailAccountEntity firstAccount = insertAccount("stalwart-account-1");
@@ -244,6 +289,26 @@ class MySqlUserPersistenceIT {
     assertThat(mailAccountMapper.insert(account)).isEqualTo(1);
     assertThat(account.getId()).isNotNull();
     return account;
+  }
+
+  private void setCredential(MailAccountEntity account, String password) {
+    account.setCredentialCiphertext(credentialCipher.encrypt(password));
+    assertThat(mailAccountMapper.updateById(account)).isEqualTo(1);
+  }
+
+  private void authenticateAs(long userId) {
+    Instant now = Instant.now();
+    Jwt jwt =
+        Jwt.withTokenValue("token")
+            .header("alg", "none")
+            .subject(Long.toString(userId))
+            .issuedAt(now)
+            .expiresAt(now.plusSeconds(3600))
+            .build();
+    SecurityContextHolder.getContext()
+        .setAuthentication(new UsernamePasswordAuthenticationToken(jwt, "token"));
+    RequestContextHolder.setRequestAttributes(
+        new ServletRequestAttributes(new MockHttpServletRequest()));
   }
 
   private void insertOwnership(Long userId, Long mailAccountId) {

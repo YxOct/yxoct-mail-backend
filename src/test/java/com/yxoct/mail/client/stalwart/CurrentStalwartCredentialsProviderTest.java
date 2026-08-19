@@ -97,6 +97,32 @@ class CurrentStalwartCredentialsProviderTest {
   }
 
   @Test
+  void resolvesDifferentCredentialsAfterTheAuthenticatedUserChanges() {
+    authenticateAs("42");
+    when(repository.findOwnedPrimaryAccount(42))
+        .thenReturn(
+            Optional.of(
+                new MailAccountCredential(
+                    42, 7, "alice@example.com", MailAccountStatus.ACTIVE, "alice-encrypted")));
+    when(credentialCipher.decrypt("alice-encrypted")).thenReturn("alice-password");
+
+    assertThat(provider.getCredentials().username()).isEqualTo("alice@example.com");
+
+    RequestContextHolder.setRequestAttributes(
+        new ServletRequestAttributes(new MockHttpServletRequest()));
+    authenticateAs("84");
+    when(repository.findOwnedPrimaryAccount(84))
+        .thenReturn(
+            Optional.of(
+                new MailAccountCredential(
+                    84, 9, "bob@example.com", MailAccountStatus.ACTIVE, "bob-encrypted")));
+    when(credentialCipher.decrypt("bob-encrypted")).thenReturn("bob-password");
+
+    assertThat(provider.getCredentials())
+        .isEqualTo(new StalwartCredentials("user:84:account:9", "bob@example.com", "bob-password"));
+  }
+
+  @Test
   void usesConfiguredCredentialsOutsideJwtRequests() {
     SecurityContextHolder.getContext()
         .setAuthentication(new UsernamePasswordAuthenticationToken("health", "password"));
