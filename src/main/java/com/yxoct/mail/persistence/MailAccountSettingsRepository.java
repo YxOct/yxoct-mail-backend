@@ -14,6 +14,10 @@ public class MailAccountSettingsRepository {
     this.mapper = mapper;
   }
 
+  public Optional<OwnedMailAccount> findOwned(long userId, long mailAccountId) {
+    return Optional.ofNullable(mapper.findOwned(userId, mailAccountId));
+  }
+
   public Optional<OwnedMailAccount> findOwnedForUpdate(long userId, long mailAccountId) {
     return Optional.ofNullable(mapper.findOwnedForUpdate(userId, mailAccountId));
   }

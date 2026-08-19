@@ -21,6 +21,21 @@ public interface MailAccountSettingsMapper {
       WHERE uma.user_id = #{userId}
         AND uma.mail_account_id = #{mailAccountId}
         AND uma.account_role = 'OWNER'
+      """)
+  OwnedMailAccount findOwned(
+      @Param("userId") long userId, @Param("mailAccountId") long mailAccountId);
+
+  @Select(
+      """
+      SELECT ma.id AS mail_account_id,
+             ma.stalwart_account_id,
+             ma.display_name,
+             ma.status
+      FROM user_mail_account uma
+      JOIN mail_account ma ON ma.id = uma.mail_account_id
+      WHERE uma.user_id = #{userId}
+        AND uma.mail_account_id = #{mailAccountId}
+        AND uma.account_role = 'OWNER'
       FOR UPDATE
       """)
   OwnedMailAccount findOwnedForUpdate(

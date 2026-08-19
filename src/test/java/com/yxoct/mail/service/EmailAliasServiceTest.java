@@ -15,7 +15,7 @@ import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.config.RegistrationProperties;
 import com.yxoct.mail.domain.mail.EmailAliasResult;
-import com.yxoct.mail.persistence.EmailAliasRepository;
+import com.yxoct.mail.persistence.EmailAddressRepository;
 import com.yxoct.mail.persistence.MailAccountSettingsRepository;
 import com.yxoct.mail.persistence.OwnedMailAccount;
 import com.yxoct.mail.persistence.RegistrationInvitationRepository;
@@ -52,7 +52,7 @@ class EmailAliasServiceTest {
   @Mock private PlatformTransactionManager transactionManager;
   @Mock private RegistrationInvitationRepository invitationRepository;
   @Mock private MailAccountSettingsRepository accountRepository;
-  @Mock private EmailAliasRepository aliasRepository;
+  @Mock private EmailAddressRepository addressRepository;
   @Mock private StalwartManagementClient managementClient;
 
   private EmailAliasService service;
@@ -75,7 +75,7 @@ class EmailAliasServiceTest {
             new EmailAddressNormalizer(
                 new RegistrationProperties("yxoct.com", Duration.ofHours(24), Set.of("billing"))),
             accountRepository,
-            aliasRepository,
+            addressRepository,
             managementClient,
             Clock.fixed(NOW, ZONE));
   }
@@ -94,7 +94,7 @@ class EmailAliasServiceTest {
         .isEqualTo(new EmailAliasResult(2, "hello@yxoct.com", EmailAddressType.ALIAS));
 
     verify(managementClient).addAccountAlias("stalwart-2", "hello@yxoct.com");
-    verify(aliasRepository).insert(2, "hello@yxoct.com", NOW_LOCAL);
+    verify(addressRepository).insertAlias(2, "hello@yxoct.com", NOW_LOCAL);
     verify(invitationRepository).markUsed(7, 1, NOW_LOCAL);
   }
 
@@ -107,7 +107,7 @@ class EmailAliasServiceTest {
         transactionManager,
         invitationRepository,
         accountRepository,
-        aliasRepository,
+        addressRepository,
         managementClient);
   }
 
@@ -139,7 +139,7 @@ class EmailAliasServiceTest {
         .addAccountAlias("stalwart-2", "hello@yxoct.com");
 
     assertBusinessError(ErrorCode.MAIL_SERVICE_UNAVAILABLE);
-    verify(aliasRepository, never()).insert(2, "hello@yxoct.com", NOW_LOCAL);
+    verify(addressRepository, never()).insertAlias(2, "hello@yxoct.com", NOW_LOCAL);
     verify(invitationRepository, never()).markUsed(7, 1, NOW_LOCAL);
   }
 
@@ -150,8 +150,8 @@ class EmailAliasServiceTest {
     when(accountRepository.findOwnedForUpdate(1, 2)).thenReturn(Optional.of(activeAccount()));
     when(managementClient.addAccountAlias("stalwart-2", "hello@yxoct.com")).thenReturn(true);
     doThrow(new org.springframework.dao.DuplicateKeyException("duplicate"))
-        .when(aliasRepository)
-        .insert(2, "hello@yxoct.com", NOW_LOCAL);
+        .when(addressRepository)
+        .insertAlias(2, "hello@yxoct.com", NOW_LOCAL);
 
     assertBusinessError(ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
 

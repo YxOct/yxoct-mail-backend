@@ -178,6 +178,7 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.info.title").value("YxOct Mail API"))
         .andExpect(jsonPath("$.info.version").value("v1"))
         .andExpect(jsonPath("$.paths['/api/mail/mailboxes'].get").exists())
+        .andExpect(jsonPath("$.paths['/api/mail/accounts/{mailAccountId}/addresses'].get").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/read-status'].patch").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())

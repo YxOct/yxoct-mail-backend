@@ -2,17 +2,21 @@ package com.yxoct.mail.controller;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yxoct.mail.domain.mail.EmailAliasResult;
+import com.yxoct.mail.domain.mail.MailAccountEmailAddress;
 import com.yxoct.mail.domain.mail.MailAccountSettings;
 import com.yxoct.mail.persistence.entity.EmailAddressType;
 import com.yxoct.mail.service.EmailAliasService;
+import com.yxoct.mail.service.MailAccountAddressService;
 import com.yxoct.mail.service.MailAccountSettingsService;
 import java.time.Instant;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -30,6 +34,29 @@ class MailAccountControllerTest {
   @Autowired private MockMvc mockMvc;
   @MockitoBean private MailAccountSettingsService settingsService;
   @MockitoBean private EmailAliasService aliasService;
+  @MockitoBean private MailAccountAddressService addressService;
+
+  @Test
+  void listsAddressesForAnOwnedMailAccount() throws Exception {
+    when(addressService.list("1", 2))
+        .thenReturn(
+            List.of(
+                new MailAccountEmailAddress(10, "alice@yxoct.com", EmailAddressType.PRIMARY),
+                new MailAccountEmailAddress(11, "hello@yxoct.com", EmailAddressType.ALIAS)));
+
+    mockMvc
+        .perform(get("/api/mail/accounts/2/addresses").principal(authentication(1)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.data[0].id").value(10))
+        .andExpect(jsonPath("$.data[0].emailAddress").value("alice@yxoct.com"))
+        .andExpect(jsonPath("$.data[0].addressType").value("PRIMARY"))
+        .andExpect(jsonPath("$.data[1].id").value(11))
+        .andExpect(jsonPath("$.data[1].emailAddress").value("hello@yxoct.com"))
+        .andExpect(jsonPath("$.data[1].addressType").value("ALIAS"));
+
+    verify(addressService).list("1", 2);
+  }
 
   @Test
   void addsAnAliasToAnOwnedMailAccount() throws Exception {

@@ -5,7 +5,7 @@ import com.yxoct.mail.client.stalwart.StalwartProvisioningException;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
 import com.yxoct.mail.domain.mail.EmailAliasResult;
-import com.yxoct.mail.persistence.EmailAliasRepository;
+import com.yxoct.mail.persistence.EmailAddressRepository;
 import com.yxoct.mail.persistence.MailAccountSettingsRepository;
 import com.yxoct.mail.persistence.OwnedMailAccount;
 import com.yxoct.mail.persistence.RegistrationInvitationRepository;
@@ -33,7 +33,7 @@ public class EmailAliasService {
   private final InvitationTokenCodec tokenCodec;
   private final EmailAddressNormalizer addressNormalizer;
   private final MailAccountSettingsRepository accountRepository;
-  private final EmailAliasRepository aliasRepository;
+  private final EmailAddressRepository addressRepository;
   private final StalwartManagementClient managementClient;
   private final Clock clock;
 
@@ -44,7 +44,7 @@ public class EmailAliasService {
       InvitationTokenCodec tokenCodec,
       EmailAddressNormalizer addressNormalizer,
       MailAccountSettingsRepository accountRepository,
-      EmailAliasRepository aliasRepository,
+      EmailAddressRepository addressRepository,
       StalwartManagementClient managementClient,
       Clock clock) {
     this.transactionTemplate = transactionTemplate;
@@ -53,7 +53,7 @@ public class EmailAliasService {
     this.tokenCodec = tokenCodec;
     this.addressNormalizer = addressNormalizer;
     this.accountRepository = accountRepository;
-    this.aliasRepository = aliasRepository;
+    this.addressRepository = addressRepository;
     this.managementClient = managementClient;
     this.clock = clock;
   }
@@ -83,7 +83,7 @@ public class EmailAliasService {
                 || account.stalwartAccountId().isBlank()) {
               throw new BusinessException(ErrorCode.MAIL_ACCOUNT_NOT_READY);
             }
-            if (aliasRepository.exists(normalizedAddress)) {
+            if (addressRepository.exists(normalizedAddress)) {
               throw new BusinessException(ErrorCode.EMAIL_ADDRESS_NOT_AVAILABLE);
             }
             remoteAccountId[0] = account.stalwartAccountId();
@@ -98,7 +98,7 @@ public class EmailAliasService {
                   exception.diagnostic());
               throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
             }
-            aliasRepository.insert(mailAccountId, normalizedAddress, now);
+            addressRepository.insertAlias(mailAccountId, normalizedAddress, now);
             if (!invitationRepository.markUsed(invitation.getId(), userId, now)) {
               throw new IllegalStateException("Locked invitation could not be consumed");
             }
