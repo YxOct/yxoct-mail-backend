@@ -18,27 +18,17 @@ spring:
       password: ${REDIS_PASSWORD:}
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       timeout: ${REDIS_TIMEOUT:2s}
-  flyway:
-    locations: classpath:db/migration
-    validate-on-migrate: true
-    clean-disabled: true
   http:
     clients:
       connect-timeout: ${STALWART_CONNECT_TIMEOUT:5s}
       read-timeout: ${STALWART_READ_TIMEOUT:10s}
-stalwart:
-  session-cache-ttl: ${STALWART_SESSION_CACHE_TTL:1m}
-  provisioning:
-    enabled: ${STALWART_PROVISIONING_ENABLED:false}
-    management-api-key: ${STALWART_MANAGEMENT_API_KEY:}
-    credential-encryption-key: ${STALWART_CREDENTIAL_ENCRYPTION_KEY:}
-    scan-interval: ${STALWART_PROVISIONING_SCAN_INTERVAL:10s}
-    lease-duration: ${STALWART_PROVISIONING_LEASE_DURATION:1m}
-    initial-retry-delay: ${STALWART_PROVISIONING_INITIAL_RETRY_DELAY:30s}
-    max-retry-delay: ${STALWART_PROVISIONING_MAX_RETRY_DELAY:1h}
-    batch-size: ${STALWART_PROVISIONING_BATCH_SIZE:20}
+
 app:
   time-zone: ${APP_TIME_ZONE:Asia/Shanghai}
+  security:
+    login-rate-limit:
+      max-failures: ${LOGIN_RATE_LIMIT_MAX_FAILURES:5}
+      window: ${LOGIN_RATE_LIMIT_WINDOW:PT15M}
   registration:
     mail-domain: ${MAIL_DOMAIN:yxoct.com}
     invitation-ttl: ${REGISTRATION_INVITATION_TTL:7d}
@@ -72,6 +62,21 @@ app:
     jwt-secret: ${JWT_SECRET:}
     access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:30d}
+  flyway:
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
+stalwart:
+  session-cache-ttl: ${STALWART_SESSION_CACHE_TTL:1m}
+  provisioning:
+    enabled: ${STALWART_PROVISIONING_ENABLED:false}
+    management-api-key: ${STALWART_MANAGEMENT_API_KEY:}
+    credential-encryption-key: ${STALWART_CREDENTIAL_ENCRYPTION_KEY:}
+    scan-interval: ${STALWART_PROVISIONING_SCAN_INTERVAL:10s}
+    lease-duration: ${STALWART_PROVISIONING_LEASE_DURATION:1m}
+    initial-retry-delay: ${STALWART_PROVISIONING_INITIAL_RETRY_DELAY:30s}
+    max-retry-delay: ${STALWART_PROVISIONING_MAX_RETRY_DELAY:1h}
+    batch-size: ${STALWART_PROVISIONING_BATCH_SIZE:20}
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

@@ -1,5 +1,7 @@
 package com.yxoct.mail.controller;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -128,7 +130,7 @@ class AuthControllerTest {
   @Test
   void logsInWithPrimaryEmailAddress() throws Exception {
     LoginRequest request = new LoginRequest("alice@yxoct.com", PASSWORD);
-    when(loginService.login(request))
+    when(loginService.login(eq(request), anyString()))
         .thenReturn(
             new TokenPairResponse("signed-access-token", "Bearer", 900, "a".repeat(43), 2_592_000));
 
@@ -152,13 +154,13 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.data.refreshToken").value("a".repeat(43)))
         .andExpect(jsonPath("$.data.refreshExpiresIn").value(2_592_000));
 
-    verify(loginService).login(request);
+    verify(loginService).login(eq(request), anyString());
   }
 
   @Test
   void returnsDedicatedErrorForInvalidLoginCredentials() throws Exception {
     LoginRequest request = new LoginRequest("alice@yxoct.com", PASSWORD);
-    when(loginService.login(request))
+    when(loginService.login(eq(request), anyString()))
         .thenThrow(new BusinessException(ErrorCode.INVALID_LOGIN_CREDENTIALS));
 
     mockMvc
