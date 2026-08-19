@@ -27,6 +27,7 @@ public class MailAccountReconciliationService {
   private final StalwartManagementClient managementClient;
   private final StalwartProvisioningProperties provisioningProperties;
   private final StalwartReconciliationProperties reconciliationProperties;
+  private final ReconciliationLeaseCoordinator leaseCoordinator;
   private final Clock clock;
 
   public MailAccountReconciliationService(
@@ -34,17 +35,23 @@ public class MailAccountReconciliationService {
       StalwartManagementClient managementClient,
       StalwartProvisioningProperties provisioningProperties,
       StalwartReconciliationProperties reconciliationProperties,
+      ReconciliationLeaseCoordinator leaseCoordinator,
       Clock clock) {
     this.repository = repository;
     this.managementClient = managementClient;
     this.provisioningProperties = provisioningProperties;
     this.reconciliationProperties = reconciliationProperties;
+    this.leaseCoordinator = leaseCoordinator;
     this.clock = clock;
   }
 
   @Scheduled(fixedDelayString = "${stalwart.reconciliation.scan-interval}")
   public void reconcileAccounts() {
     if (!provisioningProperties.enabled()) {
+      return;
+    }
+    LocalDateTime startedAt = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
+    if (!leaseCoordinator.tryAcquire(startedAt)) {
       return;
     }
     for (MailAccountReconciliationCandidate candidate :

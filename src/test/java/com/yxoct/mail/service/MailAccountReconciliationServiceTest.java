@@ -1,5 +1,6 @@
 package com.yxoct.mail.service;
 
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -36,11 +37,13 @@ class MailAccountReconciliationServiceTest {
 
   @Mock private MailAccountReconciliationRepository repository;
   @Mock private StalwartManagementClient managementClient;
+  @Mock private ReconciliationLeaseCoordinator leaseCoordinator;
   private MailAccountReconciliationService service;
 
   @BeforeEach
   void setUp() {
     service = service(true);
+    lenient().when(leaseCoordinator.tryAcquire(NOW)).thenReturn(true);
   }
 
   @Test
@@ -138,6 +141,15 @@ class MailAccountReconciliationServiceTest {
 
     service.reconcileAccounts();
 
+    verifyNoInteractions(repository, managementClient, leaseCoordinator);
+  }
+
+  @Test
+  void doesNothingWhenAnotherInstanceOwnsTheLease() {
+    when(leaseCoordinator.tryAcquire(NOW)).thenReturn(false);
+
+    service.reconcileAccounts();
+
     verifyNoInteractions(repository, managementClient);
   }
 
@@ -160,6 +172,7 @@ class MailAccountReconciliationServiceTest {
             20),
         new StalwartReconciliationProperties(
             Duration.ofMinutes(5), Duration.ofMinutes(10), batchSize),
+        leaseCoordinator,
         Clock.fixed(INSTANT, ZONE));
   }
 

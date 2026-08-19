@@ -92,12 +92,14 @@ class MySqlUserPersistenceIT {
   @Autowired private AdminMailAccountRepository adminMailAccountRepository;
   @Autowired private MailAccountReconciliationRepository reconciliationRepository;
   @Autowired private AdminUserRepository adminUserRepository;
+  @Autowired private ScheduledTaskLeaseRepository scheduledTaskLeaseRepository;
 
   @AfterEach
   void cleanUp() {
     SecurityContextHolder.clearContext();
     RequestContextHolder.resetRequestAttributes();
     jdbcTemplate.update("DELETE FROM registration_invitation");
+    jdbcTemplate.update("DELETE FROM scheduled_task_lease");
     jdbcTemplate.update("DELETE FROM user_status_audit");
     jdbcTemplate.update("DELETE FROM mail_account_reconciliation");
     jdbcTemplate.update("DELETE FROM user_mail_account");
@@ -170,6 +172,8 @@ class MySqlUserPersistenceIT {
         .isEqualTo(3);
     assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '17'"))
         .isEqualTo(1);
+    assertThat(queryForInt("SELECT COUNT(*) FROM flyway_schema_history WHERE version = '18'"))
+        .isEqualTo(1);
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM information_schema.statistics "
@@ -184,6 +188,59 @@ class MySqlUserPersistenceIT {
                     + "AND table_name = 'user_status_audit' "
                     + "AND column_name = 'action' "
                     + "AND character_maximum_length = 64"))
+        .isEqualTo(1);
+  }
+
+  @Test
+  void coordinatesScheduledTasksAcrossInstancesWithAnExpiringLease() {
+    LocalDateTime now = LocalDateTime.of(2026, 8, 19, 13, 0);
+
+    assertThat(
+            scheduledTaskLeaseRepository.tryAcquire(
+                "reconciliation", "instance-a", now, now.plusMinutes(10)))
+        .isTrue();
+    assertThat(
+            scheduledTaskLeaseRepository.tryAcquire(
+                "reconciliation", "instance-b", now.plusMinutes(1), now.plusMinutes(11)))
+        .isFalse();
+    assertThat(
+            scheduledTaskLeaseRepository.tryAcquire(
+                "reconciliation", "instance-a", now.plusMinutes(2), now.plusMinutes(12)))
+        .isTrue();
+    assertThat(
+            scheduledTaskLeaseRepository.tryAcquire(
+                "reconciliation", "instance-b", now.plusMinutes(12), now.plusMinutes(22)))
+        .isTrue();
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT owner_id FROM scheduled_task_lease WHERE task_name = 'reconciliation'",
+                String.class))
+        .isEqualTo("instance-b");
+  }
+
+  @Test
+  void allowsOnlyOneInstanceToCreateAnInitialLease() throws Exception {
+    LocalDateTime now = LocalDateTime.of(2026, 8, 19, 13, 30);
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch start = new CountDownLatch(1);
+
+    List<Boolean> outcomes;
+    try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+      List<Future<Boolean>> futures =
+          List.of(
+              executor.submit(() -> acquireLeaseAfterSignal("instance-a", now, ready, start)),
+              executor.submit(() -> acquireLeaseAfterSignal("instance-b", now, ready, start)));
+      ready.await();
+      start.countDown();
+      outcomes = List.of(futures.get(0).get(), futures.get(1).get());
+    }
+
+    assertThat(outcomes).containsExactlyInAnyOrder(true, false);
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM scheduled_task_lease WHERE task_name = 'concurrent-task'",
+                Integer.class))
         .isEqualTo(1);
   }
 
@@ -592,6 +649,15 @@ class MySqlUserPersistenceIT {
     } catch (BusinessException exception) {
       return exception.getErrorCode();
     }
+  }
+
+  private boolean acquireLeaseAfterSignal(
+      String ownerId, LocalDateTime now, CountDownLatch ready, CountDownLatch start)
+      throws InterruptedException {
+    ready.countDown();
+    start.await();
+    return scheduledTaskLeaseRepository.tryAcquire(
+        "concurrent-task", ownerId, now, now.plusMinutes(10));
   }
 
   private AppUserEntity insertUser() {
