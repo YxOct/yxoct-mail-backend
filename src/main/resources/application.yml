@@ -18,6 +18,10 @@ spring:
       password: ${REDIS_PASSWORD:}
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       timeout: ${REDIS_TIMEOUT:2s}
+  flyway:
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
   http:
     clients:
       connect-timeout: ${STALWART_CONNECT_TIMEOUT:5s}
@@ -62,10 +66,6 @@ app:
     jwt-secret: ${JWT_SECRET:}
     access-token-ttl: ${JWT_ACCESS_TOKEN_TTL:15m}
     refresh-token-ttl: ${JWT_REFRESH_TOKEN_TTL:30d}
-  flyway:
-    locations: classpath:db/migration
-    validate-on-migrate: true
-    clean-disabled: true
 stalwart:
   session-cache-ttl: ${STALWART_SESSION_CACHE_TTL:1m}
   provisioning:

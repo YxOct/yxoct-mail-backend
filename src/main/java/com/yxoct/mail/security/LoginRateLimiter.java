@@ -2,9 +2,9 @@ package com.yxoct.mail.security;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.config.LoginRateLimitProperties;
 import java.time.Duration;
 import java.util.List;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
@@ -22,13 +22,10 @@ public class LoginRateLimiter {
   private final int maxFailures;
   private final Duration window;
 
-  public LoginRateLimiter(
-      StringRedisTemplate redisTemplate,
-      @Value("${app.security.login-rate-limit.max-failures:5}") int maxFailures,
-      @Value("${app.security.login-rate-limit.window:PT15M}") Duration window) {
+  public LoginRateLimiter(StringRedisTemplate redisTemplate, LoginRateLimitProperties properties) {
     this.redisTemplate = redisTemplate;
-    this.maxFailures = maxFailures;
-    this.window = window;
+    this.maxFailures = properties.maxFailures();
+    this.window = properties.window();
   }
 
   public void check(String emailAddress, String ipAddress) {
