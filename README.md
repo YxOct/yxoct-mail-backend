@@ -49,6 +49,14 @@ In VS Code, open `MailBackendApplication.java` and use the editor's `Run Java` a
 
 For production, set `SPRING_PROFILES_ACTIVE=prod` and provide all secrets through the deployment environment. Do not commit `.env` or secret values.
 
+Build the backend container image:
+
+```powershell
+docker build --tag yxoct-mail-backend:local .
+```
+
+The image runs as a non-root user and checks `/actuator/health/readiness`. Configure it through environment variables; do not copy `.env` into the image. `JAVA_TOOL_OPTIONS` can be used for JVM memory and runtime options.
+
 ## API documentation
 
 With the `dev` profile running:
