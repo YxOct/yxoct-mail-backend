@@ -104,6 +104,22 @@ public class AdminUserController {
     return ApiResponse.success();
   }
 
+  @PostMapping("/{userId}/logout")
+  @Operation(summary = "Revoke every authentication session for an application user")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        ref = "#/components/responses/BadRequest"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        ref = "#/components/responses/ResourceNotFound")
+  })
+  public ApiResponse<Void> forceLogout(
+      Authentication authentication, @PathVariable @Min(1) long userId) {
+    userService.forceLogout(userId(authentication), userId);
+    return ApiResponse.success();
+  }
+
   private long userId(Authentication authentication) {
     Jwt jwt = (Jwt) authentication.getPrincipal();
     return Long.parseLong(jwt.getSubject());

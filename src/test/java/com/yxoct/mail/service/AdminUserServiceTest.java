@@ -261,6 +261,49 @@ class AdminUserServiceTest {
     verify(authVersionStore).setVersion(7, 3L);
   }
 
+  @Test
+  void forcesAUserToLogOutWithoutChangingTheirAccountStatus() {
+    when(statusRepository.findUserForUpdate(7))
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE, 3L)));
+    when(statusRepository.incrementAuthenticationVersion(7, 3L, NOW)).thenReturn(true);
+
+    service.forceLogout(42, 7);
+
+    verify(authVersionStore).setVersion(7, 4L);
+    verify(statusRepository).revokeRefreshTokens(7, NOW);
+    verify(managementClient, never()).setAccountEnabled(any(), any(Boolean.class));
+    ArgumentCaptor<UserStatusAuditEntity> audit =
+        ArgumentCaptor.forClass(UserStatusAuditEntity.class);
+    verify(statusRepository).saveAudit(audit.capture());
+    assertThat(audit.getValue().getUserId()).isEqualTo(7);
+    assertThat(audit.getValue().getAction()).isEqualTo(UserStatusAuditAction.FORCED_LOGOUT);
+    assertThat(audit.getValue().getReason()).isNull();
+    assertThat(audit.getValue().getOperatedByUserId()).isEqualTo(42);
+    assertThat(audit.getValue().getCreatedAt()).isEqualTo(NOW);
+  }
+
+  @Test
+  void rejectsForcingAnUnknownUserToLogOut() {
+    when(statusRepository.findUserForUpdate(7)).thenReturn(Optional.empty());
+
+    assertBusinessError(() -> service.forceLogout(42, 7), ErrorCode.RESOURCE_NOT_FOUND);
+
+    verify(authVersionStore, never()).setVersion(anyLong(), anyLong());
+  }
+
+  @Test
+  void restoresTheAuthenticationVersionWhenForcedLogoutPersistenceFails() {
+    when(statusRepository.findUserForUpdate(7))
+        .thenReturn(Optional.of(new UserStatusTarget(7, UserRole.USER, UserStatus.ACTIVE, 3L)));
+    when(statusRepository.incrementAuthenticationVersion(7, 3L, NOW)).thenReturn(false);
+
+    assertThatThrownBy(() -> service.forceLogout(42, 7)).isInstanceOf(IllegalStateException.class);
+
+    verify(authVersionStore).setVersion(7, 4L);
+    verify(authVersionStore).setVersion(7, 3L);
+    verify(statusRepository, never()).revokeRefreshTokens(anyLong(), any());
+  }
+
   private void assertBusinessError(Runnable action, ErrorCode expected) {
     assertThatThrownBy(action::run)
         .isInstanceOfSatisfying(

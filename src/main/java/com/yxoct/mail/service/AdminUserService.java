@@ -167,6 +167,34 @@ public class AdminUserService {
     }
   }
 
+  public void forceLogout(long operatedByUserId, long userId) {
+    long[] previousAuthVersion = new long[1];
+    boolean[] authVersionChanged = new boolean[1];
+    try {
+      transactionTemplate.executeWithoutResult(
+          status -> {
+            UserStatusTarget target =
+                statusRepository
+                    .findUserForUpdate(userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            LocalDateTime now = LocalDateTime.ofInstant(clock.instant(), clock.getZone());
+            previousAuthVersion[0] = target.version();
+            authVersionStore.setVersion(userId, target.version() + 1);
+            authVersionChanged[0] = true;
+            if (!statusRepository.incrementAuthenticationVersion(userId, target.version(), now)) {
+              throw new IllegalStateException(
+                  "Locked user authentication version could not be incremented");
+            }
+            statusRepository.revokeRefreshTokens(userId, now);
+            statusRepository.saveAudit(
+                audit(userId, operatedByUserId, UserStatusAuditAction.FORCED_LOGOUT, null, now));
+          });
+    } catch (RuntimeException exception) {
+      restoreAuthVersion(userId, previousAuthVersion[0], authVersionChanged[0]);
+      throw exception;
+    }
+  }
+
   private void restoreAuthVersion(long userId, long previousVersion, boolean changed) {
     if (!changed) {
       return;

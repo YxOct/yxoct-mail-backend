@@ -90,9 +90,9 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10') "
+                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11') "
                     + "AND success = TRUE"))
-        .isEqualTo(10);
+        .isEqualTo(11);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();
@@ -227,6 +227,7 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}'].get").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/disable'].post").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/enable'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/admin/users/{userId}/logout'].post").exists())
         .andExpect(
             jsonPath(
                     "$.components.responses.UserDisableConflict.content['application/json'].examples['code-5000'].value.code")

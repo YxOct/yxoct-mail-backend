@@ -119,6 +119,16 @@ class AdminUserControllerTest {
     verify(userService).enable(42, 7);
   }
 
+  @Test
+  void forcesAUserToLogOutWithTheAuthenticatedAdministratorId() throws Exception {
+    mockMvc
+        .perform(post("/api/admin/users/7/logout").principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(userService).forceLogout(42, 7);
+  }
+
   private AdminUserSummary user() {
     return new AdminUserSummary(
         7,

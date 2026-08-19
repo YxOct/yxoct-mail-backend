@@ -58,6 +58,11 @@ public class UserStatusManagementRepository {
     refreshTokenMapper.revokeByUserId(userId, revokedAt);
   }
 
+  public boolean incrementAuthenticationVersion(
+      long userId, long expectedVersion, LocalDateTime updatedAt) {
+    return statusMapper.incrementAuthenticationVersion(userId, expectedVersion, updatedAt) == 1;
+  }
+
   public void saveAudit(UserStatusAuditEntity audit) {
     if (auditMapper.insert(audit) != 1) {
       throw new IllegalStateException("Could not save user status audit");

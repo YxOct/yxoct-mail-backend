@@ -90,6 +90,18 @@ public interface UserStatusManagementMapper {
 
   @Update(
       """
+      UPDATE app_user
+      SET version = version + 1,
+          updated_at = #{updatedAt}
+      WHERE id = #{userId} AND version = #{expectedVersion}
+      """)
+  int incrementAuthenticationVersion(
+      @Param("userId") long userId,
+      @Param("expectedVersion") long expectedVersion,
+      @Param("updatedAt") LocalDateTime updatedAt);
+
+  @Update(
+      """
       UPDATE mail_account ma
       JOIN user_mail_account uma ON uma.mail_account_id = ma.id
       SET ma.status = CASE
