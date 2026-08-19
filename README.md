@@ -70,6 +70,8 @@ Important flows:
 - `POST /api/admin/invitations`: create a registration or email-address invitation (`ADMIN` only).
 - `GET /api/admin/users`: list users (`ADMIN` only).
 - `GET /api/admin/users/{userId}/audits`: inspect a user's administrative audit history.
+- `GET /api/admin/mail-accounts/provisioning`: list mail accounts awaiting or failing provisioning.
+- `POST /api/admin/mail-accounts/{mailAccountId}/retry-provisioning`: schedule an immediate provisioning retry.
 - `POST /api/admin/users/{userId}/disable`: disable a user and owned mail accounts.
 - `POST /api/admin/users/{userId}/enable`: re-enable a disabled user.
 - `POST /api/admin/users/{userId}/logout`: revoke all sessions without changing account status.
