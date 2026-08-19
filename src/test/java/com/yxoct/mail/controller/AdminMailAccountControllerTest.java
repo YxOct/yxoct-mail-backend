@@ -7,8 +7,11 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yxoct.mail.domain.mail.AdminMailAccountDriftEntry;
+import com.yxoct.mail.domain.mail.AdminMailAccountDriftPage;
 import com.yxoct.mail.domain.mail.AdminMailAccountProvisioningEntry;
 import com.yxoct.mail.domain.mail.AdminMailAccountProvisioningPage;
+import com.yxoct.mail.persistence.entity.MailAccountDriftType;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.service.AdminMailAccountService;
 import java.time.Instant;
@@ -29,6 +32,34 @@ class AdminMailAccountControllerTest {
 
   @Autowired private MockMvc mockMvc;
   @MockitoBean private AdminMailAccountService service;
+
+  @Test
+  void listsDetectedDrifts() throws Exception {
+    when(service.listDrifts(1, 20))
+        .thenReturn(
+            new AdminMailAccountDriftPage(
+                1,
+                20,
+                1,
+                List.of(
+                    new AdminMailAccountDriftEntry(
+                        9,
+                        7,
+                        "alice@yxoct.com",
+                        MailAccountStatus.ACTIVE,
+                        "account-9",
+                        MailAccountDriftType.REMOTE_ACCOUNT_MISSING,
+                        null,
+                        LocalDateTime.of(2026, 8, 19, 20, 0)))));
+
+    mockMvc
+        .perform(get("/api/admin/mail-accounts/drifts").principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.total").value(1))
+        .andExpect(jsonPath("$.data.items[0].driftType").value("REMOTE_ACCOUNT_MISSING"));
+
+    verify(service).listDrifts(1, 20);
+  }
 
   @Test
   void listsProvisioningIssues() throws Exception {

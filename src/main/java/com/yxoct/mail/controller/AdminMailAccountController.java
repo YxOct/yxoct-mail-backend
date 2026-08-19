@@ -40,6 +40,14 @@ public class AdminMailAccountController {
     return ApiResponse.success(service.listProvisioningIssues(page, size));
   }
 
+  @GetMapping("/drifts")
+  @Operation(summary = "List detected Stalwart account state drift")
+  public ApiResponse<com.yxoct.mail.domain.mail.AdminMailAccountDriftPage> listDrifts(
+      @RequestParam(defaultValue = "1") @Min(1) int page,
+      @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+    return ApiResponse.success(service.listDrifts(page, size));
+  }
+
   @PostMapping("/{mailAccountId}/retry-provisioning")
   @Operation(summary = "Schedule an immediate retry of Stalwart account provisioning")
   public ApiResponse<Void> retryProvisioning(

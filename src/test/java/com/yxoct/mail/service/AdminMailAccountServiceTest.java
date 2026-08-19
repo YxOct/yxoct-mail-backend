@@ -8,9 +8,12 @@ import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.persistence.AdminMailAccountDriftRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningTarget;
 import com.yxoct.mail.persistence.AdminMailAccountRepository;
+import com.yxoct.mail.persistence.MailAccountReconciliationRepository;
+import com.yxoct.mail.persistence.entity.MailAccountDriftType;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import java.time.Clock;
 import java.time.Instant;
@@ -32,11 +35,14 @@ class AdminMailAccountServiceTest {
   private static final LocalDateTime NOW = LocalDateTime.ofInstant(INSTANT, ZONE);
 
   @Mock private AdminMailAccountRepository repository;
+  @Mock private MailAccountReconciliationRepository reconciliationRepository;
   private AdminMailAccountService service;
 
   @BeforeEach
   void setUp() {
-    service = new AdminMailAccountService(repository, Clock.fixed(INSTANT, ZONE));
+    service =
+        new AdminMailAccountService(
+            repository, reconciliationRepository, Clock.fixed(INSTANT, ZONE));
   }
 
   @Test
@@ -61,6 +67,29 @@ class AdminMailAccountServiceTest {
     assertThat(page.total()).isEqualTo(1);
     assertThat(page.items()).hasSize(1);
     assertThat(page.items().getFirst().emailAddress()).isEqualTo("alice@yxoct.com");
+  }
+
+  @Test
+  void listsDetectedDrifts() {
+    when(reconciliationRepository.countDrifts()).thenReturn(1L);
+    when(reconciliationRepository.findDrifts(1, 20))
+        .thenReturn(
+            List.of(
+                new AdminMailAccountDriftRecord(
+                    9,
+                    7,
+                    "alice@yxoct.com",
+                    MailAccountStatus.ACTIVE,
+                    "account-9",
+                    MailAccountDriftType.REMOTE_ACCOUNT_MISSING.name(),
+                    null,
+                    NOW)));
+
+    var page = service.listDrifts(1, 20);
+
+    assertThat(page.total()).isEqualTo(1);
+    assertThat(page.items().getFirst().driftType())
+        .isEqualTo(MailAccountDriftType.REMOTE_ACCOUNT_MISSING);
   }
 
   @Test

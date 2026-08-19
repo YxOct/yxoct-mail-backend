@@ -206,6 +206,45 @@ class StalwartManagementClientTest {
   }
 
   @Test
+  void inspectsAnEnabledAccount() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/get"))
+        .andRespond(
+            methodResponse(
+                "x:Account/get",
+                "{\"list\":[{\"id\":\"account-1\","
+                    + "\"permissions\":{\"@type\":\"Inherit\"}}],\"notFound\":[]}"));
+
+    assertThat(client.inspectAccount("account-1"))
+        .contains(new StalwartAccountSnapshot("account-1", true));
+  }
+
+  @Test
+  void inspectsADisabledAccount() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            methodResponse(
+                "x:Account/get",
+                "{\"list\":[{\"id\":\"account-1\",\"permissions\":{"
+                    + "\"@type\":\"Replace\",\"enabledPermissions\":{},"
+                    + "\"disabledPermissions\":{}}}],\"notFound\":[]}"));
+
+    assertThat(client.inspectAccount("account-1"))
+        .contains(new StalwartAccountSnapshot("account-1", false));
+  }
+
+  @Test
+  void reportsAMissingRemoteAccount() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(methodResponse("x:Account/get", "{\"list\":[],\"notFound\":[\"account-1\"]}"));
+
+    assertThat(client.inspectAccount("account-1")).isEmpty();
+  }
+
+  @Test
   void addsAnAccountAlias() {
     expectDomainLookup();
     expectAccountAliases("{}");

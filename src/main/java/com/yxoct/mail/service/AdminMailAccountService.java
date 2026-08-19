@@ -2,11 +2,16 @@ package com.yxoct.mail.service;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.mail.AdminMailAccountDriftEntry;
+import com.yxoct.mail.domain.mail.AdminMailAccountDriftPage;
 import com.yxoct.mail.domain.mail.AdminMailAccountProvisioningEntry;
 import com.yxoct.mail.domain.mail.AdminMailAccountProvisioningPage;
+import com.yxoct.mail.persistence.AdminMailAccountDriftRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningRecord;
 import com.yxoct.mail.persistence.AdminMailAccountProvisioningTarget;
 import com.yxoct.mail.persistence.AdminMailAccountRepository;
+import com.yxoct.mail.persistence.MailAccountReconciliationRepository;
+import com.yxoct.mail.persistence.entity.MailAccountDriftType;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -17,11 +22,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class AdminMailAccountService {
 
   private final AdminMailAccountRepository repository;
+  private final MailAccountReconciliationRepository reconciliationRepository;
   private final Clock clock;
 
-  public AdminMailAccountService(AdminMailAccountRepository repository, Clock clock) {
+  public AdminMailAccountService(
+      AdminMailAccountRepository repository,
+      MailAccountReconciliationRepository reconciliationRepository,
+      Clock clock) {
     this.repository = repository;
+    this.reconciliationRepository = reconciliationRepository;
     this.clock = clock;
+  }
+
+  public AdminMailAccountDriftPage listDrifts(int page, int size) {
+    return new AdminMailAccountDriftPage(
+        page,
+        size,
+        reconciliationRepository.countDrifts(),
+        reconciliationRepository.findDrifts(page, size).stream().map(this::mapDrift).toList());
   }
 
   public AdminMailAccountProvisioningPage listProvisioningIssues(int page, int size) {
@@ -68,5 +86,17 @@ public class AdminMailAccountService {
         account.nextProvisioningAt(),
         account.provisioningLeaseUntil(),
         account.updatedAt());
+  }
+
+  private AdminMailAccountDriftEntry mapDrift(AdminMailAccountDriftRecord drift) {
+    return new AdminMailAccountDriftEntry(
+        drift.mailAccountId(),
+        drift.userId(),
+        drift.emailAddress(),
+        drift.localStatus(),
+        drift.stalwartAccountId(),
+        MailAccountDriftType.valueOf(drift.driftType()),
+        drift.lastError(),
+        drift.checkedAt());
   }
 }

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -109,6 +110,29 @@ public class StalwartManagementClient {
     }
   }
 
+  public Optional<StalwartAccountSnapshot> inspectAccount(String accountId) {
+    JsonNode result = invoke("x:Account/get", Map.of("ids", List.of(accountId)));
+    JsonNode list = result.path("list");
+    if (!list.isArray()) {
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+    List<JsonNode> accounts = elements(list);
+    if (accounts.isEmpty()) {
+      JsonNode notFound = result.path("notFound");
+      if (notFound.isArray()
+          && notFound.size() == 1
+          && accountId.equals(textValue(notFound.path(0)))) {
+        return Optional.empty();
+      }
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+    if (accounts.size() != 1 || !accountId.equals(nullableText(accounts.getFirst(), "id"))) {
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+    return Optional.of(
+        new StalwartAccountSnapshot(accountId, isAccountEnabled(accounts.getFirst())));
+  }
+
   public boolean addAccountAlias(String accountId, String emailAddress) {
     return updateAccountAlias(accountId, AddressParts.parse(emailAddress), true);
   }
@@ -160,6 +184,20 @@ public class StalwartManagementClient {
       throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
     }
     return accounts.getFirst();
+  }
+
+  private boolean isAccountEnabled(JsonNode account) {
+    JsonNode permissions = account.path("permissions");
+    String type = nullableText(permissions, "@type");
+    if ("Inherit".equals(type)) {
+      return true;
+    }
+    if ("Replace".equals(type)
+        && permissions.path("enabledPermissions").isObject()
+        && permissions.path("disabledPermissions").isObject()) {
+      return permissions.path("enabledPermissions").size() > 0;
+    }
+    throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
   }
 
   private String findDomainId(String domain) {
