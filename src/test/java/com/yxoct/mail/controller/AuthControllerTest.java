@@ -2,24 +2,32 @@ package com.yxoct.mail.controller;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.user.CurrentUserResponse;
 import com.yxoct.mail.domain.user.LoginRequest;
 import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.domain.user.TokenPairResponse;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
+import com.yxoct.mail.persistence.entity.UserRole;
+import com.yxoct.mail.persistence.entity.UserStatus;
+import com.yxoct.mail.service.CurrentUserService;
 import com.yxoct.mail.service.LoginService;
 import com.yxoct.mail.service.RefreshTokenService;
 import com.yxoct.mail.service.RegistrationService;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,6 +43,35 @@ class AuthControllerTest {
   @MockitoBean private RegistrationService registrationService;
   @MockitoBean private LoginService loginService;
   @MockitoBean private RefreshTokenService refreshTokenService;
+  @MockitoBean private CurrentUserService currentUserService;
+
+  @Test
+  void returnsTheAuthenticatedUserAndMailAccountStatus() throws Exception {
+    CurrentUserResponse response =
+        new CurrentUserResponse(
+            1L,
+            2L,
+            "alice@yxoct.com",
+            "Alice Zhang",
+            UserRole.USER,
+            UserStatus.ACTIVE,
+            MailAccountStatus.PROVISIONING);
+    when(currentUserService.get("1")).thenReturn(response);
+
+    mockMvc
+        .perform(get("/api/auth/me").principal(authentication(1)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.data.userId").value(1))
+        .andExpect(jsonPath("$.data.mailAccountId").value(2))
+        .andExpect(jsonPath("$.data.emailAddress").value("alice@yxoct.com"))
+        .andExpect(jsonPath("$.data.displayName").value("Alice Zhang"))
+        .andExpect(jsonPath("$.data.role").value("USER"))
+        .andExpect(jsonPath("$.data.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.data.mailAccountStatus").value("PROVISIONING"));
+
+    verify(currentUserService).get("1");
+  }
 
   @Test
   void registersAnInvitedUser() throws Exception {
@@ -182,5 +219,16 @@ class AuthControllerTest {
         }
         """
         .formatted(INVITATION, localPart, password);
+  }
+
+  private JwtAuthenticationToken authentication(long userId) {
+    Jwt jwt =
+        Jwt.withTokenValue("token")
+            .header("alg", "none")
+            .subject(Long.toString(userId))
+            .issuedAt(Instant.parse("2026-08-19T00:00:00Z"))
+            .expiresAt(Instant.parse("2026-08-19T01:00:00Z"))
+            .build();
+    return new JwtAuthenticationToken(jwt);
   }
 }

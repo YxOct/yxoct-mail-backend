@@ -16,6 +16,7 @@ import com.yxoct.mail.persistence.entity.MailAccountEntity;
 import com.yxoct.mail.persistence.entity.MailAccountRole;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.UserMailAccountEntity;
+import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.persistence.mapper.AppUserMapper;
 import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
@@ -66,6 +67,7 @@ class MySqlUserPersistenceIT {
   @Autowired private UserMailAccountMapper userMailAccountMapper;
   @Autowired private RegistrationInvitationService invitationService;
   @Autowired private RegistrationService registrationService;
+  @Autowired private CurrentUserRepository currentUserRepository;
 
   @AfterEach
   void cleanUp() {
@@ -147,6 +149,27 @@ class MySqlUserPersistenceIT {
                 Wrappers.<EmailAddressEntity>lambdaQuery()
                     .eq(EmailAddressEntity::getMailAccountId, firstAccount.getId())))
         .isEqualTo(2);
+  }
+
+  @Test
+  void loadsTheCurrentUsersOwnedPrimaryMailAccount() {
+    AppUserEntity user = insertUser();
+    MailAccountEntity account = insertAccount("stalwart-account-1");
+    account.setDisplayName("Alice Zhang");
+    assertThat(mailAccountMapper.updateById(account)).isEqualTo(1);
+    insertOwnership(user.getId(), account.getId());
+    insertAddress(account.getId(), "alice@yxoct.com", "alice@yxoct.com", EmailAddressType.PRIMARY);
+
+    assertThat(currentUserRepository.findOwnedPrimaryAccount(user.getId()))
+        .contains(
+            new CurrentUserAccount(
+                user.getId(),
+                account.getId(),
+                "alice@yxoct.com",
+                "Alice Zhang",
+                UserRole.USER,
+                UserStatus.ACTIVE,
+                MailAccountStatus.ACTIVE));
   }
 
   @Test

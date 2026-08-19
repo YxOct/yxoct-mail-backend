@@ -1,20 +1,26 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import com.yxoct.mail.domain.user.CurrentUserResponse;
 import com.yxoct.mail.domain.user.LoginRequest;
 import com.yxoct.mail.domain.user.RefreshTokenRequest;
 import com.yxoct.mail.domain.user.RegisterRequest;
 import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.domain.user.TokenPairResponse;
+import com.yxoct.mail.service.CurrentUserService;
 import com.yxoct.mail.service.LoginService;
 import com.yxoct.mail.service.RefreshTokenService;
 import com.yxoct.mail.service.RegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -28,14 +34,25 @@ public class AuthController {
   private final RegistrationService registrationService;
   private final LoginService loginService;
   private final RefreshTokenService refreshTokenService;
+  private final CurrentUserService currentUserService;
 
   public AuthController(
       RegistrationService registrationService,
       LoginService loginService,
-      RefreshTokenService refreshTokenService) {
+      RefreshTokenService refreshTokenService,
+      CurrentUserService currentUserService) {
     this.registrationService = registrationService;
     this.loginService = loginService;
     this.refreshTokenService = refreshTokenService;
+    this.currentUserService = currentUserService;
+  }
+
+  @GetMapping("/me")
+  @Operation(summary = "Get the authenticated user and primary mail account status")
+  @SecurityRequirement(name = "bearerAuth")
+  public ApiResponse<CurrentUserResponse> me(Authentication authentication) {
+    Jwt jwt = (Jwt) authentication.getPrincipal();
+    return ApiResponse.success(currentUserService.get(jwt.getSubject()));
   }
 
   @PostMapping("/register")
