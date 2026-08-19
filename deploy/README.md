@@ -23,16 +23,35 @@ Validate the rendered Compose configuration before changing containers:
 docker compose --env-file deploy/.env.prod -f compose.prod.yaml config --quiet
 ```
 
-## Deploy or update
+## Initial deployment
 
-Build and start the production stack:
+The production Compose file pulls the backend image from GHCR. Set `BACKEND_IMAGE_REPOSITORY` and `BACKEND_IMAGE_TAG` in `deploy/.env.prod`, authenticate Docker to GHCR when the package is private, and then start the stack:
 
 ```bash
-docker compose --env-file deploy/.env.prod -f compose.prod.yaml up -d --build
+docker compose --env-file deploy/.env.prod -f compose.prod.yaml pull
+docker compose --env-file deploy/.env.prod -f compose.prod.yaml up -d
 docker compose --env-file deploy/.env.prod -f compose.prod.yaml ps
 ```
 
-For later updates, pull the intended revision, review changes to migrations and deployment files, validate Compose again, and run the same `up -d --build` command. Do not run `docker compose down -v`; the named volumes contain MySQL, Redis, and Prometheus data.
+Do not run `docker compose down -v`; the named volumes contain MySQL, Redis, and Prometheus data.
+
+## Continuous deployment
+
+After CI succeeds for a push to `main`, `.github/workflows/cd.yml` builds an ARM64 image, publishes both the verified commit SHA and `latest` tags to GHCR, and deploys the immutable SHA tag to the production server. The deployment script updates only the backend container, waits for readiness, and restores the previous image if readiness fails.
+
+Create a protected GitHub environment named `production` and configure these repository or environment secrets:
+
+- `DEPLOY_HOST`: production server address.
+- `DEPLOY_PORT`: SSH port, normally `22`.
+- `DEPLOY_USER`: dedicated deployment user, normally `ubuntu`.
+- `DEPLOY_SSH_KEY`: private key for that user.
+- `DEPLOY_KNOWN_HOSTS`: verified `known_hosts` entry for the production server.
+
+The deployment user must be able to run Docker without `sudo`, read `/opt/yxoct-mail-backend`, update its Git checkout, and read `deploy/.env.prod`. Application secrets remain only in the server environment file and are not copied into GitHub Secrets.
+
+For private GHCR packages, the workflow logs the server into GHCR with the short-lived workflow token before pulling the image. Keep the package linked to this repository so `GITHUB_TOKEN` receives package write and read access.
+
+The server checkout is deployment-managed: do not edit tracked files under `/opt/yxoct-mail-backend` directly. The ignored `deploy/.env.prod` file is preserved across deployments.
 
 ## Verify
 

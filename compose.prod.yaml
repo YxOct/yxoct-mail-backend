@@ -6,9 +6,7 @@ x-logging: &default-logging
 
 services:
   backend:
-    build:
-      context: .
-    image: yxoct-mail-backend:${BACKEND_IMAGE_TAG:-local}
+    image: ${BACKEND_IMAGE_REPOSITORY:-ghcr.io/yxoct/yxoct-mail-backend}:${BACKEND_IMAGE_TAG:-latest}
     container_name: yxoct-mail-backend
     restart: unless-stopped
     ports:
