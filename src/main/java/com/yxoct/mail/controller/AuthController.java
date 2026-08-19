@@ -1,6 +1,7 @@
 package com.yxoct.mail.controller;
 
 import com.yxoct.mail.common.response.ApiResponse;
+import com.yxoct.mail.domain.user.ChangePasswordRequest;
 import com.yxoct.mail.domain.user.CurrentUserResponse;
 import com.yxoct.mail.domain.user.LoginRequest;
 import com.yxoct.mail.domain.user.RefreshTokenRequest;
@@ -9,6 +10,7 @@ import com.yxoct.mail.domain.user.RegistrationResult;
 import com.yxoct.mail.domain.user.TokenPairResponse;
 import com.yxoct.mail.service.CurrentUserService;
 import com.yxoct.mail.service.LoginService;
+import com.yxoct.mail.service.PasswordService;
 import com.yxoct.mail.service.RefreshTokenService;
 import com.yxoct.mail.service.RegistrationService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -35,16 +37,19 @@ public class AuthController {
   private final LoginService loginService;
   private final RefreshTokenService refreshTokenService;
   private final CurrentUserService currentUserService;
+  private final PasswordService passwordService;
 
   public AuthController(
       RegistrationService registrationService,
       LoginService loginService,
       RefreshTokenService refreshTokenService,
-      CurrentUserService currentUserService) {
+      CurrentUserService currentUserService,
+      PasswordService passwordService) {
     this.registrationService = registrationService;
     this.loginService = loginService;
     this.refreshTokenService = refreshTokenService;
     this.currentUserService = currentUserService;
+    this.passwordService = passwordService;
   }
 
   @GetMapping("/me")
@@ -53,6 +58,17 @@ public class AuthController {
   public ApiResponse<CurrentUserResponse> me(Authentication authentication) {
     Jwt jwt = (Jwt) authentication.getPrincipal();
     return ApiResponse.success(currentUserService.get(jwt.getSubject()));
+  }
+
+  @PostMapping("/password")
+  @Operation(summary = "Change the authenticated user's password")
+  @SecurityRequirement(name = "bearerAuth")
+  public ApiResponse<Void> changePassword(
+      Authentication authentication, @Valid @RequestBody ChangePasswordRequest request) {
+    Jwt jwt = (Jwt) authentication.getPrincipal();
+    passwordService.change(
+        Long.parseLong(jwt.getSubject()), request.currentPassword(), request.newPassword());
+    return ApiResponse.success();
   }
 
   @PostMapping("/register")

@@ -64,6 +64,7 @@ Important flows:
 - `POST /api/auth/login`: obtain access and refresh tokens.
 - `POST /api/auth/refresh`: rotate the refresh token.
 - `POST /api/auth/logout`: revoke one refresh token.
+- `POST /api/auth/password`: change the current user's password and revoke existing sessions.
 - `GET /api/auth/me`: inspect the authenticated user and mail-account status.
 - `GET /api/mail/mailboxes`: list mailboxes for the current user.
 - `POST /api/admin/invitations`: create a registration or email-address invitation (`ADMIN` only).

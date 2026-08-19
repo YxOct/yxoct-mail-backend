@@ -56,6 +56,10 @@ public enum ErrorCode {
 
   INVALID_LOGIN_CREDENTIALS(4005, HttpStatus.UNAUTHORIZED, "邮箱地址或密码错误"),
 
+  CURRENT_PASSWORD_INVALID(4006, HttpStatus.UNAUTHORIZED, "当前密码错误"),
+
+  NEW_PASSWORD_MUST_DIFFER(4007, HttpStatus.CONFLICT, "新密码不能与当前密码相同"),
+
   // 用户管理错误
   CANNOT_DISABLE_SELF(5000, HttpStatus.CONFLICT, "不能禁用当前管理员账号"),
 

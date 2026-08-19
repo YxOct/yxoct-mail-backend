@@ -90,9 +90,9 @@ class MailBackendApplicationTests {
     assertThat(
             queryForInt(
                 "SELECT COUNT(*) FROM flyway_schema_history "
-                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11') "
+                    + "WHERE version IN ('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12') "
                     + "AND success = TRUE"))
-        .isEqualTo(11);
+        .isEqualTo(12);
     assertThat(queryForInt("SELECT COUNT(*) FROM app_user")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM mail_account")).isZero();
     assertThat(queryForInt("SELECT COUNT(*) FROM email_address")).isZero();
@@ -222,6 +222,7 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/login'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/auth/password'].post").exists())
         .andExpect(jsonPath("$.paths['/api/admin/invitations'].post").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users'].get").exists())
         .andExpect(jsonPath("$.paths['/api/admin/users/{userId}'].get").exists())

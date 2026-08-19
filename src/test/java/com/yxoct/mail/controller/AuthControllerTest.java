@@ -19,6 +19,7 @@ import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.service.CurrentUserService;
 import com.yxoct.mail.service.LoginService;
+import com.yxoct.mail.service.PasswordService;
 import com.yxoct.mail.service.RefreshTokenService;
 import com.yxoct.mail.service.RegistrationService;
 import java.time.Instant;
@@ -44,6 +45,7 @@ class AuthControllerTest {
   @MockitoBean private LoginService loginService;
   @MockitoBean private RefreshTokenService refreshTokenService;
   @MockitoBean private CurrentUserService currentUserService;
+  @MockitoBean private PasswordService passwordService;
 
   @Test
   void returnsTheAuthenticatedUserAndMailAccountStatus() throws Exception {
@@ -208,6 +210,48 @@ class AuthControllerTest {
         .andExpect(jsonPath("$.code").value(0));
 
     verify(refreshTokenService).revoke(refreshToken);
+  }
+
+  @Test
+  void changesTheAuthenticatedUsersPassword() throws Exception {
+    String newPassword = "new correct horse battery staple";
+
+    mockMvc
+        .perform(
+            post("/api/auth/password")
+                .principal(authentication(1))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "currentPassword": "%s",
+                      "newPassword": "%s"
+                    }
+                    """
+                        .formatted(PASSWORD, newPassword)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(passwordService).change(1L, PASSWORD, newPassword);
+  }
+
+  @Test
+  void validatesTheNewPasswordLength() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/auth/password")
+                .principal(authentication(1))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "currentPassword": "%s",
+                      "newPassword": "short"
+                    }
+                    """
+                        .formatted(PASSWORD)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value(1000));
   }
 
   private String registerJson(String localPart, String password) {
