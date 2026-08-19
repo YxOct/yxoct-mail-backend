@@ -1,6 +1,8 @@
 # MySQL backup and restore
 
-The production MySQL backup uses `mysqldump --single-transaction`, so the backend and database remain online during normal backups. Backups are compressed, validated, atomically renamed, retained locally, and optionally copied through a restricted `rrsync` key.
+The production MySQL backup uses `mysqldump --single-transaction`, so the backend and database remain online during normal backups. Backups are compressed, validated, atomically renamed, retained locally, and copied to the off-host backup server through a restricted `rrsync` key.
+
+Production should use both copies: keep short local retention for fast recovery and longer off-host retention for host or disk failure. The supplied defaults are 7 local days and 30 remote days.
 
 ## Install on the application server
 
@@ -9,12 +11,11 @@ sudo install -d -m 700 /etc/yxoct-mail
 sudo install -d -m 700 /var/backups/yxoct-mail/mysql
 sudo install -m 700 deploy/backup/backup-yxoct-mail-mysql.sh /usr/local/sbin/
 sudo install -m 700 deploy/backup/restore-yxoct-mail-mysql.sh /usr/local/sbin/
-sudo install -m 600 deploy/backup/mysql-backup.conf.example /etc/yxoct-mail/mysql-backup.conf
 sudo install -m 644 deploy/systemd/yxoct-mail-mysql-backup.service /etc/systemd/system/
 sudo install -m 644 deploy/systemd/yxoct-mail-mysql-backup.timer /etc/systemd/system/
 ```
 
-Edit `/etc/yxoct-mail/mysql-backup.conf` for the real project path, Compose environment file, remote host, restricted SSH key, and retention. The database password remains only in the server's production environment file and is never passed on the command line.
+If `/etc/yxoct-mail/mysql-backup.conf` does not exist, create it from `deploy/backup/mysql-backup.conf.example`; deployment must never overwrite an existing real configuration. Fill in the project path, Compose environment file, remote host, restricted SSH key, and retention. Keep `REMOTE_ENABLED=true` in production. The database password remains only in the server's production environment file and is never passed on the command line.
 
 Create the remote `mysql` subdirectory inside the forced `rrsync` root, then test one manual backup:
 
@@ -24,7 +25,7 @@ sudo find /var/backups/yxoct-mail/mysql -maxdepth 1 -type f -printf '%TY-%Tm-%Td
 sudo gzip -t /var/backups/yxoct-mail/mysql/yxoct-mail-mysql-*.sql.gz
 ```
 
-The existing remote cleanup script only matches `stalwart-*.tar.gz`. Replace it with `cleanup-remote-yxoct-mail-backups.sh`, or add an equivalent `find` rule for `/var/backups/yxoct-mail/mysql/yxoct-mail-mysql-*.sql.gz`. The provided script keeps both Stalwart and MySQL backups for 30 days by default; change the environment defaults if longer retention is required.
+The backup server must have the unified cleanup task from `deploy/remote-backup/` installed. It retains both Stalwart archives and MySQL dumps for 30 days by default.
 
 Enable the daily 05:30 timer only after the manual backup and remote copy succeed:
 
@@ -45,3 +46,5 @@ sudo /usr/local/sbin/restore-yxoct-mail-mysql.sh \
 ```
 
 After restoration, verify Flyway version, user counts, primary email mappings, and backend readiness before accepting the recovery.
+
+For an off-host restore, first copy the selected dump back from the restricted backup storage into `/var/backups/yxoct-mail/mysql`, verify it with `gzip -t`, and then invoke the same restore script. Never restore directly into production merely to test an archive; use an isolated rehearsal environment.
