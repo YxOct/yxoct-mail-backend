@@ -57,6 +57,20 @@ docker build --tag yxoct-mail-backend:local .
 
 The image runs as a non-root user and checks `/actuator/health/readiness`. Configure it through environment variables; do not copy `.env` into the image. `JAVA_TOOL_OPTIONS` can be used for JVM memory and runtime options.
 
+## Production deployment
+
+`compose.prod.yaml` runs Caddy, the backend, MySQL, Redis, and Prometheus on private Compose networks. Only Caddy publishes ports `80` and `443`; database, cache, backend, Actuator, and Prometheus ports are not published.
+
+On the server, copy `deploy/.env.prod.example` to a file outside Git, fill every secret, point `WEBMAIL_DOMAIN` to the server, and make sure its DNS records resolve correctly. Then validate and start the stack:
+
+```bash
+docker compose --env-file deploy/.env.prod -f compose.prod.yaml config --quiet
+docker compose --env-file deploy/.env.prod -f compose.prod.yaml up -d --build
+docker compose --env-file deploy/.env.prod -f compose.prod.yaml ps
+```
+
+Caddy terminates HTTPS, preserves `/api/*` when proxying to the backend, and blocks public `/actuator/*` access. Until the webmail frontend is deployed, non-API paths intentionally return `404`. Do not run `down -v`; the named volumes contain database, Redis, Prometheus, and TLS data.
+
 ## API documentation
 
 With the `dev` profile running:

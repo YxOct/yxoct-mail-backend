@@ -1,0 +1,186 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 20m
+    max-file: "5"
+
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    container_name: yxoct-mail-caddy
+    restart: unless-stopped
+    environment:
+      WEBMAIL_DOMAIN: ${WEBMAIL_DOMAIN:-webmail.yxoct.com}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL is required}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'wget --no-check-certificate --header="Host: $${WEBMAIL_DOMAIN}" -qO- https://127.0.0.1/healthz | grep -q OK',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    networks:
+      - edge
+      - backend
+    logging: *default-logging
+
+  backend:
+    build:
+      context: .
+    image: yxoct-mail-backend:${BACKEND_IMAGE_TAG:-local}
+    container_name: yxoct-mail-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SERVER_PORT: 8080
+      APP_TIME_ZONE: ${APP_TIME_ZONE:-Asia/Shanghai}
+      DB_URL: jdbc:mysql://mysql:3306/${DB_NAME:-yxoct_mail}?connectionTimeZone=Asia/Shanghai&forceConnectionTimeZoneToSession=true
+      DB_USERNAME: ${DB_USERNAME:-yxoct_mail}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-2}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-10}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      MAIL_DOMAIN: ${MAIL_DOMAIN:-yxoct.com}
+      REGISTRATION_INVITATION_TTL: ${REGISTRATION_INVITATION_TTL:-7d}
+      JWT_ISSUER: ${JWT_ISSUER:-yxoct-mail-backend}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      JWT_ACCESS_TOKEN_TTL: ${JWT_ACCESS_TOKEN_TTL:-15m}
+      JWT_REFRESH_TOKEN_TTL: ${JWT_REFRESH_TOKEN_TTL:-30d}
+      STALWART_BASE_URL: ${STALWART_BASE_URL:?STALWART_BASE_URL is required}
+      STALWART_CONNECT_TIMEOUT: ${STALWART_CONNECT_TIMEOUT:-5s}
+      STALWART_READ_TIMEOUT: ${STALWART_READ_TIMEOUT:-10s}
+      STALWART_SESSION_CACHE_TTL: ${STALWART_SESSION_CACHE_TTL:-1m}
+      STALWART_PROVISIONING_ENABLED: ${STALWART_PROVISIONING_ENABLED:-true}
+      STALWART_MANAGEMENT_API_KEY: ${STALWART_MANAGEMENT_API_KEY:?STALWART_MANAGEMENT_API_KEY is required}
+      STALWART_CREDENTIAL_ENCRYPTION_KEY: ${STALWART_CREDENTIAL_ENCRYPTION_KEY:?STALWART_CREDENTIAL_ENCRYPTION_KEY is required}
+      STALWART_PROVISIONING_SCAN_INTERVAL: ${STALWART_PROVISIONING_SCAN_INTERVAL:-10s}
+      STALWART_RECONCILIATION_SCAN_INTERVAL: ${STALWART_RECONCILIATION_SCAN_INTERVAL:-5m}
+      PROMETHEUS_SCRAPE_TOKEN: ${PROMETHEUS_SCRAPE_TOKEN:?PROMETHEUS_SCRAPE_TOKEN is required}
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,prometheus
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+    logging: *default-logging
+
+  mysql:
+    image: mysql:8.4
+    container_name: yxoct-mail-mysql
+    restart: unless-stopped
+    environment:
+      TZ: ${APP_TIME_ZONE:-Asia/Shanghai}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD is required}
+      MYSQL_DATABASE: ${DB_NAME:-yxoct_mail}
+      MYSQL_USER: ${DB_USERNAME:-yxoct_mail}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --default-time-zone=+08:00
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mysqladmin ping -h 127.0.0.1 -uroot -p$${MYSQL_ROOT_PASSWORD} --silent",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - backend
+    logging: *default-logging
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: yxoct-mail-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    volumes:
+      - redis-data:/data
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - backend
+    logging: *default-logging
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: yxoct-mail-prometheus
+    restart: unless-stopped
+    environment:
+      PROMETHEUS_SCRAPE_TOKEN: ${PROMETHEUS_SCRAPE_TOKEN:?PROMETHEUS_SCRAPE_TOKEN is required}
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    entrypoint:
+      - /bin/sh
+      - -ec
+    command:
+      - |
+        umask 077
+        printf '%s' "$${PROMETHEUS_SCRAPE_TOKEN}" > /tmp/prometheus-scrape-token
+        exec /bin/prometheus \
+          --config.file=/etc/prometheus/prometheus.yml \
+          --storage.tsdb.path=/prometheus
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9090/-/ready | grep -q Ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - backend
+    logging: *default-logging
+
+networks:
+  edge:
+  backend:
+
+volumes:
+  mysql-data:
+  redis-data:
+  prometheus-data:
+  caddy-data:
+  caddy-config:
