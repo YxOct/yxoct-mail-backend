@@ -42,7 +42,7 @@ services:
       STALWART_RECONCILIATION_SCAN_INTERVAL: ${STALWART_RECONCILIATION_SCAN_INTERVAL:-5m}
       PROMETHEUS_SCRAPE_TOKEN: ${PROMETHEUS_SCRAPE_TOKEN:?PROMETHEUS_SCRAPE_TOKEN is required}
       MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,prometheus
-      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError}
+      JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms256m -Xmx1536m -XX:+ExitOnOutOfMemoryError}
     depends_on:
       mysql:
         condition: service_healthy
@@ -129,7 +129,10 @@ services:
         printf '%s' "$${PROMETHEUS_SCRAPE_TOKEN}" > /tmp/prometheus-scrape-token
         exec /bin/prometheus \
           --config.file=/etc/prometheus/prometheus.yml \
-          --storage.tsdb.path=/prometheus
+          --storage.tsdb.path=/prometheus \
+          --storage.tsdb.retention.time=15d \
+          --storage.tsdb.retention.size=2GB \
+          --storage.tsdb.wal-compression
     depends_on:
       backend:
         condition: service_healthy
