@@ -41,6 +41,8 @@ public enum ErrorCode {
 
   EMAIL_ADDRESS_NOT_AVAILABLE(3004, HttpStatus.CONFLICT, "邮箱地址不可用"),
 
+  PRIMARY_EMAIL_ADDRESS_CANNOT_BE_DELETED(3005, HttpStatus.CONFLICT, "主邮箱地址不能删除"),
+
   // 身份认证错误
   AUTHENTICATION_FAILED(4000, HttpStatus.UNAUTHORIZED, "身份认证失败"),
 

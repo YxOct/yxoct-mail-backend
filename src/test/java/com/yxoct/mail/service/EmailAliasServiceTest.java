@@ -19,6 +19,7 @@ import com.yxoct.mail.persistence.EmailAddressRepository;
 import com.yxoct.mail.persistence.MailAccountSettingsRepository;
 import com.yxoct.mail.persistence.OwnedMailAccount;
 import com.yxoct.mail.persistence.RegistrationInvitationRepository;
+import com.yxoct.mail.persistence.entity.EmailAddressEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressType;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
@@ -96,6 +97,82 @@ class EmailAliasServiceTest {
     verify(managementClient).addAccountAlias("stalwart-2", "hello@yxoct.com");
     verify(addressRepository).insertAlias(2, "hello@yxoct.com", NOW_LOCAL);
     verify(invitationRepository).markUsed(7, 1, NOW_LOCAL);
+  }
+
+  @Test
+  void removesAnOwnedAliasRemotelyAndLocally() {
+    when(accountRepository.findOwnedForUpdate(1, 2)).thenReturn(Optional.of(activeAccount()));
+    when(addressRepository.findByIdForUpdate(2, 11))
+        .thenReturn(Optional.of(address(11, EmailAddressType.ALIAS)));
+    when(managementClient.removeAccountAlias("stalwart-2", "hello@yxoct.com")).thenReturn(true);
+    when(addressRepository.deleteAlias(2, 11)).thenReturn(true);
+
+    service.delete("1", 2, 11);
+
+    verify(managementClient).removeAccountAlias("stalwart-2", "hello@yxoct.com");
+    verify(addressRepository).deleteAlias(2, 11);
+  }
+
+  @Test
+  void rejectsDeletingThePrimaryAddress() {
+    when(accountRepository.findOwnedForUpdate(1, 2)).thenReturn(Optional.of(activeAccount()));
+    when(addressRepository.findByIdForUpdate(2, 10))
+        .thenReturn(Optional.of(address(10, EmailAddressType.PRIMARY)));
+
+    assertThatThrownBy(() -> service.delete("1", 2, 10))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode())
+                    .isEqualTo(ErrorCode.PRIMARY_EMAIL_ADDRESS_CANNOT_BE_DELETED));
+
+    verifyNoInteractions(managementClient);
+    verify(addressRepository, never()).deleteAlias(2, 10);
+  }
+
+  @Test
+  void removesTheLocalAliasWhenItIsAlreadyMissingRemotely() {
+    when(accountRepository.findOwnedForUpdate(1, 2)).thenReturn(Optional.of(activeAccount()));
+    when(addressRepository.findByIdForUpdate(2, 11))
+        .thenReturn(Optional.of(address(11, EmailAddressType.ALIAS)));
+    when(managementClient.removeAccountAlias("stalwart-2", "hello@yxoct.com")).thenReturn(false);
+    when(addressRepository.deleteAlias(2, 11)).thenReturn(true);
+
+    service.delete("1", 2, 11);
+
+    verify(addressRepository).deleteAlias(2, 11);
+    verify(managementClient, never()).addAccountAlias("stalwart-2", "hello@yxoct.com");
+  }
+
+  @Test
+  void restoresTheRemoteAliasWhenTheLocalDeleteFails() {
+    when(accountRepository.findOwnedForUpdate(1, 2)).thenReturn(Optional.of(activeAccount()));
+    when(addressRepository.findByIdForUpdate(2, 11))
+        .thenReturn(Optional.of(address(11, EmailAddressType.ALIAS)));
+    when(managementClient.removeAccountAlias("stalwart-2", "hello@yxoct.com")).thenReturn(true);
+    when(addressRepository.deleteAlias(2, 11)).thenReturn(false);
+
+    assertThatThrownBy(() -> service.delete("1", 2, 11)).isInstanceOf(IllegalStateException.class);
+
+    verify(managementClient).addAccountAlias("stalwart-2", "hello@yxoct.com");
+  }
+
+  @Test
+  void keepsTheLocalAliasWhenStalwartRejectsTheRemoval() {
+    when(accountRepository.findOwnedForUpdate(1, 2)).thenReturn(Optional.of(activeAccount()));
+    when(addressRepository.findByIdForUpdate(2, 11))
+        .thenReturn(Optional.of(address(11, EmailAddressType.ALIAS)));
+    doThrow(new StalwartProvisioningException("ACCOUNT_ALIAS_UPDATE_REJECTED"))
+        .when(managementClient)
+        .removeAccountAlias("stalwart-2", "hello@yxoct.com");
+
+    assertThatThrownBy(() -> service.delete("1", 2, 11))
+        .isInstanceOfSatisfying(
+            BusinessException.class,
+            exception ->
+                assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MAIL_SERVICE_UNAVAILABLE));
+
+    verify(addressRepository, never()).deleteAlias(2, 11);
   }
 
   @Test
@@ -181,5 +258,15 @@ class EmailAliasServiceTest {
 
   private OwnedMailAccount activeAccount() {
     return new OwnedMailAccount(2, "stalwart-2", "Alice", MailAccountStatus.ACTIVE);
+  }
+
+  private EmailAddressEntity address(long id, EmailAddressType type) {
+    EmailAddressEntity address = new EmailAddressEntity();
+    address.setId(id);
+    address.setMailAccountId(2L);
+    address.setAddress("hello@yxoct.com");
+    address.setNormalizedAddress("hello@yxoct.com");
+    address.setAddressType(type);
+    return address;
   }
 }

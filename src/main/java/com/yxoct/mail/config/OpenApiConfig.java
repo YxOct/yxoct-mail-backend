@@ -86,7 +86,13 @@ public class OpenApiConfig {
             errorResponse("Stalwart request timed out", ErrorCode.MAIL_SERVICE_TIMEOUT))
         .addResponses(
             "MailAccountNotReady",
-            errorResponse("Mail account is not active", ErrorCode.MAIL_ACCOUNT_NOT_READY));
+            errorResponse("Mail account is not active", ErrorCode.MAIL_ACCOUNT_NOT_READY))
+        .addResponses(
+            "AliasDeletionConflict",
+            errorResponse(
+                "Alias cannot be deleted",
+                ErrorCode.PRIMARY_EMAIL_ADDRESS_CANNOT_BE_DELETED,
+                ErrorCode.MAIL_ACCOUNT_NOT_READY));
   }
 
   private ApiResponse errorResponse(String description, ErrorCode... errorCodes) {

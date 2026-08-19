@@ -179,6 +179,13 @@ class MailBackendApplicationTests {
         .andExpect(jsonPath("$.info.version").value("v1"))
         .andExpect(jsonPath("$.paths['/api/mail/mailboxes'].get").exists())
         .andExpect(jsonPath("$.paths['/api/mail/accounts/{mailAccountId}/addresses'].get").exists())
+        .andExpect(
+            jsonPath("$.paths['/api/mail/accounts/{mailAccountId}/aliases/{addressId}'].delete")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.components.responses.AliasDeletionConflict.content['application/json'].examples['code-3005'].value.code")
+                .value(3005))
         .andExpect(jsonPath("$.paths['/api/mail/emails/read-status'].patch").exists())
         .andExpect(jsonPath("$.paths['/api/mail/emails/move'].post").exists())
         .andExpect(jsonPath("$.paths['/api/auth/register'].post").exists())

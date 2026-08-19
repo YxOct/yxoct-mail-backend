@@ -19,6 +19,7 @@ import java.util.List;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -61,6 +62,31 @@ public class MailAccountController {
       Authentication authentication, @PathVariable @Min(1) long mailAccountId) {
     Jwt jwt = (Jwt) authentication.getPrincipal();
     return ApiResponse.success(addressService.list(jwt.getSubject(), mailAccountId));
+  }
+
+  @DeleteMapping("/{mailAccountId}/aliases/{addressId}")
+  @Operation(summary = "Delete an alias from an owned mail account")
+  @ApiResponses({
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "400",
+        ref = "#/components/responses/BadRequest"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "404",
+        ref = "#/components/responses/ResourceNotFound"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "409",
+        ref = "#/components/responses/AliasDeletionConflict"),
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(
+        responseCode = "502",
+        ref = "#/components/responses/MailServiceUnavailable")
+  })
+  public ApiResponse<Void> deleteAlias(
+      Authentication authentication,
+      @PathVariable @Min(1) long mailAccountId,
+      @PathVariable @Min(1) long addressId) {
+    Jwt jwt = (Jwt) authentication.getPrincipal();
+    aliasService.delete(jwt.getSubject(), mailAccountId, addressId);
+    return ApiResponse.success();
   }
 
   @PostMapping("/{mailAccountId}/aliases")

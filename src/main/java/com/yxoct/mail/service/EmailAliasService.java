@@ -9,6 +9,7 @@ import com.yxoct.mail.persistence.EmailAddressRepository;
 import com.yxoct.mail.persistence.MailAccountSettingsRepository;
 import com.yxoct.mail.persistence.OwnedMailAccount;
 import com.yxoct.mail.persistence.RegistrationInvitationRepository;
+import com.yxoct.mail.persistence.entity.EmailAddressEntity;
 import com.yxoct.mail.persistence.entity.EmailAddressType;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.RegistrationInvitationEntity;
@@ -115,11 +116,69 @@ public class EmailAliasService {
     }
   }
 
+  public void delete(String authenticatedUserId, long mailAccountId, long addressId) {
+    long userId = parseUserId(authenticatedUserId);
+    AtomicBoolean remoteAliasRemoved = new AtomicBoolean();
+    String[] remoteAccountId = new String[1];
+    String[] emailAddress = new String[1];
+    try {
+      transactionTemplate.executeWithoutResult(
+          status -> {
+            OwnedMailAccount account =
+                accountRepository
+                    .findOwnedForUpdate(userId, mailAccountId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            EmailAddressEntity address =
+                addressRepository
+                    .findByIdForUpdate(mailAccountId, addressId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.RESOURCE_NOT_FOUND));
+            if (address.getAddressType() != EmailAddressType.ALIAS) {
+              throw new BusinessException(ErrorCode.PRIMARY_EMAIL_ADDRESS_CANNOT_BE_DELETED);
+            }
+            if (account.status() != MailAccountStatus.ACTIVE
+                || account.stalwartAccountId() == null
+                || account.stalwartAccountId().isBlank()) {
+              throw new BusinessException(ErrorCode.MAIL_ACCOUNT_NOT_READY);
+            }
+            remoteAccountId[0] = account.stalwartAccountId();
+            emailAddress[0] = address.getNormalizedAddress();
+            try {
+              remoteAliasRemoved.set(
+                  managementClient.removeAccountAlias(remoteAccountId[0], emailAddress[0]));
+            } catch (StalwartProvisioningException exception) {
+              log.warn(
+                  "Stalwart alias removal failed mailAccountId={} addressId={} failureCode={} diagnostic={}",
+                  mailAccountId,
+                  addressId,
+                  exception.failureCode(),
+                  exception.diagnostic());
+              throw new BusinessException(ErrorCode.MAIL_SERVICE_UNAVAILABLE, exception);
+            }
+            if (!addressRepository.deleteAlias(mailAccountId, addressId)) {
+              throw new IllegalStateException("Locked email alias could not be deleted");
+            }
+          });
+    } catch (RuntimeException exception) {
+      if (remoteAliasRemoved.get()) {
+        compensateRemoteAliasRemoval(remoteAccountId[0], emailAddress[0]);
+      }
+      throw exception;
+    }
+  }
+
   private void compensateRemoteAlias(String accountId, String emailAddress) {
     try {
       managementClient.removeAccountAlias(accountId, emailAddress);
     } catch (RuntimeException compensationFailure) {
       log.error("Failed to compensate Stalwart alias update accountId={}", accountId);
+    }
+  }
+
+  private void compensateRemoteAliasRemoval(String accountId, String emailAddress) {
+    try {
+      managementClient.addAccountAlias(accountId, emailAddress);
+    } catch (RuntimeException compensationFailure) {
+      log.error("Failed to compensate Stalwart alias removal accountId={}", accountId);
     }
   }
 

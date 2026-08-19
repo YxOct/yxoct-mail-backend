@@ -190,7 +190,15 @@ class StalwartManagementClientTest {
         .andExpect(jsonPath("$.methodCalls[0][1].update.account-1['aliases/0']").doesNotExist())
         .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
 
-    client.removeAccountAlias("account-1", "hello@yxoct.com");
+    assertThat(client.removeAccountAlias("account-1", "hello@yxoct.com")).isTrue();
+  }
+
+  @Test
+  void treatsAMissingAliasAsAnIdempotentRemoval() {
+    expectDomainLookup();
+    expectAccountAliases("{}");
+
+    assertThat(client.removeAccountAlias("account-1", "hello@yxoct.com")).isFalse();
   }
 
   @Test

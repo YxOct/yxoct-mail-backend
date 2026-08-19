@@ -91,8 +91,8 @@ public class StalwartManagementClient {
     return updateAccountAlias(accountId, AddressParts.parse(emailAddress), true);
   }
 
-  public void removeAccountAlias(String accountId, String emailAddress) {
-    updateAccountAlias(accountId, AddressParts.parse(emailAddress), false);
+  public boolean removeAccountAlias(String accountId, String emailAddress) {
+    return updateAccountAlias(accountId, AddressParts.parse(emailAddress), false);
   }
 
   private boolean updateAccountAlias(String accountId, AddressParts address, boolean add) {

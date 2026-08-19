@@ -2,6 +2,7 @@ package com.yxoct.mail.controller;
 
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -56,6 +57,17 @@ class MailAccountControllerTest {
         .andExpect(jsonPath("$.data[1].addressType").value("ALIAS"));
 
     verify(addressService).list("1", 2);
+  }
+
+  @Test
+  void deletesAnAliasFromAnOwnedMailAccount() throws Exception {
+    mockMvc
+        .perform(delete("/api/mail/accounts/2/aliases/11").principal(authentication(1)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0))
+        .andExpect(jsonPath("$.data").doesNotExist());
+
+    verify(aliasService).delete("1", 2, 11);
   }
 
   @Test

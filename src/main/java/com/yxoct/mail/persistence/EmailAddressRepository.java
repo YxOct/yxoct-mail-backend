@@ -7,6 +7,7 @@ import com.yxoct.mail.persistence.mapper.EmailAddressMapper;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -39,6 +40,10 @@ public class EmailAddressRepository {
         .toList();
   }
 
+  public Optional<EmailAddressEntity> findByIdForUpdate(long mailAccountId, long addressId) {
+    return Optional.ofNullable(mapper.findByIdForUpdate(mailAccountId, addressId));
+  }
+
   public void insertAlias(long mailAccountId, String normalizedAddress, LocalDateTime now) {
     EmailAddressEntity entity = new EmailAddressEntity();
     entity.setMailAccountId(mailAccountId);
@@ -48,5 +53,14 @@ public class EmailAddressRepository {
     entity.setCreatedAt(now);
     entity.setUpdatedAt(now);
     mapper.insert(entity);
+  }
+
+  public boolean deleteAlias(long mailAccountId, long addressId) {
+    return mapper.delete(
+            Wrappers.<EmailAddressEntity>lambdaQuery()
+                .eq(EmailAddressEntity::getId, addressId)
+                .eq(EmailAddressEntity::getMailAccountId, mailAccountId)
+                .eq(EmailAddressEntity::getAddressType, EmailAddressType.ALIAS))
+        == 1;
   }
 }
