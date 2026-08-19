@@ -38,4 +38,13 @@ public interface RefreshTokenSessionMapper extends BaseMapper<RefreshTokenSessio
       """)
   int revokeByTokenHash(
       @Param("tokenHash") String tokenHash, @Param("revokedAt") LocalDateTime revokedAt);
+
+  @Update(
+      """
+      UPDATE refresh_token_session
+      SET revoked_at = #{revokedAt}
+      WHERE user_id = #{userId}
+        AND revoked_at IS NULL
+      """)
+  int revokeByUserId(@Param("userId") long userId, @Param("revokedAt") LocalDateTime revokedAt);
 }

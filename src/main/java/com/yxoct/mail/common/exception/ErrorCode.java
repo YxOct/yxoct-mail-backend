@@ -54,7 +54,12 @@ public enum ErrorCode {
 
   MAIL_ACCOUNT_NOT_READY(4004, HttpStatus.CONFLICT, "邮箱账户尚未就绪"),
 
-  INVALID_LOGIN_CREDENTIALS(4005, HttpStatus.UNAUTHORIZED, "邮箱地址或密码错误");
+  INVALID_LOGIN_CREDENTIALS(4005, HttpStatus.UNAUTHORIZED, "邮箱地址或密码错误"),
+
+  // 用户管理错误
+  CANNOT_DISABLE_SELF(5000, HttpStatus.CONFLICT, "不能禁用当前管理员账号"),
+
+  CANNOT_DISABLE_LAST_ADMIN(5001, HttpStatus.CONFLICT, "不能禁用最后一个可用管理员账号");
 
   private final int code;
   private final HttpStatus httpStatus;

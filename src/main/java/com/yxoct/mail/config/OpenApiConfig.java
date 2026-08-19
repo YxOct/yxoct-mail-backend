@@ -92,7 +92,13 @@ public class OpenApiConfig {
             errorResponse(
                 "Alias cannot be deleted",
                 ErrorCode.PRIMARY_EMAIL_ADDRESS_CANNOT_BE_DELETED,
-                ErrorCode.MAIL_ACCOUNT_NOT_READY));
+                ErrorCode.MAIL_ACCOUNT_NOT_READY))
+        .addResponses(
+            "UserDisableConflict",
+            errorResponse(
+                "User cannot be disabled",
+                ErrorCode.CANNOT_DISABLE_SELF,
+                ErrorCode.CANNOT_DISABLE_LAST_ADMIN));
   }
 
   private ApiResponse errorResponse(String description, ErrorCode... errorCodes) {

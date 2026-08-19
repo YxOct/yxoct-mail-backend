@@ -110,7 +110,7 @@ Authentication uses the primary email address and the password chosen during reg
 
 Invitation management under `/api/admin/invitations` requires the `ADMIN` role. Administrators can create single-use `REGISTRATION` or `EMAIL_ADDRESS` invitations, list invitation metadata, and revoke pending invitations. The plaintext token is returned only by the create operation. Creation and revocation actor IDs are retained for audit purposes.
 
-User inspection under `/api/admin/users` also requires the `ADMIN` role. `GET /api/admin/users?page=1&size=20` returns users in descending ID order with their primary owned mail account, while `GET /api/admin/users/{userId}` returns one user. These responses intentionally exclude password hashes, Stalwart account IDs, encrypted mailbox credentials, and authentication tokens.
+User management under `/api/admin/users` also requires the `ADMIN` role. `GET /api/admin/users?page=1&size=20` returns users in descending ID order with their primary owned mail account, while `GET /api/admin/users/{userId}` returns one user. These responses intentionally exclude password hashes, Stalwart account IDs, encrypted mailbox credentials, and authentication tokens. `POST /api/admin/users/{userId}/disable` requires a non-blank reason, disables every owned mail account locally and in Stalwart, revokes all active refresh tokens, and writes an audit event. Repeating the operation is idempotent. Administrators cannot disable themselves or the last active administrator. Existing access tokens expire normally, but disabled local mail accounts reject mailbox access immediately.
 
 All API endpoints return the common response shape `{ "code", "message", "data" }`. Important top-level HTTP error codes are:
 
@@ -135,6 +135,8 @@ All API endpoints return the common response shape `{ "code", "message", "data" 
 - `4003`: refresh token invalid or expired (`401`).
 - `4004`: the user's mail account is not active yet (`409`).
 - `4005`: login email address or password is incorrect (`401`).
+- `5000`: administrator cannot disable their own account (`409`).
+- `5001`: last active administrator cannot be disabled (`409`).
 
 Invitation-based registration creates the local user, primary email address, ownership relation, and a mail account in `PROVISIONING` state. The optional `displayName` is trimmed, validated as plain text, defaults to the submitted email local part, and becomes the Stalwart account's Full Name. A background worker claims pending accounts with a lease, provisions them through Stalwart's management JMAP API, and records `ACTIVE` or `FAILED`; failed work is retried with bounded exponential backoff. If a retry finds an existing remote account, the worker verifies it with the persisted internal credential before adopting it, so the visible Full Name is not used as technical metadata. Internal mailbox credentials are random, encrypted with AES-256-GCM, and never returned by an API. Invitation tokens use the format `yxi` followed by 22 URL-safe Base64 characters (128 bits of randomness), are returned only when created, and only their SHA-256 hashes are stored. Invitations carry a purpose instead of granting persistent account or address quotas. User passwords are stored as versioned Argon2 hashes.
 

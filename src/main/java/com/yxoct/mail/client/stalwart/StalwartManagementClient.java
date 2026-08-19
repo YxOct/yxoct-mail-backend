@@ -87,6 +87,28 @@ public class StalwartManagementClient {
     }
   }
 
+  public void setAccountEnabled(String accountId, boolean enabled) {
+    Map<String, Object> permissions =
+        enabled
+            ? Map.of("@type", "Inherit")
+            : Map.of(
+                "@type", "Replace",
+                "enabledPermissions", Map.of(),
+                "disabledPermissions", Map.of());
+    JsonNode result =
+        invoke(
+            "x:Account/set",
+            Map.of("update", Map.of(accountId, Map.of("permissions", permissions))));
+    JsonNode rejected = result.path("notUpdated").path(accountId);
+    if (rejected.isObject()) {
+      throw new StalwartProvisioningException(
+          "ACCOUNT_STATUS_UPDATE_REJECTED", setErrorDiagnostic(rejected));
+    }
+    if (!result.path("updated").has(accountId)) {
+      throw new StalwartProvisioningException("INVALID_ACCOUNT_RESPONSE");
+    }
+  }
+
   public boolean addAccountAlias(String accountId, String emailAddress) {
     return updateAccountAlias(accountId, AddressParts.parse(emailAddress), true);
   }

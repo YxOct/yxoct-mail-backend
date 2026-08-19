@@ -164,6 +164,48 @@ class StalwartManagementClientTest {
   }
 
   @Test
+  void disablesAnAccountByReplacingItsPermissionsWithAnEmptySet() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(jsonPath("$.methodCalls[0][0]").value("x:Account/set"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1.permissions['@type']").value("Replace"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1.permissions.enabledPermissions").isMap())
+        .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
+
+    client.setAccountEnabled("account-1", false);
+  }
+
+  @Test
+  void enablesAnAccountByRestoringInheritedPermissions() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].update.account-1.permissions['@type']").value("Inherit"))
+        .andRespond(methodResponse("x:Account/set", "{\"updated\":{\"account-1\":null}}"));
+
+    client.setAccountEnabled("account-1", true);
+  }
+
+  @Test
+  void reportsARejectedAccountStatusUpdate() {
+    server
+        .expect(requestTo("http://localhost/jmap"))
+        .andRespond(
+            methodResponse(
+                "x:Account/set", "{\"notUpdated\":{\"account-1\":{\"type\":\"forbidden\"}}}"));
+
+    assertThatThrownBy(() -> client.setAccountEnabled("account-1", false))
+        .isInstanceOfSatisfying(
+            StalwartProvisioningException.class,
+            exception -> {
+              assertThat(exception.failureCode()).isEqualTo("ACCOUNT_STATUS_UPDATE_REJECTED");
+              assertThat(exception.diagnostic()).isEqualTo("type=forbidden");
+            });
+  }
+
+  @Test
   void addsAnAccountAlias() {
     expectDomainLookup();
     expectAccountAliases("{}");

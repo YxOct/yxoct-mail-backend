@@ -3,6 +3,7 @@ package com.yxoct.mail.controller;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -18,6 +19,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.test.context.ActiveProfiles;
@@ -79,6 +81,31 @@ class AdminUserControllerTest {
         .andExpect(status().isBadRequest());
     mockMvc
         .perform(get("/api/admin/users/0").principal(authentication()))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void disablesAUserWithTheAuthenticatedAdministratorId() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/admin/users/7/disable")
+                .principal(authentication())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"Policy violation\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.code").value(0));
+
+    verify(userService).disable(42, 7, "Policy violation");
+  }
+
+  @Test
+  void validatesTheDisableReason() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/admin/users/7/disable")
+                .principal(authentication())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"   \"}"))
         .andExpect(status().isBadRequest());
   }
 
