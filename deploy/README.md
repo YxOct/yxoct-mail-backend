@@ -1,6 +1,6 @@
 # Production deployment
 
-`compose.prod.yaml` runs the backend, MySQL, Redis, and Prometheus. Only the backend is bound to server loopback at `127.0.0.1:8080`; the server's existing Nginx handles public traffic.
+`compose.prod.yaml` runs the backend, MySQL, Redis, and Prometheus. Only the backend is bound to server loopback at `127.0.0.1:8081`; port 8080 remains available for the co-located Stalwart management service, and the server's existing Nginx handles public traffic.
 
 ## Prerequisites
 
@@ -40,7 +40,7 @@ All services should be running or healthy:
 
 ```bash
 docker compose --env-file deploy/.env.prod -f compose.prod.yaml ps
-curl --fail --silent --show-error http://127.0.0.1:8080/actuator/health/readiness
+curl --fail --silent --show-error http://127.0.0.1:8081/actuator/health/readiness
 docker compose --env-file deploy/.env.prod -f compose.prod.yaml logs --tail=100 backend
 ```
 
