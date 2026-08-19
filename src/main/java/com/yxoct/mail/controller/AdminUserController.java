@@ -4,7 +4,9 @@ import com.yxoct.mail.common.response.ApiResponse;
 import com.yxoct.mail.domain.user.AdminUserPage;
 import com.yxoct.mail.domain.user.AdminUserSummary;
 import com.yxoct.mail.domain.user.DisableUserRequest;
+import com.yxoct.mail.domain.user.TemporaryPasswordResponse;
 import com.yxoct.mail.service.AdminUserService;
+import com.yxoct.mail.service.PasswordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -31,9 +33,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminUserController {
 
   private final AdminUserService userService;
+  private final PasswordService passwordService;
 
-  public AdminUserController(AdminUserService userService) {
+  public AdminUserController(AdminUserService userService, PasswordService passwordService) {
     this.userService = userService;
+    this.passwordService = passwordService;
   }
 
   @GetMapping
@@ -118,6 +122,14 @@ public class AdminUserController {
       Authentication authentication, @PathVariable @Min(1) long userId) {
     userService.forceLogout(userId(authentication), userId);
     return ApiResponse.success();
+  }
+
+  @PostMapping("/{userId}/password")
+  @Operation(summary = "Reset an application user's password to a temporary password")
+  public ApiResponse<TemporaryPasswordResponse> resetPassword(
+      Authentication authentication, @PathVariable @Min(1) long userId) {
+    return ApiResponse.success(
+        passwordService.resetByAdministrator(userId(authentication), userId));
   }
 
   private long userId(Authentication authentication) {

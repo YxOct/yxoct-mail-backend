@@ -9,10 +9,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.yxoct.mail.domain.user.AdminUserPage;
 import com.yxoct.mail.domain.user.AdminUserSummary;
+import com.yxoct.mail.domain.user.TemporaryPasswordResponse;
 import com.yxoct.mail.persistence.entity.MailAccountStatus;
 import com.yxoct.mail.persistence.entity.UserRole;
 import com.yxoct.mail.persistence.entity.UserStatus;
 import com.yxoct.mail.service.AdminUserService;
+import com.yxoct.mail.service.PasswordService;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,6 +34,21 @@ class AdminUserControllerTest {
 
   @Autowired private MockMvc mockMvc;
   @MockitoBean private AdminUserService userService;
+  @MockitoBean private PasswordService passwordService;
+
+  @Test
+  void resetsAUsersPasswordToATemporaryPassword() throws Exception {
+    when(passwordService.resetByAdministrator(42, 7))
+        .thenReturn(new TemporaryPasswordResponse("temporary-password", true));
+
+    mockMvc
+        .perform(post("/api/admin/users/7/password").principal(authentication()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.temporaryPassword").value("temporary-password"))
+        .andExpect(jsonPath("$.data.mustChangePassword").value(true));
+
+    verify(passwordService).resetByAdministrator(42, 7);
+  }
 
   @Test
   void listsUsersWithPagination() throws Exception {

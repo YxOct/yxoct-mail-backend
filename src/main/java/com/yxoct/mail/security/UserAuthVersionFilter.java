@@ -49,10 +49,22 @@ public class UserAuthVersionFilter extends OncePerRequestFilter {
         reject(response);
         return;
       }
+      if (Boolean.TRUE.equals(jwtAuthentication.getToken().getClaim("mustChangePassword"))
+          && !isPasswordChangeAllowed(request)) {
+        errorWriter.write(response, ErrorCode.PASSWORD_CHANGE_REQUIRED);
+        return;
+      }
       filterChain.doFilter(request, response);
     } catch (RuntimeException exception) {
       reject(response);
     }
+  }
+
+  private boolean isPasswordChangeAllowed(HttpServletRequest request) {
+    String path = request.getRequestURI();
+    return path.equals("/api/auth/password")
+        || path.equals("/api/auth/logout")
+        || path.equals("/api/auth/me");
   }
 
   private void reject(HttpServletResponse response) throws IOException {

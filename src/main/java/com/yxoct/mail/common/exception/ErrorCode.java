@@ -60,12 +60,16 @@ public enum ErrorCode {
 
   NEW_PASSWORD_MUST_DIFFER(4007, HttpStatus.CONFLICT, "新密码不能与当前密码相同"),
 
+  PASSWORD_CHANGE_REQUIRED(4008, HttpStatus.FORBIDDEN, "必须先修改临时密码"),
+
   // 用户管理错误
   CANNOT_DISABLE_SELF(5000, HttpStatus.CONFLICT, "不能禁用当前管理员账号"),
 
   CANNOT_DISABLE_LAST_ADMIN(5001, HttpStatus.CONFLICT, "不能禁用最后一个可用管理员账号"),
 
-  CANNOT_ENABLE_SELF(5002, HttpStatus.CONFLICT, "不能解禁当前管理员账号");
+  CANNOT_ENABLE_SELF(5002, HttpStatus.CONFLICT, "不能解禁当前管理员账号"),
+
+  CANNOT_RESET_OWN_PASSWORD(5003, HttpStatus.CONFLICT, "不能通过管理员接口重置自己的密码");
 
   private final int code;
   private final HttpStatus httpStatus;

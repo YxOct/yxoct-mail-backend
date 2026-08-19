@@ -29,8 +29,14 @@ public class UserPasswordRepository {
   }
 
   public boolean updatePassword(
-      long userId, long expectedVersion, String passwordHash, LocalDateTime updatedAt) {
-    return passwordMapper.updatePassword(userId, expectedVersion, passwordHash, updatedAt) == 1;
+      long userId,
+      long expectedVersion,
+      String passwordHash,
+      boolean mustChangePassword,
+      LocalDateTime updatedAt) {
+    return passwordMapper.updatePassword(
+            userId, expectedVersion, passwordHash, mustChangePassword, updatedAt)
+        == 1;
   }
 
   public void revokeRefreshTokens(long userId, LocalDateTime revokedAt) {

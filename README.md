@@ -72,8 +72,9 @@ Important flows:
 - `POST /api/admin/users/{userId}/disable`: disable a user and owned mail accounts.
 - `POST /api/admin/users/{userId}/enable`: re-enable a disabled user.
 - `POST /api/admin/users/{userId}/logout`: revoke all sessions without changing account status.
+- `POST /api/admin/users/{userId}/password`: issue a one-time temporary password and require the user to change it.
 
-Access tokens contain the user's authentication version. Disabling, enabling, or forcing logout increments that version, revokes refresh tokens, and immediately invalidates previously issued access tokens. Users must log in again after these operations.
+Access tokens contain the user's authentication version. Disabling, enabling, forcing logout, or resetting a password increments that version, revokes refresh tokens, and immediately invalidates previously issued access tokens. A user signed in with an administrator-issued temporary password must change it before using normal APIs.
 
 ## First administrator
 

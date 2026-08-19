@@ -12,7 +12,7 @@ public interface UserPasswordMapper {
 
   @Select(
       """
-      SELECT id AS user_id, password_hash, version
+      SELECT id AS user_id, password_hash, version, must_change_password
       FROM app_user
       WHERE id = #{userId}
       FOR UPDATE
@@ -24,6 +24,7 @@ public interface UserPasswordMapper {
       UPDATE app_user
       SET password_hash = #{passwordHash},
           version = version + 1,
+          must_change_password = #{mustChangePassword},
           updated_at = #{updatedAt}
       WHERE id = #{userId} AND version = #{expectedVersion}
       """)
@@ -31,5 +32,6 @@ public interface UserPasswordMapper {
       @Param("userId") long userId,
       @Param("expectedVersion") long expectedVersion,
       @Param("passwordHash") String passwordHash,
+      @Param("mustChangePassword") boolean mustChangePassword,
       @Param("updatedAt") LocalDateTime updatedAt);
 }

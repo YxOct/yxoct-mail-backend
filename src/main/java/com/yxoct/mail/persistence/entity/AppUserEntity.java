@@ -24,6 +24,7 @@ public class AppUserEntity {
   private Long disabledByUserId;
   private String disabledReason;
   private Long version;
+  private Boolean mustChangePassword;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 }

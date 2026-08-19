@@ -88,7 +88,34 @@ class UserAuthVersionFilterTest {
     verify(filterChain, never()).doFilter(request, response);
   }
 
+  @Test
+  void requiresTemporaryPasswordToBeChangedBeforeUsingNormalApis() throws Exception {
+    request.setRequestURI("/api/mail/mailboxes");
+    authenticate(3L, true);
+    when(versionStore.currentVersion(7L)).thenReturn(OptionalLong.of(3L));
+
+    filter.doFilter(request, response, filterChain);
+
+    verify(errorWriter).write(response, ErrorCode.PASSWORD_CHANGE_REQUIRED);
+    verify(filterChain, never()).doFilter(request, response);
+  }
+
+  @Test
+  void permitsThePasswordEndpointForATemporaryPassword() throws Exception {
+    request.setRequestURI("/api/auth/password");
+    authenticate(3L, true);
+    when(versionStore.currentVersion(7L)).thenReturn(OptionalLong.of(3L));
+
+    filter.doFilter(request, response, filterChain);
+
+    verify(filterChain).doFilter(request, response);
+  }
+
   private void authenticate(Long version) {
+    authenticate(version, false);
+  }
+
+  private void authenticate(Long version, boolean mustChangePassword) {
     Jwt.Builder jwt =
         Jwt.withTokenValue("token")
             .header("alg", "none")
@@ -98,6 +125,7 @@ class UserAuthVersionFilterTest {
     if (version != null) {
       jwt.claim("userVersion", version);
     }
+    jwt.claim("mustChangePassword", mustChangePassword);
     SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(jwt.build()));
   }
 }

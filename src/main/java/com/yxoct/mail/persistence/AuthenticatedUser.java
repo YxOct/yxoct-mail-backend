@@ -9,4 +9,15 @@ public record AuthenticatedUser(
     String passwordHash,
     UserStatus status,
     UserRole role,
-    long version) {}
+    long version,
+    boolean mustChangePassword) {
+  public AuthenticatedUser(
+      long userId,
+      String emailAddress,
+      String passwordHash,
+      UserStatus status,
+      UserRole role,
+      long version) {
+    this(userId, emailAddress, passwordHash, status, role, version, false);
+  }
+}

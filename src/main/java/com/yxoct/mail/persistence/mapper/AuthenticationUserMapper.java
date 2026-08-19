@@ -15,7 +15,8 @@ public interface AuthenticationUserMapper {
              au.password_hash,
              au.status,
              au.role,
-             au.version
+             au.version,
+             au.must_change_password
       FROM app_user au
       JOIN user_mail_account uma
         ON uma.user_id = au.id
@@ -35,7 +36,8 @@ public interface AuthenticationUserMapper {
              au.password_hash,
              au.status,
              au.role,
-             au.version
+             au.version,
+             au.must_change_password
       FROM app_user au
       JOIN user_mail_account uma
         ON uma.user_id = au.id

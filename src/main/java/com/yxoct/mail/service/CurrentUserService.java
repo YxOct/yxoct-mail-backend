@@ -34,6 +34,7 @@ public class CurrentUserService {
         account.displayName(),
         account.role(),
         account.status(),
-        account.mailAccountStatus());
+        account.mailAccountStatus(),
+        account.mustChangePassword());
   }
 }

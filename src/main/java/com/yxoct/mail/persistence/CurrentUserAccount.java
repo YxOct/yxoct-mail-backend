@@ -11,4 +11,16 @@ public record CurrentUserAccount(
     String displayName,
     UserRole role,
     UserStatus status,
-    MailAccountStatus mailAccountStatus) {}
+    MailAccountStatus mailAccountStatus,
+    boolean mustChangePassword) {
+  public CurrentUserAccount(
+      long userId,
+      long mailAccountId,
+      String emailAddress,
+      String displayName,
+      UserRole role,
+      UserStatus status,
+      MailAccountStatus mailAccountStatus) {
+    this(userId, mailAccountId, emailAddress, displayName, role, status, mailAccountStatus, false);
+  }
+}

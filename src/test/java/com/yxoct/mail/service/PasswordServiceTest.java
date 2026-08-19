@@ -4,13 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.user.TemporaryPasswordResponse;
 import com.yxoct.mail.persistence.PasswordChangeTarget;
 import com.yxoct.mail.persistence.UserPasswordRepository;
 import com.yxoct.mail.persistence.entity.UserStatusAuditAction;
@@ -48,7 +49,8 @@ class PasswordServiceTest {
 
   @BeforeEach
   void setUp() {
-    doAnswer(
+    lenient()
+        .doAnswer(
             invocation -> {
               Consumer<TransactionStatus> action = invocation.getArgument(0);
               action.accept(transactionStatus);
@@ -69,7 +71,7 @@ class PasswordServiceTest {
     when(passwordEncoder.matches(CURRENT_PASSWORD, "old-hash")).thenReturn(true);
     when(passwordEncoder.matches(NEW_PASSWORD, "old-hash")).thenReturn(false);
     when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hash");
-    when(repository.updatePassword(7, 3, "new-hash", NOW)).thenReturn(true);
+    when(repository.updatePassword(7, 3, "new-hash", false, NOW)).thenReturn(true);
 
     service.change(7, CURRENT_PASSWORD, NEW_PASSWORD);
 
@@ -93,7 +95,8 @@ class PasswordServiceTest {
         () -> service.change(7, CURRENT_PASSWORD, NEW_PASSWORD),
         ErrorCode.CURRENT_PASSWORD_INVALID);
 
-    verify(repository, never()).updatePassword(anyLong(), anyLong(), any(), any());
+    verify(repository, never())
+        .updatePassword(anyLong(), anyLong(), any(), any(Boolean.class), any());
   }
 
   @Test
@@ -115,13 +118,42 @@ class PasswordServiceTest {
     when(passwordEncoder.matches(CURRENT_PASSWORD, "old-hash")).thenReturn(true);
     when(passwordEncoder.matches(NEW_PASSWORD, "old-hash")).thenReturn(false);
     when(passwordEncoder.encode(NEW_PASSWORD)).thenReturn("new-hash");
-    when(repository.updatePassword(7, 3, "new-hash", NOW)).thenReturn(false);
+    when(repository.updatePassword(7, 3, "new-hash", false, NOW)).thenReturn(false);
 
     assertThatThrownBy(() -> service.change(7, CURRENT_PASSWORD, NEW_PASSWORD))
         .isInstanceOf(IllegalStateException.class);
 
     verify(authVersionStore).setVersion(7, 4);
     verify(authVersionStore).setVersion(7, 3);
+  }
+
+  @Test
+  void administratorResetCreatesATemporaryPasswordAndRevokesSessions() {
+    when(repository.findForUpdate(7))
+        .thenReturn(Optional.of(new PasswordChangeTarget(7, "old-hash", 3)));
+    when(passwordEncoder.encode(any())).thenReturn("temporary-hash");
+    when(repository.updatePassword(7, 3, "temporary-hash", true, NOW)).thenReturn(true);
+
+    TemporaryPasswordResponse response = service.resetByAdministrator(1, 7);
+
+    assertThat(response.mustChangePassword()).isTrue();
+    assertThat(response.temporaryPassword()).matches("[A-Za-z0-9_-]{22}");
+    verify(authVersionStore).setVersion(7, 4);
+    verify(repository).revokeRefreshTokens(7, NOW);
+    ArgumentCaptor<UserStatusAuditEntity> audit =
+        ArgumentCaptor.forClass(UserStatusAuditEntity.class);
+    verify(repository).saveAudit(audit.capture());
+    assertThat(audit.getValue().getAction())
+        .isEqualTo(UserStatusAuditAction.PASSWORD_RESET_BY_ADMIN);
+    assertThat(audit.getValue().getOperatedByUserId()).isEqualTo(1);
+  }
+
+  @Test
+  void administratorCannotResetTheirOwnPassword() {
+    assertBusinessError(
+        () -> service.resetByAdministrator(7, 7), ErrorCode.CANNOT_RESET_OWN_PASSWORD);
+
+    verify(repository, never()).findForUpdate(anyLong());
   }
 
   private void assertBusinessError(Runnable action, ErrorCode expected) {
