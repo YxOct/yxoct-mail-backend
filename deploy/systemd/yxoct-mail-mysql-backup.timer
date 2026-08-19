@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily YxOct Mail MySQL backup
+
+[Timer]
+OnCalendar=*-*-* 05:30:00
+Persistent=true
+RandomizedDelaySec=5m
+
+[Install]
+WantedBy=timers.target

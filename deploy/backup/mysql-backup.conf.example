@@ -1,0 +1,12 @@
+PROJECT_DIR=/opt/yxoct-mail-backend
+COMPOSE_FILE=/opt/yxoct-mail-backend/compose.prod.yaml
+COMPOSE_ENV_FILE=/opt/yxoct-mail-backend/deploy/.env.prod
+BACKUP_DIR=/var/backups/yxoct-mail/mysql
+LOCAL_RETENTION_DAYS=7
+
+# Use a restricted rrsync key whose forced root is /var/backups/yxoct-mail.
+REMOTE_ENABLED=true
+REMOTE_USER=ubuntu
+REMOTE_HOST=
+REMOTE_SUBDIR=mysql
+SSH_KEY=/root/.ssh/yxoct_mail_backup

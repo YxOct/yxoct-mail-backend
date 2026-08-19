@@ -71,6 +71,8 @@ docker compose --env-file deploy/.env.prod -f compose.prod.yaml ps
 
 Add the locations from `deploy/nginx/webmail-api.conf` to the existing `webmail.yxoct.com` Nginx `server` block. The snippet preserves `/api/*`, forwards the real client IP and protocol, and blocks public `/actuator/*` access. Validate with `nginx -t` before reloading Nginx. Do not run `down -v`; the named volumes contain database, Redis, and Prometheus data.
 
+MySQL backup and restore installation is documented in `deploy/backup/README.md`. Production credentials stay in the server environment file and are not stored in Git or backup scripts.
+
 ## API documentation
 
 With the `dev` profile running:

@@ -1,0 +1,12 @@
+[Unit]
+Description=Backup YxOct Mail MySQL database
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/backup-yxoct-mail-mysql.sh
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
