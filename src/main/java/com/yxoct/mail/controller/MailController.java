@@ -6,6 +6,7 @@ import com.yxoct.mail.domain.mail.BatchUpdateReadStatusRequest;
 import com.yxoct.mail.domain.mail.BatchUpdateStarStatusRequest;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
+import com.yxoct.mail.domain.mail.MailOpenApiResponses;
 import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
@@ -74,6 +75,13 @@ public class MailController {
   /** 获取邮箱列表 */
   @GetMapping("/mailboxes")
   @Operation(summary = "List mailboxes")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description = "Mailbox list",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.MailboxList.class)))
   public ApiResponse<List<Mailbox>> mailboxes() {
 
     return ApiResponse.success(mailService.getMailboxes());
@@ -84,6 +92,13 @@ public class MailController {
   @Operation(
       summary = "List emails in a mailbox",
       description = "Supports search, status filters, sorting, and pagination.")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description = "One-based page of email summaries",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.EmailPage.class)))
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")
@@ -108,10 +123,16 @@ public class MailController {
           Boolean starred,
       @Parameter(
               description = "Sort field: receivedAt, sentAt, subject, from, to, or size",
-              example = "receivedAt")
+              example = "receivedAt",
+              schema =
+                  @Schema(
+                      allowableValues = {"receivedAt", "sentAt", "subject", "from", "to", "size"}))
           @RequestParam(defaultValue = "receivedAt")
           String sortBy,
-      @Parameter(description = "Sort direction: asc or desc", example = "desc")
+      @Parameter(
+              description = "Sort direction: asc or desc",
+              example = "desc",
+              schema = @Schema(allowableValues = {"asc", "desc"}))
           @RequestParam(defaultValue = "desc")
           String direction) {
 
@@ -127,6 +148,13 @@ public class MailController {
   /** 获取邮件详情 */
   @GetMapping("/emails/{id}")
   @Operation(summary = "Get an email detail")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description = "Email detail",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.EmailDetail.class)))
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "404",
       ref = "#/components/responses/EmailNotFound")
@@ -174,6 +202,14 @@ public class MailController {
   @PatchMapping("/emails/read-status")
   @Operation(summary = "Update read status for up to 100 emails")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description =
+          "Per-email batch result; updatedIds succeeded and failed contains individual failures",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.BatchUpdate.class)))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")
   public ApiResponse<MailBatchUpdateResult> updateReadStatuses(
@@ -186,6 +222,14 @@ public class MailController {
   @PatchMapping("/emails/star-status")
   @Operation(summary = "Update starred status for up to 100 emails")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description =
+          "Per-email batch result; updatedIds succeeded and failed contains individual failures",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.BatchUpdate.class)))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")
   public ApiResponse<MailBatchUpdateResult> updateStarStatuses(
@@ -197,6 +241,14 @@ public class MailController {
   /** 批量移动邮件到指定邮箱 */
   @PostMapping("/emails/move")
   @Operation(summary = "Move up to 100 emails to a mailbox")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description =
+          "Per-email batch result; updatedIds succeeded and failed contains individual failures",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.BatchUpdate.class)))
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")
@@ -212,6 +264,14 @@ public class MailController {
   @PostMapping("/emails/trash")
   @Operation(summary = "Move up to 100 emails to Trash")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description =
+          "Per-email batch result; updatedIds succeeded and failed contains individual failures",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.BatchUpdate.class)))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")
   public ApiResponse<MailBatchUpdateResult> moveToTrash(
@@ -223,6 +283,14 @@ public class MailController {
   @PostMapping("/emails/restore")
   @Operation(summary = "Restore up to 100 emails from Trash")
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description =
+          "Per-email batch result; updatedIds succeeded and failed contains individual failures",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.BatchUpdate.class)))
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")
   public ApiResponse<MailBatchUpdateResult> restore(
@@ -233,6 +301,14 @@ public class MailController {
   /** 批量永久删除回收站中的邮件 */
   @DeleteMapping("/emails")
   @Operation(summary = "Permanently delete up to 100 emails from Trash")
+  @io.swagger.v3.oas.annotations.responses.ApiResponse(
+      responseCode = "200",
+      description =
+          "Per-email batch result; updatedIds succeeded and failed contains individual failures",
+      content =
+          @Content(
+              mediaType = MediaType.APPLICATION_JSON_VALUE,
+              schema = @Schema(implementation = MailOpenApiResponses.BatchUpdate.class)))
   @io.swagger.v3.oas.annotations.responses.ApiResponse(
       responseCode = "400",
       ref = "#/components/responses/BadRequest")

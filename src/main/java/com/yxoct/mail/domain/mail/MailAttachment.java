@@ -1,10 +1,13 @@
 package com.yxoct.mail.domain.mail;
 
+import io.swagger.v3.oas.annotations.media.Schema;
+
+@Schema(name = "EmailAttachmentResponse", description = "Email attachment metadata")
 public record MailAttachment(
     String partId,
     String blobId,
-    String name,
+    @Schema(nullable = true) String name,
     String type,
     long size,
     boolean inline,
-    String cid) {}
+    @Schema(nullable = true) String cid) {}
