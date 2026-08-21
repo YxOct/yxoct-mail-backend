@@ -8,8 +8,35 @@ public record EmailListResult(
 
   public record EmailInfo(
       String id,
+      Map<String, Boolean> mailboxIds,
       String subject,
       String preview,
+      List<EmailAddress> from,
+      List<EmailAddress> to,
       String receivedAt,
-      Map<String, Boolean> keywords) {}
+      String sentAt,
+      Boolean hasAttachment,
+      Long size,
+      Map<String, Boolean> keywords) {
+
+    public EmailInfo(
+        String id,
+        String subject,
+        String preview,
+        String receivedAt,
+        Map<String, Boolean> keywords) {
+      this(
+          id,
+          Map.of(),
+          subject,
+          preview,
+          List.of(),
+          List.of(),
+          receivedAt,
+          null,
+          false,
+          0L,
+          keywords);
+    }
+  }
 }

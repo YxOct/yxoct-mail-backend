@@ -355,10 +355,24 @@ class MailBackendApplicationTests {
                     "$.paths['/api/mail/emails'].delete.responses['200'].content['application/json'].schema")
                 .exists())
         .andExpect(jsonPath("$.components.schemas.MailboxResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.MailboxResponse.properties.unreadCount").exists())
+        .andExpect(jsonPath("$.components.schemas.MailboxResponse.properties.totalCount").exists())
+        .andExpect(jsonPath("$.components.schemas.MailboxResponse.properties.role.enum").isArray())
         .andExpect(jsonPath("$.components.schemas.EmailAddressResponse").exists())
         .andExpect(jsonPath("$.components.schemas.EmailSummaryResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailSummaryResponse.properties.from").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailSummaryResponse.properties.to").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailSummaryResponse.properties.sentAt").exists())
+        .andExpect(
+            jsonPath("$.components.schemas.EmailSummaryResponse.properties.hasAttachment").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailSummaryResponse.properties.size").exists())
         .andExpect(jsonPath("$.components.schemas.EmailPageResponse").exists())
         .andExpect(jsonPath("$.components.schemas.EmailDetailResponse").exists())
+        .andExpect(
+            jsonPath("$.components.schemas.EmailDetailResponse.properties.mailboxIds").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailDetailResponse.properties.cc").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailDetailResponse.properties.bcc").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailDetailResponse.properties.sentAt").exists())
         .andExpect(jsonPath("$.components.schemas.EmailAttachmentResponse").exists())
         .andExpect(
             jsonPath(
