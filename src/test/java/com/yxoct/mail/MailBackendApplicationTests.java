@@ -317,7 +317,57 @@ class MailBackendApplicationTests {
         .andExpect(
             jsonPath(
                     "$.paths['/api/mail/emails/{emailId}/attachments/{blobId}'].get.responses['200'].content['application/octet-stream'].schema.format")
-                .value("binary"));
+                .value("binary"))
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/mailboxes'].get.responses['200'].content['application/json'].schema.['$ref']")
+                .value("#/components/schemas/MailboxListResponse"))
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/mailboxes/{mailboxId}/emails'].get.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/{id}'].get.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/read-status'].patch.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/star-status'].patch.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/move'].post.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/trash'].post.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails/restore'].post.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/emails'].delete.responses['200'].content['application/json'].schema")
+                .exists())
+        .andExpect(jsonPath("$.components.schemas.MailboxResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailAddressResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailSummaryResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailPageResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailDetailResponse").exists())
+        .andExpect(jsonPath("$.components.schemas.EmailAttachmentResponse").exists())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/mailboxes/{mailboxId}/emails'].get.parameters[?(@.name == 'sortBy')].schema.enum")
+                .isArray())
+        .andExpect(
+            jsonPath(
+                    "$.paths['/api/mail/mailboxes/{mailboxId}/emails'].get.parameters[?(@.name == 'direction')].schema.enum")
+                .isArray());
   }
 
   private String tokenFor(UserRole role) {
