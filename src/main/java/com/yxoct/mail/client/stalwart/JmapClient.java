@@ -195,7 +195,18 @@ public class JmapClient {
                         "ids",
                         ids,
                         "properties",
-                        List.of("id", "subject", "preview", "receivedAt", "keywords")),
+                        List.of(
+                            "id",
+                            "mailboxIds",
+                            "subject",
+                            "preview",
+                            "from",
+                            "to",
+                            "receivedAt",
+                            "sentAt",
+                            "hasAttachment",
+                            "size",
+                            "keywords")),
                     "0")));
 
     EmailListResult result =
@@ -233,11 +244,15 @@ public class JmapClient {
                         "properties",
                         List.of(
                             "id",
+                            "mailboxIds",
                             "subject",
                             "preview",
                             "receivedAt",
+                            "sentAt",
                             "from",
                             "to",
+                            "cc",
+                            "bcc",
                             "bodyValues",
                             "textBody",
                             "htmlBody",

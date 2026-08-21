@@ -8,11 +8,15 @@ import java.util.List;
     description = "Email detail including safe body content and attachments")
 public record MailDetail(
     String id,
+    List<String> mailboxIds,
     String subject,
     String preview,
     String receivedAt,
+    @Schema(nullable = true) String sentAt,
     List<MailAddress> from,
     List<MailAddress> to,
+    List<MailAddress> cc,
+    List<MailAddress> bcc,
     @Schema(nullable = true) String body,
     @Schema(nullable = true) String textBody,
     @Schema(nullable = true) String htmlBody,
@@ -31,6 +35,22 @@ public record MailDetail(
       boolean read,
       boolean starred,
       List<MailAttachment> attachments) {
-    this(id, subject, preview, receivedAt, from, to, body, body, null, read, starred, attachments);
+    this(
+        id,
+        List.of(),
+        subject,
+        preview,
+        receivedAt,
+        null,
+        from,
+        to,
+        List.of(),
+        List.of(),
+        body,
+        body,
+        null,
+        read,
+        starred,
+        attachments);
   }
 }

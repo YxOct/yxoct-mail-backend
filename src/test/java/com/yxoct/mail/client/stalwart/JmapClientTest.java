@@ -278,7 +278,11 @@ class JmapClientTest {
   void deserializesTypedEmailDetailFields() {
     server
         .expect(requestTo("http://localhost/jmap"))
-        .andExpect(jsonPath("$.methodCalls[0][1].properties[9]").value("attachments"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].properties")
+                .value(
+                    org.hamcrest.Matchers.hasItems(
+                        "mailboxIds", "sentAt", "cc", "bcc", "attachments")))
         .andExpect(jsonPath("$.methodCalls[0][1].bodyProperties[1]").value("blobId"))
         .andRespond(
             withSuccess(
@@ -291,8 +295,12 @@ class JmapClientTest {
                       "state": "state",
                       "list": [{
                         "id": "email-1",
+                        "mailboxIds": {"inbox": true},
+                        "sentAt": "2026-08-17T23:59:00Z",
                         "keywords": {"$seen": true, "$flagged": true},
                         "from": [{"name": "Sender", "email": "sender@example.com"}],
+                        "cc": [{"name": "Copy", "email": "copy@example.com"}],
+                        "bcc": [{"name": "Hidden", "email": "hidden@example.com"}],
                         "bodyValues": {
                           "part-1": {"value": "Hello", "isTruncated": false}
                         },
@@ -321,7 +329,11 @@ class JmapClientTest {
     EmailDetailResult result = client.getEmailDetails(session(), List.of("email-1"));
 
     EmailDetailResult.EmailInfo email = result.list().getFirst();
+    assertThat(email.mailboxIds()).containsEntry("inbox", true);
+    assertThat(email.sentAt()).isEqualTo("2026-08-17T23:59:00Z");
     assertThat(email.from().getFirst().email()).isEqualTo("sender@example.com");
+    assertThat(email.cc().getFirst().email()).isEqualTo("copy@example.com");
+    assertThat(email.bcc().getFirst().email()).isEqualTo("hidden@example.com");
     assertThat(email.textBody().getFirst().partId()).isEqualTo("part-1");
     assertThat(email.bodyValues().get("part-1").value()).isEqualTo("Hello");
     assertThat(email.attachments().getFirst().blobId()).isEqualTo("blob-1");
@@ -331,13 +343,17 @@ class JmapClientTest {
   }
 
   @Test
-  void requestsAndDeserializesEmailSummaryKeywords() {
+  void requestsAndDeserializesEmailSummaryFields() {
     server
         .expect(requestTo("http://localhost/jmap"))
-        .andExpect(jsonPath("$.methodCalls[0][1].properties[4]").value("keywords"))
+        .andExpect(
+            jsonPath("$.methodCalls[0][1].properties")
+                .value(
+                    org.hamcrest.Matchers.hasItems(
+                        "mailboxIds", "from", "to", "sentAt", "hasAttachment", "size", "keywords")))
         .andRespond(
             withSuccess(
-                "{\"methodResponses\":[[\"Email/get\",{\"accountId\":\"account-1\",\"state\":\"state\",\"list\":[{\"id\":\"email-1\",\"keywords\":{\"$seen\":true,\"$flagged\":true}}],\"notFound\":[]},\"0\"]]}",
+                "{\"methodResponses\":[[\"Email/get\",{\"accountId\":\"account-1\",\"state\":\"state\",\"list\":[{\"id\":\"email-1\",\"mailboxIds\":{\"inbox\":true},\"from\":[{\"name\":\"Sender\",\"email\":\"sender@example.com\"}],\"to\":[{\"name\":\"Recipient\",\"email\":\"recipient@example.com\"}],\"sentAt\":\"2026-08-17T23:59:00Z\",\"hasAttachment\":true,\"size\":4096,\"keywords\":{\"$seen\":true,\"$flagged\":true}}],\"notFound\":[]},\"0\"]]}",
                 MediaType.APPLICATION_JSON));
 
     EmailListResult result = client.getEmailSummaries(session(), List.of("email-1"));
@@ -345,6 +361,12 @@ class JmapClientTest {
     assertThat(result.list().getFirst().keywords())
         .containsEntry("$seen", true)
         .containsEntry("$flagged", true);
+    assertThat(result.list().getFirst().mailboxIds()).containsEntry("inbox", true);
+    assertThat(result.list().getFirst().from().getFirst().email()).isEqualTo("sender@example.com");
+    assertThat(result.list().getFirst().to().getFirst().email()).isEqualTo("recipient@example.com");
+    assertThat(result.list().getFirst().sentAt()).isEqualTo("2026-08-17T23:59:00Z");
+    assertThat(result.list().getFirst().hasAttachment()).isTrue();
+    assertThat(result.list().getFirst().size()).isEqualTo(4096);
   }
 
   @Test

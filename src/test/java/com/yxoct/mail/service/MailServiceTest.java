@@ -22,6 +22,7 @@ import com.yxoct.mail.client.stalwart.dto.JmapSession;
 import com.yxoct.mail.client.stalwart.dto.MailboxGetResult;
 import com.yxoct.mail.common.exception.BusinessException;
 import com.yxoct.mail.common.exception.ErrorCode;
+import com.yxoct.mail.domain.mail.MailAddress;
 import com.yxoct.mail.domain.mail.MailAttachment;
 import com.yxoct.mail.domain.mail.MailBatchUpdateResult;
 import com.yxoct.mail.domain.mail.MailDetail;
@@ -29,6 +30,7 @@ import com.yxoct.mail.domain.mail.MailPage;
 import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.domain.mail.MailSummary;
+import com.yxoct.mail.domain.mail.MailboxRole;
 import java.io.ByteArrayOutputStream;
 import java.net.URI;
 import java.util.List;
@@ -120,9 +122,15 @@ class MailServiceTest {
                 List.of(
                     new EmailListResult.EmailInfo(
                         "email-1",
+                        Map.of("archive", false, "inbox", true),
                         "Subject",
                         "Preview",
+                        List.of(new EmailAddress("Sender", "sender@example.com")),
+                        List.of(new EmailAddress("Recipient", "recipient@example.com")),
                         "2026-08-18T00:00:00Z",
+                        "2026-08-17T23:59:00Z",
+                        true,
+                        4096L,
                         Map.of("$seen", true, "$flagged", true))),
                 List.of()));
 
@@ -132,7 +140,38 @@ class MailServiceTest {
     assertThat(page.total()).isZero();
     assertThat(page.items())
         .containsExactly(
-            new MailSummary("email-1", "Subject", "Preview", "2026-08-18T00:00:00Z", true, true));
+            new MailSummary(
+                "email-1",
+                List.of("inbox"),
+                "Subject",
+                "Preview",
+                List.of(new MailAddress("Sender", "sender@example.com")),
+                List.of(new MailAddress("Recipient", "recipient@example.com")),
+                "2026-08-18T00:00:00Z",
+                "2026-08-17T23:59:00Z",
+                true,
+                true,
+                true,
+                4096L));
+  }
+
+  @Test
+  void mapsMailboxCountsAndStableRoles() {
+    when(jmapClient.getMailboxes(session))
+        .thenReturn(
+            new MailboxGetResult(
+                "account-1",
+                "state",
+                List.of(
+                    new MailboxGetResult.MailboxInfo("inbox", "收件箱", "inbox", 3L, 10L, 1L),
+                    new MailboxGetResult.MailboxInfo("archive", "归档", null, 0L, 5L, 2L)),
+                List.of()));
+
+    assertThat(mailService.getMailboxes())
+        .extracting("id", "role", "unreadCount", "totalCount", "sortOrder")
+        .containsExactly(
+            org.assertj.core.groups.Tuple.tuple("inbox", MailboxRole.INBOX, 3L, 10L, 1L),
+            org.assertj.core.groups.Tuple.tuple("archive", MailboxRole.OTHER, 0L, 5L, 2L));
   }
 
   @Test
@@ -153,6 +192,40 @@ class MailServiceTest {
         .thenReturn(new EmailDetailResult("account-1", "state", List.of(), List.of("missing")));
 
     assertBusinessError(() -> mailService.getEmailDetail("missing"), ErrorCode.EMAIL_NOT_FOUND);
+  }
+
+  @Test
+  void mapsEmailDetailEnvelopeFields() {
+    when(jmapClient.getEmailDetails(session, List.of("email-1")))
+        .thenReturn(
+            new EmailDetailResult(
+                "account-1",
+                "state",
+                List.of(
+                    new EmailDetailResult.EmailInfo(
+                        "email-1",
+                        Map.of("archive", false, "inbox", true),
+                        "Subject",
+                        "Preview",
+                        "2026-08-18T00:00:00Z",
+                        "2026-08-17T23:59:00Z",
+                        List.of(new EmailAddress("Sender", "sender@example.com")),
+                        List.of(new EmailAddress("Recipient", "recipient@example.com")),
+                        List.of(new EmailAddress("Copy", "copy@example.com")),
+                        List.of(new EmailAddress("Hidden", "hidden@example.com")),
+                        Map.of(),
+                        List.of(),
+                        List.of(),
+                        List.of(),
+                        Map.of())),
+                List.of()));
+
+    MailDetail detail = mailService.getEmailDetail("email-1");
+
+    assertThat(detail.mailboxIds()).containsExactly("inbox");
+    assertThat(detail.sentAt()).isEqualTo("2026-08-17T23:59:00Z");
+    assertThat(detail.cc()).containsExactly(new MailAddress("Copy", "copy@example.com"));
+    assertThat(detail.bcc()).containsExactly(new MailAddress("Hidden", "hidden@example.com"));
   }
 
   @Test

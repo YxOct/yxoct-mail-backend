@@ -23,6 +23,7 @@ import com.yxoct.mail.domain.mail.MailQueryFilter;
 import com.yxoct.mail.domain.mail.MailSort;
 import com.yxoct.mail.domain.mail.MailSummary;
 import com.yxoct.mail.domain.mail.Mailbox;
+import com.yxoct.mail.domain.mail.MailboxRole;
 import java.io.OutputStream;
 import java.util.HashSet;
 import java.util.List;
@@ -84,11 +85,17 @@ public class MailService {
                 email ->
                     new MailSummary(
                         email.id(),
+                        activeMailboxIds(email.mailboxIds()),
                         email.subject(),
                         email.preview(),
+                        convertAddresses(email.from()),
+                        convertAddresses(email.to()),
                         email.receivedAt(),
+                        email.sentAt(),
                         hasKeyword(email.keywords(), "$seen"),
-                        hasKeyword(email.keywords(), "$flagged")))
+                        hasKeyword(email.keywords(), "$flagged"),
+                        Boolean.TRUE.equals(email.hasAttachment()),
+                        email.size() == null ? 0 : email.size()))
             .toList();
 
     return new MailPage<>(page, size, queryResult.total() == null ? 0 : queryResult.total(), items);
@@ -117,11 +124,15 @@ public class MailService {
 
     return new MailDetail(
         email.id(),
+        activeMailboxIds(email.mailboxIds()),
         email.subject(),
         email.preview(),
         email.receivedAt(),
+        email.sentAt(),
         convertAddresses(email.from()),
         convertAddresses(email.to()),
+        convertAddresses(email.cc()),
+        convertAddresses(email.bcc()),
         textBody != null ? textBody : htmlBody,
         textBody,
         htmlBody,
@@ -190,7 +201,26 @@ public class MailService {
     }
 
     return requireList(result.list()).stream()
-        .map(mailbox -> new Mailbox(mailbox.id(), mailbox.name(), mailbox.role()))
+        .map(
+            mailbox ->
+                new Mailbox(
+                    mailbox.id(),
+                    mailbox.name(),
+                    MailboxRole.fromJmapRole(mailbox.role()),
+                    mailbox.unreadEmails() == null ? 0 : mailbox.unreadEmails(),
+                    mailbox.totalEmails() == null ? 0 : mailbox.totalEmails(),
+                    mailbox.sortOrder() == null ? 0 : mailbox.sortOrder()))
+        .toList();
+  }
+
+  private List<String> activeMailboxIds(java.util.Map<String, Boolean> mailboxIds) {
+    if (mailboxIds == null) {
+      return List.of();
+    }
+    return mailboxIds.entrySet().stream()
+        .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
+        .map(java.util.Map.Entry::getKey)
+        .sorted()
         .toList();
   }
 
