@@ -1,5 +1,7 @@
 package com.yxoct.mail.persistence.mapper;
 
+import com.yxoct.mail.persistence.EmailRestoreRecordKey;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
@@ -51,4 +53,15 @@ public interface EmailRestoreMapper {
       WHERE account_id = #{accountId} AND email_id = #{emailId}
       """)
   int deleteRecord(@Param("accountId") String accountId, @Param("emailId") String emailId);
+
+  @Select(
+      """
+      SELECT account_id, email_id
+      FROM email_restore_record
+      WHERE deleted_at < #{cutoff}
+      ORDER BY deleted_at, account_id, email_id
+      LIMIT #{batchSize}
+      """)
+  List<EmailRestoreRecordKey> findRecordsBefore(
+      @Param("cutoff") LocalDateTime cutoff, @Param("batchSize") int batchSize);
 }

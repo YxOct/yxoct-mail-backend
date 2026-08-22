@@ -184,6 +184,23 @@ class MailTrashServiceTest {
   }
 
   @Test
+  void removesRestoreRecordWhenRemoteEmailDisappearedDuringRestore() {
+    when(restoreRepository.findMailboxIds("account-1", "email-1"))
+        .thenReturn(Optional.of(List.of("inbox")));
+    when(jmapClient.getMailboxes(session)).thenReturn(mailboxes());
+    when(jmapClient.setEmailMailboxes(session, Map.of("email-1", List.of("inbox"))))
+        .thenReturn(
+            new EmailUpdateResult(
+                List.of(), List.of(new EmailUpdateResult.Failure("email-1", "notFound"))));
+
+    MailBatchUpdateResult result = service.restoreEmails(List.of("email-1"));
+
+    assertThat(result.failed())
+        .containsExactly(new MailBatchUpdateResult.Failure("email-1", 2000, "邮件不存在"));
+    verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
+  }
+
+  @Test
   void permanentlyDeletesOnlyEmailsExclusivelyInTrash() {
     when(jmapClient.getMailboxes(session)).thenReturn(mailboxes("archive"));
     when(jmapClient.getEmailMailboxes(session, List.of("email-1", "email-2", "email-3", "missing")))
@@ -235,6 +252,40 @@ class MailTrashServiceTest {
     assertThat(result.updatedIds()).containsExactly("email-1");
     assertThat(result.failed())
         .containsExactly(new MailBatchUpdateResult.Failure("email-2", 2004, "邮件服务暂时不可用"));
+    verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
+  }
+
+  @Test
+  void removesRestoreRecordsForEmailsAlreadyMissingDuringPermanentDelete() {
+    when(jmapClient.getMailboxes(session)).thenReturn(mailboxes());
+    when(jmapClient.getEmailMailboxes(session, List.of("email-1")))
+        .thenReturn(new EmailMailboxResult("account-1", "state", List.of(), List.of("email-1")));
+
+    MailBatchUpdateResult result = service.permanentlyDeleteEmails(List.of("email-1"));
+
+    assertThat(result.failed())
+        .containsExactly(new MailBatchUpdateResult.Failure("email-1", 2000, "邮件不存在"));
+    verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
+    verify(jmapClient, never()).destroyEmails(session, List.of("email-1"));
+  }
+
+  @Test
+  void removesRestoreRecordWhenDestroyReportsEmailAlreadyMissing() {
+    when(jmapClient.getMailboxes(session)).thenReturn(mailboxes());
+    when(jmapClient.getEmailMailboxes(session, List.of("email-1")))
+        .thenReturn(
+            new EmailMailboxResult(
+                "account-1",
+                "state",
+                List.of(new EmailMailboxResult.EmailInfo("email-1", Map.of("trash", true))),
+                List.of()));
+    when(jmapClient.destroyEmails(session, List.of("email-1")))
+        .thenReturn(
+            new EmailUpdateResult(
+                List.of(), List.of(new EmailUpdateResult.Failure("email-1", "notFound"))));
+
+    service.permanentlyDeleteEmails(List.of("email-1"));
+
     verify(restoreRepository).deleteAll("account-1", List.of("email-1"));
   }
 
