@@ -132,6 +132,7 @@ public class MailTrashService {
         .failures()
         .forEach(failure -> failures.put(failure.id(), updateErrorCode(failure.type())));
     restoreRepository.deleteAll(accountId, updateResult.updatedIds());
+    cleanupRestoreRecords(accountId, remoteNotFoundIds(updateResult));
     return batchResult(requestedIds, updateResult.updatedIds(), failures);
   }
 
@@ -147,6 +148,7 @@ public class MailTrashService {
             .collect(Collectors.toMap(EmailMailboxResult.EmailInfo::id, email -> email));
     Map<String, ErrorCode> failures = new LinkedHashMap<>();
     locations.notFound().forEach(id -> failures.put(id, ErrorCode.EMAIL_NOT_FOUND));
+    cleanupRestoreRecords(accountId, Set.copyOf(locations.notFound()));
 
     List<String> deletableIds = new ArrayList<>();
     for (String id : requestedIds) {
@@ -170,6 +172,7 @@ public class MailTrashService {
         .failures()
         .forEach(failure -> failures.put(failure.id(), updateErrorCode(failure.type())));
     restoreRepository.deleteAll(accountId, deleteResult.updatedIds());
+    cleanupRestoreRecords(accountId, remoteNotFoundIds(deleteResult));
     return batchResult(requestedIds, deleteResult.updatedIds(), failures);
   }
 
@@ -245,6 +248,13 @@ public class MailTrashService {
     if (!emailIds.isEmpty()) {
       restoreRepository.deleteAll(accountId, new ArrayList<>(emailIds));
     }
+  }
+
+  private Set<String> remoteNotFoundIds(EmailUpdateResult result) {
+    return result.failures().stream()
+        .filter(failure -> "notFound".equals(failure.type()))
+        .map(EmailUpdateResult.Failure::id)
+        .collect(Collectors.toSet());
   }
 
   private BusinessException mailServiceUnavailable() {

@@ -22,6 +22,7 @@ Important settings include:
 - `STALWART_BASE_URL`, `STALWART_MANAGEMENT_API_KEY`
 - `STALWART_CREDENTIAL_ENCRYPTION_KEY`
 - `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`
+- `MAIL_RESTORE_RETENTION` (keep slightly longer than Stalwart `expungeTrashAfter`)
 
 `JWT_SECRET` and `STALWART_CREDENTIAL_ENCRYPTION_KEY` must each be the stable, unpadded Base64URL encoding of 32 random bytes. Rotating them invalidates existing sessions or encrypted mail credentials. Never commit `.env` or production secrets.
 

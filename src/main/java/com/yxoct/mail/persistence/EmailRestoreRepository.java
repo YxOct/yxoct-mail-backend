@@ -1,6 +1,7 @@
 package com.yxoct.mail.persistence;
 
 import com.yxoct.mail.persistence.mapper.EmailRestoreMapper;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +47,16 @@ public class EmailRestoreRepository {
   @Transactional
   public void deleteAll(String accountId, List<String> emailIds) {
     emailIds.forEach(emailId -> mapper.deleteRecord(accountId, emailId));
+  }
+
+  @Transactional
+  public int deleteBefore(LocalDateTime cutoff, int batchSize) {
+    if (cutoff == null || batchSize < 1 || batchSize > 1000) {
+      throw new IllegalArgumentException("Cutoff and batch size must be valid");
+    }
+    List<EmailRestoreRecordKey> records = mapper.findRecordsBefore(cutoff, batchSize);
+    records.forEach(record -> mapper.deleteRecord(record.accountId(), record.emailId()));
+    return records.size();
   }
 
   private void validateMailboxIds(List<String> mailboxIds) {
