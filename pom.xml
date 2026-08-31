@@ -29,7 +29,7 @@
 	<properties>
 		<java.version>21</java.version>
 		<mybatis-plus.version>3.5.17</mybatis-plus.version>
-		<jsoup.version>1.23.1</jsoup.version>
+		<jsoup.version>1.23.2</jsoup.version>
 		<springdoc.version>3.1.0</springdoc.version>
 		<bouncycastle.version>1.84</bouncycastle.version>
 		<jackson-2-bom.version>2.21.5</jackson-2-bom.version>
